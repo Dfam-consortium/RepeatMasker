@@ -1,0 +1,722 @@
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/is.lib -matrix ../../..//Matrices/identity.matrix -minmatch 15 -minscore 17 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143506
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+4.536 Mbytes allocated -- total 5.040 Mbytes
+Finding words ...
+ 0  1048361
+ 10  211
+ 50  4
+min no. words: 0 at 0
+max no. words: 48 at 768955
+avg no. words: 0.0 Done
+Total space allocated: 5.040 Mbytes; currently free: 0.709 Mbytes in 3 blocks
+426 words; after pruning: 398
+Sorting words ... Done
+
+15  230
+Finding subject matches ... Done
+Total space allocated: 5.040 Mbytes; currently free: 0.709 Mbytes in 4 blocks
+# pass words: 0, #fail words: 0
+Quickalign: 0 successes, 0 failures
+0 SWAT alignments performed. 0 pairs have score >= 17
+Making reversed pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.906 Mbytes in 3 blocks
+Printing matches ...  Done
+Total space allocated: 5.040 Mbytes; currently free: 4.906 Mbytes in 4 blocks
+Checking pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.906 Mbytes in 3 blocks
+Total space allocated: 5.040 Mbytes; currently free: 4.906 Mbytes in 3 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/simple.lib -matrix ../../..//Matrices/simple1.matrix -gap_init -40 -ins_gap_ext -15 -del_gap_ext -15 -minmatch 9 -minscore 180 -masklevel 1 -bandwidth 1 -raw -word_raw 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143506
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.419 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.419 Mbytes in 2 blocks
+1.512 Mbytes allocated -- total 2.016 Mbytes
+Finding words ...
+ 0  261926
+ 10  214
+ 50  4
+min no. words: 0 at 0
+max no. words: 50 at 17476
+avg no. words: 0.0 Done
+Total space allocated: 2.016 Mbytes; currently free: 0.830 Mbytes in 3 blocks
+426 words; after pruning: 410
+Sorting words ... Done
+
+9  218
+Finding subject matches ... Done
+Total space allocated: 2.016 Mbytes; currently free: 0.683 Mbytes in 5 blocks
+# pass words: 255, #fail words: 0
+Quickalign: 1 successes, 0 failures
+37 SWAT alignments performed. 1 pairs have score >= 180
+Making reversed pairs ... Done
+Total space allocated: 2.016 Mbytes; currently free: 1.733 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 2.016 Mbytes; currently free: 1.672 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 2.016 Mbytes; currently free: 1.672 Mbytes in 5 blocks
+Total space allocated: 2.016 Mbytes; currently free: 1.672 Mbytes in 5 blocks
+Total # pairs: 1000, size: 0.044 Mbytes
+Total # segment blocks: 1, size: 0.060 Mbytes
+Total # diffs: 4, in 1 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/sinecutlib -matrix ../../..//Matrices/14p43g.matrix -gap_init -35 -ins_gap_ext -7 -del_gap_ext -6 -minmatch 8 -minscore 1200 -masklevel 1 -bandwidth 20 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143506
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  65352
+ 10  184
+min no. words: 0 at 0
+max no. words: 1 at 433
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.106 Mbytes in 2 blocks
+200 words; after pruning: 184
+Sorting words ... Done
+
+8  184
+Finding subject matches ...0.504 Mbytes allocated -- total 1.008 Mbytes
+ Done
+Total space allocated: 1.008 Mbytes; currently free: 0.609 Mbytes in 5 blocks
+# pass words: 6, #fail words: 6
+Quickalign: 0 successes, 0 failures
+6 SWAT alignments performed. 0 pairs have score >= 1200
+Making reversed pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/shortcutlib -matrix ../../..//Matrices/18p43g.matrix -gap_init -33 -ins_gap_ext -5 -del_gap_ext -4 -minmatch 10 -minscore 300 -masklevel 1 -bandwidth 40 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143506
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+4.536 Mbytes allocated -- total 5.040 Mbytes
+Finding words ...
+ 0  1048396
+ 10  180
+min no. words: 0 at 0
+max no. words: 1 at 6938
+avg no. words: 0.0 Done
+Total space allocated: 5.040 Mbytes; currently free: 0.710 Mbytes in 3 blocks
+200 words; after pruning: 180
+Sorting words ... Done
+
+10  180
+Finding subject matches ... Done
+Total space allocated: 5.040 Mbytes; currently free: 0.709 Mbytes in 5 blocks
+# pass words: 5, #fail words: 9
+Quickalign: 0 successes, 0 failures
+5 SWAT alignments performed. 0 pairs have score >= 300
+Making reversed pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 4 blocks
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 4 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/cutlib -matrix ../../..//Matrices/18p43g.matrix -gap_init -33 -ins_gap_ext -5 -del_gap_ext -4 -minmatch 10 -minscore 300 -masklevel 90 -bandwidth 40 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+4.536 Mbytes allocated -- total 5.040 Mbytes
+Finding words ...
+ 0  1048396
+ 10  180
+min no. words: 0 at 0
+max no. words: 1 at 6938
+avg no. words: 0.0 Done
+Total space allocated: 5.040 Mbytes; currently free: 0.710 Mbytes in 3 blocks
+200 words; after pruning: 180
+Sorting words ... Done
+
+10  180
+Finding subject matches ... Done
+Total space allocated: 5.040 Mbytes; currently free: 0.709 Mbytes in 5 blocks
+# pass words: 4, #fail words: 1
+Quickalign: 0 successes, 0 failures
+4 SWAT alignments performed. 0 pairs have score >= 300
+Making reversed pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 4 blocks
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 4 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/sinecutlib -matrix ../../..//Matrices/14p43g.matrix -gap_init -35 -ins_gap_ext -7 -del_gap_ext -6 -minmatch 8 -minscore 800 -masklevel 1 -bandwidth 20 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  65352
+ 10  184
+min no. words: 0 at 0
+max no. words: 1 at 433
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.106 Mbytes in 2 blocks
+200 words; after pruning: 184
+Sorting words ... Done
+
+8  184
+Finding subject matches ...0.504 Mbytes allocated -- total 1.008 Mbytes
+ Done
+Total space allocated: 1.008 Mbytes; currently free: 0.609 Mbytes in 5 blocks
+# pass words: 6, #fail words: 6
+Quickalign: 0 successes, 0 failures
+6 SWAT alignments performed. 0 pairs have score >= 800
+Making reversed pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/sinecutlib -matrix ../../..//Matrices/18p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 400 -masklevel 10 -bandwidth 14 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  65352
+ 10  184
+min no. words: 0 at 0
+max no. words: 1 at 433
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.106 Mbytes in 2 blocks
+200 words; after pruning: 184
+Sorting words ... Done
+
+8  184
+Finding subject matches ...0.504 Mbytes allocated -- total 1.008 Mbytes
+ Done
+Total space allocated: 1.008 Mbytes; currently free: 0.609 Mbytes in 5 blocks
+# pass words: 6, #fail words: 6
+Quickalign: 0 successes, 0 failures
+6 SWAT alignments performed. 0 pairs have score >= 400
+Making reversed pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/shortlib -matrix ../../..//Matrices/20p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 225 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  65352
+ 10  184
+min no. words: 0 at 0
+max no. words: 1 at 433
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.106 Mbytes in 2 blocks
+200 words; after pruning: 184
+Sorting words ... Done
+
+8  184
+Finding subject matches ...0.504 Mbytes allocated -- total 1.008 Mbytes
+
+descrip_buffer expanded
+descrip_buffer expanded Done
+Total space allocated: 1.008 Mbytes; currently free: 0.609 Mbytes in 7 blocks
+# pass words: 157, #fail words: 285
+Quickalign: 0 successes, 0 failures
+155 SWAT alignments performed. 0 pairs have score >= 225
+Making reversed pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 6 blocks
+Printing matches ...  Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 7 blocks
+Checking pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 6 blocks
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 6 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/longlib -matrix ../../..//Matrices/20p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 225 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  65352
+ 10  184
+min no. words: 0 at 0
+max no. words: 1 at 433
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.106 Mbytes in 2 blocks
+200 words; after pruning: 184
+Sorting words ... Done
+
+8  184
+Finding subject matches ...
+descrip_buffer expanded0.504 Mbytes allocated -- total 1.008 Mbytes
+ Done
+Total space allocated: 1.008 Mbytes; currently free: 0.609 Mbytes in 6 blocks
+# pass words: 61, #fail words: 230
+Quickalign: 0 successes, 0 failures
+61 SWAT alignments performed. 0 pairs have score >= 225
+Making reversed pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 6 blocks
+Printing matches ...  Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 7 blocks
+Checking pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 6 blocks
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 6 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/mirs.lib -matrix ../../..//Matrices/25p43g.matrix -gap_init -27 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 6 -minscore 180 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  3920
+ 10  176
+min no. words: 0 at 0
+max no. words: 2 at 365
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.352 Mbytes in 2 blocks
+200 words; after pruning: 188
+Sorting words ... Done
+
+6  176
+Finding subject matches ...0.504 Mbytes allocated -- total 1.008 Mbytes
+ Done
+Total space allocated: 1.008 Mbytes; currently free: 0.855 Mbytes in 5 blocks
+# pass words: 73, #fail words: 136
+Quickalign: 0 successes, 0 failures
+67 SWAT alignments performed. 0 pairs have score >= 180
+Making reversed pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/mir.lib -matrix ../../..//Matrices/25p43g.matrix -gap_init -27 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 6 -minscore 250 -masklevel 90 -bandwidth 14 -raw 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  3920
+ 10  176
+min no. words: 0 at 0
+max no. words: 2 at 365
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.352 Mbytes in 2 blocks
+200 words; after pruning: 188
+Sorting words ... Done
+
+6  176
+Finding subject matches ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.351 Mbytes in 4 blocks
+# pass words: 5, #fail words: 6
+Quickalign: 0 successes, 0 failures
+5 SWAT alignments performed. 0 pairs have score >= 250
+Making reversed pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Printing matches ...  Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 4 blocks
+Checking pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/retrolib -matrix ../../..//Matrices/20p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 10 -minscore 250 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143507
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+4.536 Mbytes allocated -- total 5.040 Mbytes
+Finding words ...
+ 0  1048396
+ 10  180
+min no. words: 0 at 0
+max no. words: 1 at 6938
+avg no. words: 0.0 Done
+Total space allocated: 5.040 Mbytes; currently free: 0.710 Mbytes in 3 blocks
+200 words; after pruning: 180
+Sorting words ... Done
+
+10  180
+Finding subject matches ...
+descrip_buffer expanded Done
+Total space allocated: 5.040 Mbytes; currently free: 0.709 Mbytes in 6 blocks
+# pass words: 24, #fail words: 24
+Quickalign: 0 successes, 0 failures
+24 SWAT alignments performed. 0 pairs have score >= 250
+Making reversed pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 5 blocks
+Printing matches ...  Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 6 blocks
+Checking pairs ... Done
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 5 blocks
+Total space allocated: 5.040 Mbytes; currently free: 4.904 Mbytes in 5 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/l1.lib -matrix ../../..//Matrices/25p43g.matrix -gap_init -27 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 300 -masklevel 90 -bandwidth 14 -raw 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143508
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  65352
+ 10  184
+min no. words: 0 at 0
+max no. words: 1 at 433
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.106 Mbytes in 2 blocks
+200 words; after pruning: 184
+Sorting words ... Done
+
+8  184
+Finding subject matches ...0.504 Mbytes allocated -- total 1.008 Mbytes
+ Done
+Total space allocated: 1.008 Mbytes; currently free: 0.609 Mbytes in 5 blocks
+# pass words: 21, #fail words: 108
+Quickalign: 0 successes, 0 failures
+21 SWAT alignments performed. 0 pairs have score >= 300
+Making reversed pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Printing matches ...  Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 5 blocks
+Checking pairs ... Done
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total space allocated: 1.008 Mbytes; currently free: 0.872 Mbytes in 4 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/simple.lib -matrix ../../..//Matrices/simple1.matrix -gap_init -40 -ins_gap_ext -15 -del_gap_ext -15 -minmatch 8 -minscore 180 -masklevel 25 -bandwidth 4 -raw -word_raw 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143508
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  65352
+ 10  184
+min no. words: 0 at 0
+max no. words: 1 at 433
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.106 Mbytes in 2 blocks
+200 words; after pruning: 184
+Sorting words ... Done
+
+8  184
+Finding subject matches ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.105 Mbytes in 4 blocks
+# pass words: 78, #fail words: 0
+Quickalign: 0 successes, 0 failures
+2 SWAT alignments performed. 0 pairs have score >= 180
+Making reversed pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Printing matches ...  Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 4 blocks
+Checking pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/simple.lib -matrix ../../..//Matrices/simple.matrix -gap_init -35 -ins_gap_ext -10 -del_gap_ext -10 -minmatch 7 -minscore 200 -masklevel 75 -bandwidth 4 -raw -word_raw 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143508
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  16202
+ 10  182
+min no. words: 0 at 0
+max no. words: 2 at 1462
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.303 Mbytes in 2 blocks
+200 words; after pruning: 186
+Sorting words ... Done
+
+7  182
+Finding subject matches ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.302 Mbytes in 4 blocks
+# pass words: 479, #fail words: 0
+Quickalign: 0 successes, 0 failures
+10 SWAT alignments performed. 0 pairs have score >= 200
+Making reversed pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Printing matches ...  Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 4 blocks
+Checking pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked ../../..//Libraries/at.lib -matrix ../../..//Matrices/at.matrix -gap_init -10 -ins_gap_ext -3 -del_gap_ext -3 -minmatch 5 -minscore 21 -masklevel 95 -bandwidth 2 -raw -word_raw 
+cross_match version 0.990329
+Reading parameters ... 0.504 Mbytes allocated -- total 0.504 Mbytes
+Run date:time  040108:143508
+ Done
+Total space allocated: 0.504 Mbytes; currently free: 0.499 Mbytes in 2 blocks
+Reading query file into memory ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Complementing ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Allocating align_entries ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Reading quality files ...
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32381.ThuJan81435052004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15. Done
+Total space allocated: 0.504 Mbytes; currently free: 0.420 Mbytes in 2 blocks
+Finding words ...
+ 0  858
+ 10  166
+min no. words: 0 at 0
+max no. words: 3 at 204
+avg no. words: 0.0 Done
+Total space allocated: 0.504 Mbytes; currently free: 0.364 Mbytes in 2 blocks
+200 words; after pruning: 190
+Sorting words ... Done
+
+5  166
+Finding subject matches ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.363 Mbytes in 4 blocks
+# pass words: 176, #fail words: 0
+Quickalign: 0 successes, 0 failures
+78 SWAT alignments performed. 0 pairs have score >= 21
+Making reversed pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Printing matches ...  Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 4 blocks
+Checking pairs ... Done
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total space allocated: 0.504 Mbytes; currently free: 0.368 Mbytes in 3 blocks
+Total # pairs: 0, size: 0.000 Mbytes
+Total # segment blocks: 0, size: 0.000 Mbytes
+Total # diffs: 0, in 0 lists, size: 0.000 Mbytes
+

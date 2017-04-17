@@ -1,0 +1,1307 @@
+#!/u1/local/bin/perl
+##---------------------------------------------------------------------------##
+##  File:
+##      @(#) DupMasker
+##  Author:
+##      Robert M. Hubley   rhubley@systemsbiology.org
+##  Description:
+##      Search a sequence against a library of known segmental duplications
+##
+#******************************************************************************
+#* Copyright (C) Institute for Systems Biology 2002-2004 Developed by
+#* Robert Hubley, Zhaoshi Jiang, Arian Smit and Evan Eichler.
+#*
+#* This work is licensed under the Open Source License v2.1.  To view a copy
+#* of this license, visit http://www.opensource.org/licenses/osl-2.1.php or
+#* see the license.txt file contained in this distribution.
+#*
+###############################################################################
+#
+# ChangeLog
+#
+#     $Log: DupMasker,v $
+#     Revision 1.11  2013/11/06 17:48:25  rhubley
+#       - Fixing dupmasker so that it can use RMBlast
+#
+#     Revision 1.10  2013/02/20 23:44:45  rhubley
+#     *** empty log message ***
+#
+#     Revision 1.9  2012/09/13 18:17:56  rhubley
+#       - Another round of perltidy
+#
+#     Revision 1.8  2012/04/12 19:07:36  rhubley
+#      - Oh boy...lots o changes.  Mostly to RepeatMasker script.  Cleaning up
+#        and generalizing the search stages.  Removing dead code.  Cleaning up
+#        the old Choose ( now filterRepeats ) routine and trying desperately to
+#        remove the metadata which is causing grief for HMMER integration.
+#
+#     Revision 1.7  2009/03/26 17:27:20  rhubley
+#        - Stupid Debian/Ubuntu switched /bin/sh from BASH to DASH thus breaking
+#          many many scripts in the holy name of POSIX compliance.  To quote the
+#          mormon south park episode: "Dumb dumb dumb dumb dumb".
+#          I went through and changed all occurances of ">&" to "> file 2>&1"
+#
+#     Revision 1.6  2008/05/29 21:37:40  rhubley
+#       - Fixed numbering problem in alignments.  When there were complete lines
+#         of gap characters the index would still increment/decrement by one.
+#
+#       - Fixed problem with fragmenting alignments.  The "x" cliping boundaries
+#         were not being honored.  This left single "X" characters in the
+#         alignments.
+#
+#       - Added some more error checking to DupMasker
+#
+#     Revision 1.5  2008/05/14 18:29:15  rhubley
+#      - Added "-gi" fix to WUBlastSearchEngine.pm
+#
+#     Revision 1.4  2008/04/28 19:50:50  rhubley
+#       - Added gff option to DupMasker.
+#       - Fixed WUBlastSearchEngine default temp directory
+#
+#     Revision 1.3  2008/03/24 18:45:59  rhubley
+#      - Documentation change
+#
+#     Revision 1.2  2008/03/24 18:21:22  rhubley
+#       - Pretty-fy the wublast missing message
+#
+#     Revision 1.1  2008/03/17 19:03:57  rhubley
+#       - DupMasker integration
+#       - Some ALU Work in ProcessRepeats
+#
+#
+###############################################################################
+#
+# To Do:
+#
+
+=head1 NAME
+
+DupMasker - Annotate segmental duplications in a sequence
+
+=head1 SYNOPSIS
+
+  DupMasker [-version] [-maxDiv #] [-maxWidth #] [-forceSearch] 
+            [-align] [-gff] [-engine wublast|abblast|ncbi] <myfile.fa>
+
+=head1 DESCRIPTION
+
+  Search a file against a library known segmental 
+  duplications. If the file doesn't already have a 
+  RepeatMasker *.out file this script will generate
+  one.  The output is placed in a file named 
+  myfile.fa.duplicons.
+
+  The basic program flow is:
+
+     - RepeatMask the sequence ( Human libraries )
+     - Search the masked squence against the duplicon library
+     - Build realignment regions for each duplicon
+     - Realign using non-repeat-masked dna
+     - Join duplicons and output results
+
+The options are:
+
+=over 4
+
+=item -version
+
+Displays the version of the program
+
+=item -engine <abblast|wublast|ncbi>
+
+The name of the search engine we are using.  I.e abblast/wublast or
+ncbi (rmblast version).  If not specified it will attempt to use
+the default configured for RepeatMasker.
+
+=item -maxDiv <value>
+
+Filter out duplicon seeds which have a divergence greater than 
+this value.
+
+=item -maxWidth <value>
+
+The maximum non-repetitive/non-seed realign gaps, default is 300bp
+
+=item -forceSearch
+
+DupMasker uses RepeatMasker .out and previous runs of DupMasker's *.dupout
+files by default.  Use this option if you would like to rerun these searches.
+
+=item -align
+
+Produce alignments. These are stored in the output file.
+
+=item -gff     
+
+Creates an additional Gene Feature Finding (gff) output file.
+
+=back
+
+=head1 SEE ALSO
+
+RepeatMasker
+
+=head1 COPYRIGHT
+
+Copyright 2007-2008 Robert Hubley, Institute for Systems Biology
+
+=head1 AUTHOR
+
+Robert Hubley <rhubley@systemsbiology.org>
+
+=cut
+
+#
+# Module Dependence
+#
+use strict;
+use FindBin;
+use lib $FindBin::RealBin;
+use Getopt::Long;
+use Data::Dumper;
+
+# RepeatMasker Libraries
+use RepeatMaskerConfig;
+use SearchResult;
+use SearchResultCollection;
+use WUBlastSearchEngine;
+use NCBIBlastSearchEngine;
+use CrossmatchSearchEngine;
+use SeqDBI;
+use SimpleBatcher;
+use FastaDB;
+
+#
+# Version
+#
+#  This is a neat trick.  CVS allows you to tag
+#  files in a repository ( i.e. cvs tag "2003/12/03" ).
+#  If you check out that release into a new
+#  directory with "cvs co -r "2003/12/03" it will
+#  place this string into the $Name:  $ space below
+#  automatically.  This will help us keep track
+#  of which release we are using.  If we simply
+#  check out the code as "cvs co Program" the
+#  $Name:  $ macro will be blank so we should default
+#  to what the ID tag for this file contains.
+#
+my $CVSNameTag = '$Name:  $';
+my $CVSIdTag   = '$Id: DupMasker,v 1.11 2013/11/06 17:48:25 rhubley Exp $';
+my $Version    = $CVSNameTag;
+$Version = $CVSIdTag if ( $Version eq "" );
+
+#
+# Magic numbers/constants here
+#  ie. my $PI = 3.14159;
+#
+my $DEBUG        = 0;
+my $dupliconLib  = "$FindBin::RealBin/Libraries/dupliconlib.fa";
+my $REPEATMASKER = "$FindBin::RealBin/RepeatMasker";
+
+die "\n\nThe dupliconlib doesn't appear to be installed in the\n"
+    . "RepeatMasker Libraries/ directory.  Please download and install\n"
+    . "this library before proceeding.\n\n"
+    if ( !-s $dupliconLib );
+
+## Seed clustering parameters
+my $maxSeedInsertion       = 7000;
+my $maxDupliconSeedOverlap = 30;
+
+## Seed realignment boundaries parameters
+# realignNonRepMaxWidth: A boundary for realignment ends at the consensus
+#                        boundaries or the first occurance of a
+#                        non-repetitive,non-seed sequence window of
+#                        this size.
+my $realignNonRepMaxWidth = 300;
+
+#
+# Option processing
+#  e.g.
+#   -t: Single letter binary option
+#   -t=s: String parameters
+#   -t=i: Number paramters
+#
+my @getopt_args = (
+                    '-version',       # print out the version and exit
+                    '-maxDiv=i',      # maximal duplicon seed divergence
+                    '-maxWidth=i',    # realignNonRepMaxWidth zj 5-10-07
+                    '-forceSearch',
+                    '-engine=s',
+                    '-gff',
+                    '-align'
+);
+
+my %options = ();
+Getopt::Long::config( "noignorecase", "bundling_override" );
+unless ( GetOptions( \%options, @getopt_args ) )
+{
+  usage();
+}
+
+sub usage
+{
+  print "$0 - $Version\n";
+  exec "pod2text $0";
+  exit;
+}
+
+if ( $options{'version'} )
+{
+  print "$Version\n";
+  exit;
+}
+
+#
+# Setup the search engines
+#
+my $searchEngineN;
+my $engine = $RepeatMaskerConfig::DEFAULT_SEARCH_ENGINE;
+$engine = $options{'engine'} if ( $options{'engine'} );
+my $MATRICES;
+if ( $engine )
+{
+  if ( $engine =~ /wublast|abblast/i )
+  {
+    $engine        = "abblast";
+    $searchEngineN =
+        WUBlastSearchEngine->new(
+                      pathToEngine => $RepeatMaskerConfig::WUBLASTN_PRGM );
+    if ( not defined $searchEngineN )
+    {
+      die "Cannot execute $RepeatMaskerConfig::WUBLASTN_PRGM please make "
+          . "sure you have setup RepeatModeler to use AB/WUBlast "
+          . "by running the configure script.\n";
+    }
+    $MATRICES     = "$FindBin::RealBin/Matrices/wublast/nt";
+  } elsif ( $engine =~ /ncbi/i )
+  {
+    $engine        = "ncbi";
+    $searchEngineN =
+        NCBIBlastSearchEngine->new(
+                      pathToEngine => $RepeatMaskerConfig::RMBLASTN_PRGM );
+    if ( not defined $searchEngineN )
+    {
+      die "Cannot execute $RepeatMaskerConfig::RMBLASTN_PRGM please make "
+          . "sure you have setup RepeatModeler to use NCBI (RMBlast) by "
+          . "running the configure script.\n";
+    }
+    $MATRICES     = "$FindBin::RealBin/Matrices/ncbi/nt";
+  } else
+  {
+    print "\n\nThis program cannot be used with: $engine\n";
+    print "Please specify -engine wublast|abblast|ncbi and\n";
+    print "run again.\n\n";
+    exec "pod2text $0";
+    die;
+  }
+}else
+{
+    print "\n\nSearch engine was not defined.\n";
+    print "Please specify -engine wublast|abblast|ncbi and\n";
+    print "run again.\n\n";
+    exec "pod2text $0";
+    die;
+}
+
+my $maxDupliconDiv = 0;
+if ( $options{'maxDiv'} )
+{
+  $maxDupliconDiv = $options{'maxDiv'};
+}
+
+if ( $options{'maxWidth'} )
+{    #zj added 5-10-07
+  $realignNonRepMaxWidth = $options{'maxWidth'};
+}
+
+#
+# ARGV Processing
+#
+if ( !defined $ARGV[ 0 ] )
+{
+  usage();
+}
+my $fastaFile = $ARGV[ 0 ];
+
+die "\nFile does not exist $fastaFile!!!\n\n" if ( !-s $fastaFile );
+
+#
+#  Open up the duplicon library
+#
+my $libDB = FastaDB->new(
+                          fileName    => $dupliconLib,
+                          openMode    => SeqDBI::ReadOnly,
+                          maxIDLength => 50
+);
+
+##
+## Create a repeatmasked sequence file if necessary.
+##
+my $db = FastaDB->new(
+                       fileName    => $fastaFile,
+                       openMode    => SeqDBI::ReadOnly,
+                       maxIDLength => 50
+);
+if ( $options{'forceSearch'} || !-e "$fastaFile.out" )
+{
+  print "Searching for repeats...\n";
+  system( "$REPEATMASKER -engine $engine $fastaFile > /dev/null 2>&1" );
+} else
+{
+  print "Using existing repeat annotations in $fastaFile.out\n";
+}
+
+# TODO: Make a temporary directory for all the output files.
+my $tmpIdx        = 1;
+my $tmpMaskedFile = "$fastaFile.dup.tmpmask";
+if ( -e $tmpMaskedFile )
+{
+
+  #die   "$tmpMaskedFile already exists!  Please remove this file and rerun"
+  #    . "the program.\n";
+}
+&maskSequence(
+               seqDB          => $db,
+               annotationFile => "$fastaFile.out",
+               outputFile     => $tmpMaskedFile
+);
+
+##
+## Search for duplicons using RepeatMasker unless already done.
+##
+if ( $options{'forceSearch'} || !-e "$fastaFile.dupout" )
+{
+  print "Searching for duplicons...\n";
+
+  my $cmd = "$REPEATMASKER -engine $engine -nolow -lib $dupliconLib $tmpMaskedFile";
+  print "$cmd\n" if ( $DEBUG );
+  system( "$cmd > /dev/null 2>&1" );
+
+  unless ( $DEBUG )
+  {
+    unlink( "$tmpMaskedFile" )         if ( -e "$tmpMaskedFile" );
+    unlink( "$tmpMaskedFile.cat" )     if ( -e "$tmpMaskedFile.cat" );
+    unlink( "$tmpMaskedFile.tbl" )     if ( -e "$tmpMaskedFile.tbl" );
+    unlink( "$tmpMaskedFile.log" )     if ( -e "$tmpMaskedFile.log" );
+    unlink( "$tmpMaskedFile.ori.out" ) if ( -e "$tmpMaskedFile.ori.out" );
+    unlink( "$tmpMaskedFile.masked" )  if ( -e "$tmpMaskedFile.masked" );
+  }
+
+  if ( -s "$tmpMaskedFile.out" )
+  {
+    print "  -Created duplicon seed file $fastaFile.dupout\n";
+    system( "mv $tmpMaskedFile.out $fastaFile.dupout" );
+  } else
+  {
+    print "No duplicon seeds found in the sequence file!\n";
+    exit;
+  }
+} else
+{
+  print "Using existing duplicon seeds in $fastaFile.dupout\n";
+}
+
+if ( !-e "$fastaFile.dupout" )
+{
+  die "Could not generate $fastaFile.dupout\n";
+}
+
+##
+## Read in annotations
+##
+my $repResultsCollection =
+    CrossmatchSearchEngine::parseOutput( searchOutput => "$fastaFile.out" );
+
+my $dupResultsCollection =
+    CrossmatchSearchEngine::parseOutput( searchOutput => "$fastaFile.dupout" );
+
+##
+## Filter out low scoring duplicons
+## Apply divergence filter if required
+##
+my $dupResIter = $dupResultsCollection->getIterator();
+if ( $DEBUG )
+{
+  print "Original Search ( ** denotes removed annots with scores < 300 ";
+  if ( $maxDupliconDiv )
+  {
+    print ", or div >= $maxDupliconDiv ";
+  }
+  print "):\n";
+  print "-------------------------------------------\n";
+}
+my %queryLengths = ();
+while ( $dupResIter->hasNext() )
+{
+  my $annot = $dupResIter->next();
+  if ( $annot->getScore() < 300
+       || ( $maxDupliconDiv && $annot->getPctDiverge() >= $maxDupliconDiv ) )
+  {    #zj 5-10-07
+    print "**" . $annot->toStringFormatted() if ( $DEBUG );
+    $dupResIter->remove();
+  } else
+  {
+    print "  " . $annot->toStringFormatted() if ( $DEBUG );
+  }
+  if ( !defined $queryLengths{ $annot->getQueryName() } )
+  {
+    $queryLengths{ $annot->getQueryName() } =
+        $annot->getQueryEnd() + $annot->getQueryRemaining();
+  }
+}
+undef $dupResIter;
+
+print "\n\n" if ( $DEBUG );
+
+##
+## Cluster collinear duplicon hits.
+##    This creates groups of duplicons that require realignment.
+##
+$dupResIter = $dupResultsCollection->getIterator();
+my %originalSeedBoundaries = ();
+my $subElementsString      = undef;
+if ( $DEBUG )
+{
+  print "Realignment Clusters ( unexpanded )\n";
+  print "-----------------------------------\n";
+}
+while ( $dupResIter->hasNext() )
+{
+  my $annot = $dupResIter->next();
+
+  my $neighborIter   = $dupResIter->getIterator();
+  my $conRemaining   = $annot->getSubjRemaining();
+  my $annotConGapEnd = -$annot->getSubjEnd();
+  if ( $annot->getOrientation() eq "C" )
+  {
+    $conRemaining   = $annot->getSubjStart();
+    $annotConGapEnd = $annot->getSubjStart();
+  }
+  push @{ $originalSeedBoundaries{$annot} },
+      {
+        'start'  => $annot->getQueryStart(),
+        'end'    => $annot->getQueryEnd(),
+        'orient' => $annot->getOrientation()
+      };
+  $subElementsString = " -> " . $annot->toStringFormatted if ( $DEBUG );
+  while ( $neighborIter->hasNext() )
+  {
+    my $neighbor = $neighborIter->next();
+
+    #print "considering:\n  Annot: " . $annot->toStringFormatted() .
+    #      "\n  Neighbor: " . $neighbor->toStringFormatted() ."\n"
+    #  if ( $DEBUG );
+
+    # last if ( too-far-out > consensus + maxInsert );
+    last
+        if ( ( $neighbor->getQueryStart() - $annot->getQueryEnd() ) >
+             ( $conRemaining + $maxSeedInsertion ) );
+
+    # last if different query sequence
+    last if ( $annot->getQueryName() ne $neighbor->getQueryName() );
+
+    my $neighConGapEnd = $neighbor->getSubjStart();
+    if ( $neighbor->getOrientation() eq "C" )
+    {
+      $neighConGapEnd = -$neighbor->getSubjEnd();
+    }
+
+    # is this element compatible?
+    if (    $annot->getSubjName() eq $neighbor->getSubjName()
+         && $annot->getOrientation eq $neighbor->getOrientation()
+         && ( $annotConGapEnd + $neighConGapEnd ) > -$maxDupliconSeedOverlap )
+    {
+
+      # Yes - Remove element and resize range of the parent
+      $annot->setQueryEnd( $neighbor->getQueryEnd() );
+      $annot->setQueryRemaining( $neighbor->getQueryRemaining() );
+      push @{ $originalSeedBoundaries{$annot} },
+          {
+            'start'  => $neighbor->getQueryStart(),
+            'end'    => $neighbor->getQueryEnd(),
+            'orient' => $neighbor->getOrientation()
+          };
+      $subElementsString .= " -> " . $neighbor->toStringFormatted if ( $DEBUG );
+      $neighborIter->remove();
+    }
+  }
+  if ( $DEBUG )
+  {
+    print "" . $annot->toStringFormatted();
+    if ( @{ $originalSeedBoundaries{$annot} } > 1 )
+    {
+      print "$subElementsString";
+    }
+  }
+}
+undef $dupResIter;
+
+print "\n\n" if ( $DEBUG );
+
+##
+## Create a uniq block list from the repeats
+##    A list of regions/blocks that are neither seed or
+##    repeat sequence.  This is used to determine
+##    realignment ranges in a subsequent step.
+##
+my $repResIter = $repResultsCollection->getIterator();
+my %uniqBlocks = ();
+my $lastRepeat;
+while ( $repResIter->hasNext() )
+{
+  my $repeat = $repResIter->next();
+
+  if ( defined $lastRepeat
+       && $lastRepeat->getQueryName() eq $repeat->getQueryName() )
+  {
+    my $gapSize = $repeat->getQueryStart() - $lastRepeat->getQueryEnd() - 1;
+    if ( $gapSize > 0 )
+    {
+      push @{ $uniqBlocks{ $repeat->getQueryName() } },
+          {
+            'start' => $lastRepeat->getQueryEnd(),
+            'end'   => $repeat->getQueryStart()
+          };
+    }
+
+  }
+  $lastRepeat = $repeat;
+}
+
+##
+## Expand clusters/singletons to include flanking repeat regions.
+##   - Place elements which cannot be expanded into an orphan list.
+##
+my $orphans = SearchResultCollection->new();
+$dupResIter = $dupResultsCollection->getIterator();
+if ( $DEBUG )
+{
+  print "Realignment Clusters ( expanded )\n";
+  print "-----------------------------------\n";
+}
+while ( $dupResIter->hasNext() )
+{
+  my $annot = $dupResIter->next();
+
+  my $leftStart  = $annot->getQueryStart() - $annot->getSubjStart() + 1;
+  my $leftEnd    = $annot->getQueryStart();
+  my $rightStart = $annot->getQueryEnd();
+  my $rightEnd   = $annot->getQueryEnd + $annot->getSubjRemaining();
+  if ( $annot->getOrientation() eq "C" )
+  {
+    $leftStart = $annot->getQueryStart() - $annot->getSubjRemaining() + 1;
+    $rightEnd  = $annot->getQueryEnd + $annot->getSubjStart();
+  }
+  $leftStart = 1 if ( $leftStart < 1 );
+  $rightEnd = $annot->getQueryEnd() + $annot->getQueryRemaining()
+      if (
+          $rightEnd > ( $annot->getQueryEnd() + $annot->getQueryRemaining() ) );
+
+  ## Loop over uniq blocks
+  my $leftBoundry  = $leftStart;
+  my $rightBoundry = $rightEnd;
+  foreach my $uniqBlock ( @{ $uniqBlocks{ $annot->getQueryName() } } )
+  {
+    next if ( $uniqBlock->{'end'} < $leftStart );
+    last if ( $uniqBlock->{'start'} > $rightEnd );
+
+    if (
+         getOverlapSize(
+                         $uniqBlock->{'start'}, $uniqBlock->{'end'},
+                         $leftStart,            $leftEnd
+         ) > $realignNonRepMaxWidth
+        )
+    {
+      $leftBoundry = $uniqBlock->{'end'};
+    }
+    if (
+         getOverlapSize(
+                         $uniqBlock->{'start'}, $uniqBlock->{'end'},
+                         $rightStart,           $rightEnd
+         ) > $realignNonRepMaxWidth
+        )
+    {
+      $rightBoundry = $uniqBlock->{'start'};
+      last;
+    }
+  }
+  $leftBoundry = $annot->getQueryStart()
+      if ( $leftBoundry > $annot->getQueryStart() );
+  $rightBoundry = $annot->getQueryEnd()
+      if ( $rightBoundry < $annot->getQueryEnd() );
+
+  if (    $leftBoundry == $annot->getQueryStart()
+       && $rightBoundry == $annot->getQueryEnd() )
+  {
+    $orphans->add( $annot );
+    $dupResIter->remove();
+    print "O " . $annot->toStringFormatted() if ( $DEBUG );
+    next;
+  }
+  $annot->setQueryStart( $leftBoundry );
+  $annot->setQueryEnd( $rightBoundry );
+  print "  " . $annot->toStringFormatted() if ( $DEBUG );
+
+}
+undef $dupResIter;
+
+print "\n\n" if ( $DEBUG );
+
+##
+## Group overlapping realignment ranges into one search
+##
+$dupResultsCollection->sort( \&byNameBeginEndrev );
+$dupResIter = $dupResultsCollection->getIterator();
+my @ranges = ();
+if ( $DEBUG )
+{
+  print "Realignment Blocks:\n";
+  print "-------------------\n";
+}
+while ( $dupResIter->hasNext() )
+{
+  my %consensi;
+  my $annot = $dupResIter->next();
+
+  # Look for overlap
+  my $neighborIter = $dupResIter->getIterator();
+  my $rangeStart   = $annot->getQueryStart();
+  my $rangeEnd     = $annot->getQueryEnd();
+  push @{ $consensi{ $annot->getSubjName() } },
+      ( @{ $originalSeedBoundaries{$annot} } );
+  my $lastAnnot = $annot;
+
+  # Cluster clusters
+  print " considering $rangeStart - $rangeEnd\n"   if ( $DEBUG );
+  print "      --> " . $annot->toStringFormatted() if ( $DEBUG );
+  while ( $neighborIter->hasNext() )
+  {
+    my $neighbor = $neighborIter->next();
+    print "   vs " . $neighbor->toStringFormatted() if ( $DEBUG );
+    last if ( $neighbor->getQueryStart() > $lastAnnot->getQueryEnd() );
+    last if ( $neighbor->getQueryName() ne $lastAnnot->getQueryName() );
+    $rangeEnd = $neighbor->getQueryEnd()
+        if ( $neighbor->getQueryEnd() > $rangeEnd );
+    print "  adding: " . $neighbor->getQueryEnd() . "\n" if ( $DEBUG );
+    push @{ $consensi{ $neighbor->getSubjName() } },
+        ( @{ $originalSeedBoundaries{$neighbor} } );
+    $lastAnnot = $neighbor;
+    $neighborIter->remove();
+  }
+
+  # Add orphans which are fully contained inside a realignment range
+  # and remove from orphan list
+  my $orphanIter = $orphans->getIterator();
+  while ( $orphanIter->hasNext() )
+  {
+    my $orphan = $orphanIter->next();
+    next
+        if (    $orphan->getQueryEnd() < $rangeStart
+             || $orphan->getQueryEnd() > $rangeEnd );
+    last if ( $orphan->getQueryStart() > $rangeEnd );
+    if ( $orphan->getQueryStart() >= $rangeStart )
+    {
+      print "Adding Orphan -> " . $orphan->toStringFormatted() if ( $DEBUG );
+      print "  to range: " . $rangeStart . " - " . $rangeEnd . "\n"
+          if ( $DEBUG );
+      push @{ $consensi{ $orphan->getSubjName() } },
+          ( @{ $originalSeedBoundaries{$orphan} } );
+      my $annot = $orphanIter->remove();
+    }
+  }
+  push @ranges,
+      {
+        'id'       => $annot->getQueryName(),
+        'start'    => $rangeStart,
+        'end'      => $rangeEnd,
+        'consensi' => {%consensi}
+      };
+  if ( $DEBUG )
+  {
+    print "  "
+        . $annot->getQueryName()
+        . ":$rangeStart-$rangeEnd vs "
+        . join( ",", keys( %consensi ) ) . "\n";
+  }
+  undef $neighborIter;
+}
+undef $dupResIter;
+
+print "\n\n" if ( $DEBUG );
+
+#
+# Setup the search engine
+#
+$searchEngineN->setMinScore( 180 );
+if ( $options{'align'} )
+{
+  $searchEngineN->setGenerateAlignments( 1 );
+} else
+{
+  $searchEngineN->setGenerateAlignments( 0 );
+}
+$searchEngineN->setGapInit( -35 );
+$searchEngineN->setBandwidth( 20 );
+$searchEngineN->setInsGapExt( -7 );
+$searchEngineN->setDelGapExt( -6 );
+$searchEngineN->setMaskLevel( 1 );
+$searchEngineN->setMinMatch( 9 );
+$searchEngineN->setUseDustSeg( 1 );
+$searchEngineN->setScoreMode( SearchEngineI::complexityAdjustedScoreMode );
+$searchEngineN->setMatrix( "$MATRICES/20p41g.matrix" );
+$searchEngineN->setMaskLevel( 90 );
+
+##
+## Realign
+##
+my $totalResultCollection = SearchResultCollection->new();
+
+my $uniqID = 1;
+print "Realigning: ";
+foreach my $reAlignRange ( @ranges )
+{
+
+  # Create a temp file name
+  $tmpIdx = 1;
+  my $tmpLibFile = "/tmp/tmplibfile-$tmpIdx";
+  while ( -e $tmpLibFile )
+  {
+    $tmpLibFile = "/tmp/tmplibfile-" . $tmpIdx++;
+  }
+
+  # Extract consensi and save to temp file
+  open OUT, ">$tmpLibFile" or die "Can't create lib file $tmpLibFile: $?\n";
+
+  foreach my $conID ( keys( %{ $reAlignRange->{'consensi'} } ) )
+  {
+    my $seq = $libDB->getSequence( $conID );
+    print OUT ">" . $conID . "\n";
+    $seq =~ s/(\S{50})/$1\n/g;
+    $seq .= "\n"
+        unless ( $seq =~ /.*\n+$/s );
+    print OUT $seq;
+  }
+  close OUT;
+
+  # Create a temp file name
+  $tmpIdx = 1;
+  my $tmpQueryFile = "/tmp/tmpqueryfile-$tmpIdx";
+  while ( -e $tmpQueryFile )
+  {
+    $tmpQueryFile = "/tmp/tmpqueryfile-" . $tmpIdx++;
+  }
+
+  # Extract query range and save to a temp file
+  open OUT, ">$tmpQueryFile" or die "Can't create lib file $tmpQueryFile: $?\n";
+  print OUT ">"
+      . $reAlignRange->{'id'} . "_["
+      . $reAlignRange->{'start'} . "-"
+      . $reAlignRange->{'end'} . "]\n";
+  my $seq = $db->getSubstr( $reAlignRange->{'id'},
+                        $reAlignRange->{'start'},
+                        ( $reAlignRange->{'end'} - $reAlignRange->{'start'} ) );
+  $seq =~ s/(\S{50})/$1\n/g;
+  $seq .= "\n"
+      unless ( $seq =~ /.*\n+$/s );
+  print OUT $seq;
+  close OUT;
+
+  $searchEngineN->setSubject( "$tmpLibFile" );
+
+  ##
+  ##
+  ##
+  if ( $searchEngineN->isa( "NCBIBlastSearchEngine" ) )
+  {
+      system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype nucl "
+              . "-in $tmpLibFile > /dev/null 2>&1" ) == 0
+          or die "DupMasker:: Error invoking "
+          . $RepeatMaskerConfig::RMBLASTDB_PRGM
+          . " on file $tmpLibFile.\n";
+  }else
+  {
+      system(   "$RepeatMaskerConfig::XDFORMAT_PRGM -n $tmpLibFile > "
+              . "/dev/null 2>&1" ) == 0
+          or die "DupMasker: Error invoking xdformat on file "
+          . "$tmpLibFile.  We tried using the xdformat program ( "
+          . $RepeatMaskerConfig::XDFORMAT_PRGM . " ).\n";
+  }
+
+  $searchEngineN->setQuery( "$tmpQueryFile" );
+
+  #print "Running: " . $searchEngineN->getParameters() . "\n";
+
+  if ( $DEBUG )
+  {
+    print "Running a realignment... $tmpQueryFile vs $tmpLibFile\n";
+  }
+  print ".";
+  my ( $status, $searchResultCol ) = $searchEngineN->search();
+  if ( $status )
+  {
+    die "ERROR from search engine (", $? >> 8, ") \n";
+  }
+
+  # Remove temporary files
+  unless ( $DEBUG )
+  {
+    unlink( $tmpQueryFile ) if ( -e $tmpQueryFile );
+    unlink( $tmpLibFile ) if ( -e $tmpLibFile );
+    unlink( $tmpLibFile . ".xnd" ) if ( -e $tmpLibFile . ".xnd" );
+    unlink( $tmpLibFile . ".xns" ) if ( -e $tmpLibFile . ".xns" );
+    unlink( $tmpLibFile . ".xnt" ) if ( -e $tmpLibFile . ".xnt" );
+    unlink( $tmpLibFile . ".nhr" ) if ( -e $tmpLibFile . ".nhr" );
+    unlink( $tmpLibFile . ".nin" ) if ( -e $tmpLibFile . ".nin" );
+    unlink( $tmpLibFile . ".nsq" ) if ( -e $tmpLibFile . ".nsq" );
+  }
+
+  # Adjust coordinates
+  my $resIter = $searchResultCol->getIterator();
+  while ( $resIter->hasNext() )
+  {
+    my $annot = $resIter->next();
+    my $seqID = $annot->getQueryName();
+    print "Adjusting $seqID\n" if ( $DEBUG );
+    print $annot->toStringFormatted( SearchResult::NoAlign ) . "\n"
+        if ( $DEBUG );
+    if ( $seqID =~ /(.*)_\[(\d+)-(\d+)\]/ )
+    {
+      my $startPos = $2;
+      $annot->setQueryName( $1 );
+      $annot->setQueryStart( $annot->getQueryStart() + $startPos );
+      $annot->setQueryEnd( $annot->getQueryEnd() + $startPos );
+      $annot->setQueryRemaining(
+              $queryLengths{ $annot->getQueryName() } - $annot->getQueryEnd() );
+      print $annot->toStringFormatted( SearchResult::NoAlign ) . "\n"
+          if ( $DEBUG );
+    } else
+    {
+      die "Seqname $seqID is not in the valid format!\n";
+    }
+  }
+  undef $resIter;
+
+  #
+  # New Filter
+  #
+  my $searchIter = $searchResultCol->getIterator();
+  while ( $searchIter->hasNext() )
+  {
+    my $searchAnnot     = $searchIter->next();
+    my $searchNeighIter = $searchIter->getIterator();
+    my $chainSeedScore  = 0;
+
+    next
+        if ( defined $searchAnnot->getOverlap()
+             && $searchAnnot->getOverlap() eq "u" );
+
+    # Determine if this annotation overlaps a previous seed.
+    if ( defined $reAlignRange->{'consensi'}->{ $searchAnnot->getSubjName() } )
+    {
+      foreach my $range (
+             @{ $reAlignRange->{'consensi'}->{ $searchAnnot->getSubjName() } } )
+      {
+
+        # check range against this annotation -- increasing seed
+        # score if overlaps and short circuiting foreach
+        if (
+             $searchAnnot->getOrientation() eq $range->{'orient'}
+             && getOverlapSize(
+                                $range->{'start'},
+                                $range->{'end'},
+                                $searchAnnot->getQueryStart(),
+                                $searchAnnot->getQueryEnd()
+             ) > 0
+            )
+        {
+          $chainSeedScore++;
+          last;
+        }
+      }
+
+      if ( $chainSeedScore > 0 )
+      {
+        $totalResultCollection->add( $searchAnnot );
+        $searchAnnot->setOverlap( "u" );
+
+        # Go left
+        my $leftIter = $searchIter->getIterator();
+        $leftIter->previous();
+        my $count     = 0;
+        my $lastAnnot = $searchAnnot;
+        while ( $leftIter->hasPrevious() )
+        {
+          my $leftAnnot = $leftIter->previous();
+          next if ( $leftAnnot->getScore() < 300 );
+          next
+              if ( defined $leftAnnot->getOverlap()
+                   && $leftAnnot->getOverlap() eq "u" );
+          last if ( $count > 10 );
+          $count++;
+          if ( &areCongruous( $lastAnnot, $leftAnnot ) == 1 )
+          {
+            $totalResultCollection->add( $leftAnnot );
+            $leftAnnot->setOverlap( "u" );
+            $lastAnnot = $leftAnnot;
+          }
+        }
+
+        # Go Right
+        my $rightIter = $searchIter->getIterator();
+        $lastAnnot = $searchAnnot;
+        $count     = 0;
+        while ( $rightIter->hasNext() )
+        {
+          my $rightAnnot = $rightIter->next();
+          next if ( $rightAnnot->getScore() < 300 );
+          next
+              if ( defined $rightAnnot->getOverlap()
+                   && $rightAnnot->getOverlap() eq "u" );
+          last if ( $count > 10 );
+          $count++;
+          if ( &areCongruous( $lastAnnot, $rightAnnot ) == 1 )
+          {
+            $totalResultCollection->add( $rightAnnot );
+            $rightAnnot->setOverlap( "u" );
+            $lastAnnot = $rightAnnot;
+          }
+        }
+      }
+    } else
+    {
+      warn "Can't find " . $searchAnnot->getSubjName() . " in consensi hash!\n";
+    }
+  }
+}
+print "\n";
+
+##
+## Reintegrate orphan annotations
+##
+my $orphanIter = $orphans->getIterator();
+while ( $orphanIter->hasNext() )
+{
+  my $orphan = $orphanIter->next();
+
+  # TODO: put back ID generation mechanism.
+  #  $orphan->setId( $uniqID++ );
+  $totalResultCollection->add( $orphan );
+}
+
+##
+## Report
+##
+print "Results:\n" if ( $DEBUG );
+print "--------\n" if ( $DEBUG );
+$totalResultCollection->sort( \&byNameBeginEndrev );
+my $resIter = $totalResultCollection->getIterator();
+my %usedIDs = ();
+my $newID   = 1;
+while ( $resIter->hasNext() )
+{
+  my $annot = $resIter->next();
+  $annot->setOverlap( undef );
+
+  # TODO: put back ID generation mechanism.
+  #if ( $usedIDs{ $annot->getId() } )
+  #{
+  #  $annot->setId( $usedIDs{ $annot->getId() } );
+  #}
+  #else
+  #{
+  #  $usedIDs{ $annot->getId() } = $newID;
+  #  $annot->setId( $newID++ );
+  #}
+  print "" . $annot->toStringFormatted() if ( $DEBUG );
+}
+undef $resIter;
+
+##
+## Save results
+##
+print "Saving final annotations to $fastaFile.duplicons\n";
+if ( $options{'align'} )
+{
+  $totalResultCollection->write( "$fastaFile.duplicons",
+                                 SearchResult::AlignWithQuerySeq );
+} else
+{
+  $totalResultCollection->write( "$fastaFile.duplicons",
+                                 SearchResult::NoAlign );
+}
+if ( $options{'gff'} )
+{
+  print "Saving final annotations in GFF format to $fastaFile.duplicons.gff\n";
+  &exportGFF( $totalResultCollection, $fastaFile );
+}
+
+##
+## Goodbye
+##
+exit;
+
+######################## S U B R O U T I N E S ############################
+
+sub exportGFF
+{
+  my $resultsColl = shift;
+  my $fileName    = shift;
+
+  open OUTGFF, ">$fileName.duplicons.gff"
+      || die "exportGFF(): Could not open up $fileName.duplicons.gff for"
+      . "writing!\n";
+  my $resIter = $resultsColl->getIterator();
+  print OUTGFF "##gff-version 2\n";
+  printf OUTGFF "##date %4d-%02d-%02d\n", ( localtime )[ 5 ] + 1900,
+      ( localtime )[ 4 ] + 1, ( localtime )[ 3 ];    # date as 1999-09-24...
+  ( my $seqname = $fileName ) =~ s/^.*\///;
+  print OUTGFF "##sequence-region $seqname\n";
+
+  while ( $resIter->hasNext() )
+  {
+    my $currentAnnot = $resIter->next();
+    print OUTGFF ""
+        . $currentAnnot->getQueryName()
+        . "\tDupMasker\tsimilarity\t"
+        . $currentAnnot->getQueryStart() . "\t"
+        . $currentAnnot->getQueryEnd() . "\t"
+        . $currentAnnot->getScore() . "\t"
+        . ( $currentAnnot->getOrientation() eq 'C' ? '-' : '+' ) . "\t.\t"
+        . "Target \"Motif:"
+        . $currentAnnot->getSubjName() . "\" "
+        . $currentAnnot->getSubjStart() . " "
+        . $currentAnnot->getSubjEnd() . "\n";
+  }
+  undef $resIter;
+  close OUT;
+}
+
+sub areCongruous
+{
+  my $annot1 = shift;
+  my $annot2 = shift;
+
+  # Are they in the same contig sequence?
+  if ( $annot1->getQueryName() eq $annot2->getQueryName() )
+  {
+
+    # Are they in the same contig sequence?
+    if ( $annot1->getSubjName() eq $annot2->getSubjName() )
+    {
+
+      # Are they in the same orientation?
+      if ( $annot1->getOrientation() eq $annot2->getOrientation() )
+      {
+
+        # Are their consensus positions reasonable?
+        my $subjGapSize = $annot2->getSubjStart() - $annot1->getSubjEnd();
+        $subjGapSize = $annot1->getSubjStart() - $annot2->getSubjEnd()
+            if ( $annot1->getOrientation() eq "C" );
+        my $queryGapSize = $annot2->getQueryStart() - $annot1->getQueryEnd();
+
+        my $gapAdjusted = $subjGapSize - $queryGapSize;
+
+        #if ( $gapSize > -300 && $gapSize < 7000 )
+        #if ( $gapSize > -7000 && $gapSize < 7000 )
+        if ( $gapAdjusted > -7000 && $gapAdjusted < 7000 )
+        {
+          return ( 1 );
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+sub getOverlapSize
+{
+  my $range1Begin = shift;
+  my $range1End   = shift;
+  my $range2Begin = shift;
+  my $range2End   = shift;
+
+  my $overlap = 0;
+  if (    $range1Begin >= $range2Begin
+       && $range1Begin <= $range2End )
+  {
+
+    #      -------
+    #   ------
+    # or
+    #     -----
+    #   --------
+    if ( $range1End <= $range2End )
+    {
+
+      #     -----
+      #   --------
+      $overlap = $range1End - $range1Begin + 1;
+    } else
+    {
+
+      #      -------
+      #   ------
+      $overlap = $range2End - $range1Begin + 1;
+    }
+  } elsif (    $range1End >= $range2Begin
+            && $range1End <= $range2End )
+  {
+
+    #   -------
+    #      ------
+    # or
+    #   --------
+    #    -----
+    if ( $range1End >= $range2End )
+    {
+
+      #   --------
+      #    -----
+      $overlap = $range2End - $range2Begin + 1;
+    } else
+    {
+
+      #   -------
+      #      ------
+      $overlap = $range1End - $range2Begin + 1;
+    }
+  }
+  return $overlap;
+}
+
+sub byNameBeginEndrev ($$)
+{
+  ( $_[ 0 ]->getQueryName() ) cmp( $_[ 1 ]->getQueryName() )
+      || ( $_[ 0 ]->getQueryStart() ) <=> ( $_[ 1 ]->getQueryStart() )
+      || ( $_[ 1 ]->getQueryEnd() ) <=>   ( $_[ 0 ]->getQueryEnd() );
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my ( $seq_cnt, $totalSeqLen, $nonMaskedSeqLen, $totGCLevel,
+##             $totBPMasked ) =
+##                    &maskSequence ( $seqDB, $annotationFile,
+##                                    $outputFile );
+##  Returns
+##
+##     $seq_cnt:          The number of sequences in the FASTA file.
+##     $totalSeqLen:      The absoulte length of all sequences combined.
+##     $nonMaskedSeqLen:  Length of sequence (excluding runs of >20 N's
+##                         and X's) of the pre-masked sequence.
+##     $totGCLevel:       The GC content of the original sequence.
+##     $totBPMasked:      The total bp we masked
+##
+##-------------------------------------------------------------------------##
+sub maskSequence
+{
+  my %parameters = @_;
+
+  my $maskFormat     = $parameters{'maskFormat'} || "";
+  my $seqDB          = $parameters{'seqDB'};
+  my $annotationFile = $parameters{'annotationFile'};
+  my $outputFile     = $parameters{'outputFile'};
+  my $minDivergence  = $parameters{'minDivergence'};
+  my $maxDivergence  = $parameters{'maxDivergence'};
+
+  my %annots = ();
+
+  #
+  # Open up a search results object
+  #
+  my $searchResults =
+      CrossmatchSearchEngine::parseOutput( searchOutput => $annotationFile );
+
+  #
+  # Read in annotations and throw away the rest
+  #
+  my $prevResult;
+  for ( my $i = 0 ; $i < $searchResults->size() ; $i++ )
+  {
+    my $result = $searchResults->get( $i );
+    my $start  = $result->getQueryStart();
+    my $end    = $result->getQueryEnd();
+    if (    defined $prevResult
+         && $prevResult->getQueryName() eq $result->getQueryName()
+         && $prevResult->getQueryEnd() >= $start )
+    {
+      next if ( $prevResult->getQueryEnd() >= $end );
+      $start = $prevResult->getQueryEnd() + 1;
+    }
+    next
+        if ( defined $minDivergence
+             && $result->getPctDiverge() < $minDivergence );
+    next
+        if ( defined $maxDivergence
+             && $result->getPctDiverge() > $maxDivergence );
+    push @{ $annots{ $result->getQueryName() } },
+        {
+          'begin' => $start,
+          'end'   => $end
+        };
+    $prevResult = $result;
+  }
+  undef $searchResults;
+
+  my @seqIDs     = $seqDB->getIDs();
+  my $seq_cnt    = scalar( @seqIDs );
+  my $sublength  = $seqDB->getSubtLength();
+  my $totGCLevel = 0;
+  if ( $sublength > 0 )
+  {
+    $totGCLevel = 100 * $seqDB->getGCLength() / $sublength;
+  }
+
+  $totGCLevel = sprintf "%4.2f", $totGCLevel;
+  my $totalSeqLen     = 0;
+  my $totBPMasked     = 0;
+  my $nonMaskedSeqLen = 0;
+  my $workseq         = "";
+  open OUTFILE, ">$outputFile";
+
+  foreach my $seqID ( @seqIDs )
+  {
+    my $seq = $seqDB->getSequence( $seqID );
+    $totalSeqLen += length $seq;
+    $workseq = $seq;
+    $nonMaskedSeqLen += length $workseq;
+    while ( $workseq =~ /([X,N]{20,})/ig )
+    {
+      $nonMaskedSeqLen -= length( $1 );
+    }
+    foreach my $posRec ( @{ $annots{$seqID} } )
+    {
+      my $beginPos = $posRec->{'begin'};
+      my $endPos   = $posRec->{'end'};
+      my $repLen   = $endPos - $beginPos + 1;
+      substr( $workseq, $beginPos - 1, $repLen ) = "0" x ( $repLen );
+      if ( $maskFormat eq 'xsmall' )
+      {
+        substr( $seq, $beginPos - 1, $repLen ) =
+            lc( substr( $seq, $beginPos - 1, $repLen ) );
+      } elsif ( $maskFormat eq 'x' )
+      {
+        substr( $seq, $beginPos - 1, $repLen ) = "X" x ( $repLen );
+      } else
+      {
+        substr( $seq, $beginPos - 1, $repLen ) = "N" x ( $repLen );
+      }
+      $totBPMasked += $repLen;
+    }
+    print OUTFILE ">" . $seqID;
+    my $desc = $seqDB->getDescription( $seqID );
+    if ( $desc ne "" )
+    {
+      print OUTFILE " " . $desc;
+    }
+    print OUTFILE "\n";
+    $seq =~ s/(\S{50})/$1\n/g;
+    $seq .= "\n"
+        unless ( $seq =~ /.*\n+$/s );
+    print OUTFILE $seq;
+  }
+  close OUTFILE;
+
+  return ( $seq_cnt, $totalSeqLen, $nonMaskedSeqLen, $totGCLevel,
+           $totBPMasked );
+}
+
+1;

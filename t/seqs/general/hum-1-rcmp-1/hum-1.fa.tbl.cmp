@@ -1,0 +1,46 @@
+==================================================
+file name: hum-1.fa                 
+sequences:             4
+total length:     151062 bp  (151062 bp excl N/X-runs)
+GC level:         51.86 %
+bases masked:      47880 bp ( 31.70 %)
+==================================================
+               number of      length   percentage
+               elements*    occupied  of sequence
+--------------------------------------------------
+SINEs:              119        31778 bp   21.04 %
+      ALUs          108        29795 bp   19.72 %
+      MIRs           11         1983 bp    1.31 %
+
+LINEs:               26        12250 bp    8.11 %
+      LINE1          10         5006 bp    3.31 %
+      LINE2          16         7244 bp    4.80 %
+      L3/CR1          0            0 bp    0.00 %
+
+LTR elements:         2          443 bp    0.29 %
+      MaLRs           0            0 bp    0.00 %
+      ERVL            1          152 bp    0.10 %
+      ERV_classI      1          291 bp    0.19 %
+      ERV_classII     0            0 bp    0.00 %
+
+DNA elements:        12         1913 bp    1.27 %
+      MER1_type       9         1434 bp    0.95 %
+      MER2_type       1          215 bp    0.14 %
+
+Unclassified:         0            0 bp    0.00 %
+
+Total interspersed repeats:    46384 bp   30.71 %
+
+
+Small RNA:            0            0 bp    0.00 %
+
+Satellites:           0            0 bp    0.00 %
+Simple repeats:      15          498 bp    0.33 %
+Low complexity:      14          998 bp    0.66 %
+==================================================
+
+* most repeats fragmented by insertions or deletions
+  have been counted as one element
+                                                      
+
+The query species was assumed to be homo          

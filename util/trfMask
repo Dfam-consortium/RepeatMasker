@@ -1,0 +1,497 @@
+#!/usr/local/bin/perl
+##---------------------------------------------------------------------------##
+##  File:
+##      @(#) trfMask
+##  Author:
+##      Arian Smit <asmit@systemsbiology.org>
+##      Robert Hubley <rhubley@systemsbiology.org>
+##  Description:
+##
+#******************************************************************************
+#* Copyright (C) Institute for Systems Biology 2012 Developed by
+#* Arian Smit and Robert Hubley.
+#*
+#* This work is licensed under the Open Source License v2.1.  To view a copy
+#* of this license, visit http://www.opensource.org/licenses/osl-2.1.php or
+#* see the license.txt file contained in this distribution.
+#*
+###############################################################################
+#
+###############################################################################
+#
+# To Do:
+#
+#
+
+=head1 NAME
+
+trfMask - Mask simple repeats in DNA
+
+=head1 SYNOPSIS
+
+  trfMask <fasta file>
+
+=head1 DESCRIPTION
+
+The options are:
+
+=over 4
+
+=item -xsmall  
+
+Returns repetitive regions in lowercase (rest capitals) rather than masked with Ns.
+
+=item -h(elp)
+
+Detailed help
+
+=back
+
+=head1 SEE ALSO
+
+=over 4
+
+RepeatMasker
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2012 Institute for Systems Biology
+
+=head1 AUTHOR
+
+Robert Hubley <rhubley@systemsbiology.org>
+
+=cut
+
+#
+# Module Dependence
+#
+use strict;
+use FindBin;
+use lib $FindBin::RealBin;
+use lib "$FindBin::Bin/../";
+use Data::Dumper;
+use Cwd;
+use Carp;
+use Getopt::Long;
+use File::Temp qw/ tempfile tempdir /;
+
+# RepeatMasker Libraries
+use RepeatMaskerConfig;
+use SeqDBI;
+use FastaDB;
+use WUBlastXSearchEngine;
+use CrossmatchSearchEngine;
+use TRF;
+use TRFResult;
+use SearchResultCollection;
+use SearchEngineI;
+use SearchResult;
+use Matrix;
+
+#
+# Class Globals & Constants
+#
+my $CLASS = "trfMask";
+my $DEBUG = 0;
+$DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
+
+#
+# Option processing
+#  e.g.
+#   -t: Single letter binary option
+#   -t=s: String parameters
+#   -t=i: Number paramters
+#
+my @opts = qw( help xsmall dfam_mask );
+
+#
+# Get the supplied command line options, and set flags
+#
+my %options = ();
+unless ( &GetOptions( \%options, @opts ) )
+{
+  exec "pod2text $0";
+  exit( 1 );
+}
+
+# Print the internal POD documentation if something is missing
+if ( $options{'help'} || !$#ARGV < 1 )
+{
+
+  # This is a nifty trick so we don't have to have
+  # a duplicate "USAGE()" subroutine.  Instead we
+  # just recycle our POD docs.  See PERL POD for more
+  # details.
+  exec "pod2text $0";
+  die;
+}
+
+my $dfamMask = 0;
+$dfamMask = 1 if ( $options{'dfam_mask'} );
+my $fastaFile = "";
+my $fileDir   = "";
+my $matrix;
+if ( -s $ARGV[ 0 ] )
+{
+  $fastaFile = $ARGV[ 0 ];
+  $fileDir   = ( File::Spec->splitpath( $fastaFile ) )[ 1 ];
+} else
+{
+  die $CLASS . ": Missing fasta file parameter!\n";
+}
+
+#
+# Assume we want to place the results next to the original file
+#
+if ( $fileDir ne "." && $fileDir ne "" )
+{
+  chdir( $fileDir );
+}
+
+# Combined search result collection
+my $src  = SearchResultCollection->new();
+my $date = localtime( time() );
+$date =~ s/[ ,\t,\n:]//g;
+my $scratchDir = cwd . "/" . tempdir( "TRF_$$.$date-XXXXXX", CLEANUP => 1 );
+die "Could not create tempdir!\n" if ( !-d $scratchDir );
+print "Working directory: $scratchDir\n";
+my $wrkFastaFile = "$scratchDir/$fastaFile.tmpmasked";
+system( "cp $fastaFile $wrkFastaFile" );
+
+my $trf = TRF->new( pathToEngine => $RepeatMaskerConfig::TRF_PRGM,
+                    workDir      => $scratchDir );
+
+# dfamMask:
+# "2 7 7 80 10 70 5
+
+#
+# Search for young tandem repeats
+#
+$trf->setMatchWeight( 2 );
+$trf->setMismatchPenalty( 7 );
+$trf->setDelta( 7 );
+$trf->setPm( 80 );
+$trf->setPi( 10 );
+if ( $dfamMask )
+{
+  $trf->setMinScore( 70 );
+  $trf->setMaxPeriod( 5 );
+} else
+{
+
+  # RepeatMasker style search
+  $trf->setMinScore( 50 );
+  $trf->setMaxPeriod( 10 );
+}
+
+my $minCopyNumber = 4;
+$minCopyNumber = 0 if ( $dfamMask );
+
+my $lambda = 0.41;
+my @mu     = ( 8.51, 1.04, 6.26, 8.65, 10.36, 7.19, 8.81, 10.84, 12.97, 15.07 );
+
+if ( $dfamMask )
+{
+  print "Running TRF using Dfam parameters...\n";
+} else
+{
+  print "Masking Young Tandem Repeats...\n";
+}
+print "  TRF CMD:  " . $trf->getParameters() . "\n";
+
+my ( $retCode, $trfResults ) = $trf->search( sequenceFile => $wrkFastaFile,
+                                             workDir      => $scratchDir );
+
+my $cnt = 1;
+for ( my $i = $trfResults->size() - 1 ; $i >= 0 ; $i-- )
+{
+  my $result = $trfResults->get( $i );
+  bless $result, "TRFSearchResult";
+
+  if ( $result->getCopyNumber() <= $minCopyNumber )
+  {
+    $trfResults->remove( $i );
+  } else
+  {
+    $result->setScore(
+             $result->rawToBitScore( $lambda, $mu[ $result->getPeriod - 1 ] ) );
+    $result->setLineageId( "yng-" . $cnt++ );
+  }
+}
+print "   - TRF Young ( >$minCopyNumber copies )  : "
+    . $trfResults->size() . "\n";
+$src->addAll( $trfResults );
+unless ( $dfamMask )
+{
+  maskSequence( "N", $wrkFastaFile, $trfResults, $wrkFastaFile . "-stage1" );
+  system( "mv $wrkFastaFile-stage1 $wrkFastaFile" );
+
+  #
+  # Search for old tandem repeats
+  #
+  $trf->setMatchWeight( 2 );
+  $trf->setMismatchPenalty( 3 );
+  $trf->setDelta( 5 );
+  $trf->setPm( 75 );
+  $trf->setPi( 20 );
+  $trf->setMinScore( 33 );
+  $trf->setMaxPeriod( 7 );
+  $minCopyNumber = 5;
+
+  #$lambda = 0.17;
+  #@mu = ( -33.82, -33.41, -26.29, -22.24, -18.98, -16.78, -12.82 );
+  $lambda = 0.32;
+  @mu     = ( 0.79, 1.00, 4.78, 6.94, 8.68, 9.84, 11.94 );
+
+  print "Masking Old Tandem Repeats...\n";
+  print "  TRF CMD:  " . $trf->getParameters() . "\n";
+
+  ( $retCode, $trfResults ) = $trf->search( sequenceFile => $wrkFastaFile,
+                                            workDir      => $scratchDir );
+  $cnt = 1;
+  for ( my $i = $trfResults->size() - 1 ; $i >= 0 ; $i-- )
+  {
+    my $result = $trfResults->get( $i );
+    bless $result, "TRFSearchResult";
+
+    if ( $result->getCopyNumber() <= $minCopyNumber )
+    {
+      $trfResults->remove( $i );
+    } else
+    {
+      $result->setScore(
+             $result->rawToBitScore( $lambda, $mu[ $result->getPeriod - 1 ] ) );
+      $result->setLineageId( "old-" . $cnt++ );
+    }
+  }
+
+  #$trfResults->maskLevelFilter( value => 25 );
+  print "   - TRF Diverged ( >$minCopyNumber copies )  : "
+      . $trfResults->size() . "\n";
+  $src->addAll( $trfResults );
+
+  #
+  # Postprocess results
+  #
+  my $srcF = SearchResultCollection->new();
+
+  $src->sort(
+    sub ($$) {
+      (    ( $_[ 0 ]->getQueryName() cmp $_[ 1 ]->getQueryName() )
+        || ( $_[ 0 ]->getQueryStart() <=> $_[ 1 ]->getQueryStart() ) );
+    }
+  );
+
+  print "Using xDrop to fragment results...\n";
+  $matrix =
+      Matrix->new(
+        fileName => "$FindBin::RealBin/../Matrices/crossmatch/simple1.matrix" );
+  for ( my $k = 0 ; $k < $src->size() ; $k++ )
+  {
+    my $result = $src->get( $k );
+    my ( $newScore, $kimura, $CpGSites, $percIns, $percDel, $scoreArray,
+         $goodRegions )
+        = $result->rescoreAlignment(
+                                     scoreMatrix    => $matrix,
+                                     gapOpenPenalty => -30,
+                                     gapExtPenalty  => -15,
+                                     xDrop          => 500
+        );
+
+    next if ( $newScore < 20 );
+    $result->setPctDiverge( sprintf( "%0.2f", $kimura ) );
+    $result->setPctInsert( sprintf( "%0.2f",  $percIns ) );
+    $result->setPctDelete( sprintf( "%0.2f",  $percDel ) );
+
+    if ( $#{$goodRegions} > 1 )
+    {
+      my $frags = $result->fragmentSearchResult( regionList => $goodRegions );
+      print "Fragmenting..\n";
+      foreach my $frag ( @{$frags} )
+      {
+        $srcF->add( $frag );
+      }
+    } else
+    {
+      $srcF->add( $result );
+    }
+  }
+  $src = $srcF;
+  print "Total results = " . $srcF->size() . "\n";
+}
+
+#
+# Save results
+#
+print "Writing *.out file...\n";
+open OUT, ">$fastaFile.out"
+    or die "Could not open $fastaFile.out for writing\n";
+for ( my $k = 0 ; $k < $src->size() ; $k++ )
+{
+  my $result = $src->get( $k );
+  print OUT "" . $result->toStringFormatted( SearchResult::OutFileFormat );
+
+}
+close OUT;
+
+unless ( $dfamMask )
+{
+  print "Writing *.align file...\n";
+  open OUT, ">$fastaFile.align"
+      or die "Could not open $fastaFile.align for writing\n";
+  for ( my $k = 0 ; $k < $src->size() ; $k++ )
+  {
+    my $result = $src->get( $k );
+
+    my ( $newScore, $kimura, $CpGSites, $percIns, $percDel, $scoreArray,
+         $goodRegions )
+        = $result->rescoreAlignment(
+                                     scoreMatrix    => $matrix,
+                                     gapOpenPenalty => -30,
+                                     gapExtPenalty  => -15,
+                                     xDrop          => 500
+        );
+
+    print OUT ""
+        . $result->toStringFormatted( SearchResult::AlignWithQuerySeq ) . "\n";
+    print OUT "Xdrop Fragments ( newScore = $newScore ): "
+        . join( ", ", @{$goodRegions} ) . "\n\n";
+  }
+  close OUT;
+}
+
+my $maskType = "N";
+$maskType = "xsmall" if ( $options{'xsmall'} );
+my ( $seq_cnt, $totalSeqLen, $nonMaskedSeqLen, $totGCLevel, $totBPMasked,
+     $youngBPMasked, $oldBPMasked )
+    = maskSequence( $maskType, $fastaFile, $src, "$fastaFile.masked" );
+
+print "seqCount = $seq_cnt, totaSeqLen = $totalSeqLen, "
+    . "GC Level = $totGCLevel, bp masked = $totBPMasked ( "
+    . sprintf( "%0.2f", ( ( $totBPMasked / $totalSeqLen ) * 100 ) ) . "% )\n";
+print "    young simple repeats: $youngBPMasked ( "
+    . sprintf( "%0.2f", ( ( $youngBPMasked / $totalSeqLen ) * 100 ) )
+    . "% ) \n";
+print "    older simple repeats: $oldBPMasked ( "
+    . sprintf( "%0.2f", ( ( $oldBPMasked / $totalSeqLen ) * 100 ) )
+    . "% ) \n";
+
+exit;
+
+######################################################################################
+
+sub maskSequence
+{
+  my $maskFormat    = shift;
+  my $inputFile     = shift;
+  my $searchResults = shift;
+  my $outputFile    = shift;
+
+  print "ProcessRepeats::maskSequence()\n" if ( $DEBUG );
+
+  my %annots = ();
+
+  my $prevResult;
+  my $youngBPMasked = 0;
+  my $oldBPMasked   = 0;
+  for ( my $i = 0 ; $i < $searchResults->size() ; $i++ )
+  {
+    my $result = $searchResults->get( $i );
+    my $start  = $result->getQueryStart();
+    my $end    = $result->getQueryEnd();
+    if (    defined $prevResult
+         && $prevResult->getQueryName() eq $result->getQueryName()
+         && $prevResult->getQueryEnd() >= $start )
+    {
+      next if ( $prevResult->getQueryEnd() >= $end );
+      $start = $prevResult->getQueryEnd() + 1;
+    }
+    push @{ $annots{ $result->getQueryName() } },
+        {
+          'begin' => $start,
+          'end'   => $end
+        };
+    my $lID = $result->getLineageId();
+    if ( $lID =~ /yng/ )
+    {
+      $youngBPMasked += $end - $start + 1;
+    } elsif ( $lID =~ /old/ )
+    {
+      $oldBPMasked += $end - $start + 1;
+    } else
+    {
+      warn "Missing lineage id: "
+          . $result->toStringFormatted( SearchResult::OutFileFormat );
+    }
+    $prevResult = $result;
+  }
+
+  my $seqDB = FastaDB->new(
+                            fileName    => $inputFile,
+                            openMode    => SeqDBI::ReadOnly,
+                            maxIDLength => 50
+  );
+
+  my @seqIDs     = $seqDB->getIDs();
+  my $seq_cnt    = scalar( @seqIDs );
+  my $sublength  = $seqDB->getSubtLength();
+  my $totGCLevel = 100 * $seqDB->getGCLength() / $sublength;
+  $totGCLevel = sprintf "%4.2f", $totGCLevel;
+  my $totalSeqLen     = 0;
+  my $totBPMasked     = 0;
+  my $nonMaskedSeqLen = 0;
+  my $workseq         = "";
+  open OUTFILE, ">$outputFile";
+
+  foreach my $seqID ( @seqIDs )
+  {
+    my $seq = $seqDB->getSequence( $seqID );
+    $totalSeqLen += length $seq;
+    $workseq = uc($seq);
+    $nonMaskedSeqLen += length $workseq;
+
+    while ( $workseq =~ /([X,N]{20,})/ig )
+    {
+      $nonMaskedSeqLen -= length( $1 );
+    }
+    foreach my $posRec ( @{ $annots{$seqID} } )
+    {
+      my $beginPos = $posRec->{'begin'};
+      my $endPos   = $posRec->{'end'};
+      my $repLen   = $endPos - $beginPos + 1;
+      if ( $maskFormat eq 'xsmall' )
+      {
+        substr( $seq, $beginPos - 1, $repLen ) =
+            lc( substr( $seq, $beginPos - 1, $repLen ) );
+      } elsif ( $maskFormat eq 'x' )
+      {
+        substr( $seq, $beginPos - 1, $repLen ) = "X" x ( $repLen );
+      } else
+      {
+        substr( $seq, $beginPos - 1, $repLen ) = "N" x ( $repLen );
+      }
+      $totBPMasked += $repLen;
+    }
+    print OUTFILE ">" . $seqID;
+    my $desc = $seqDB->getDescription( $seqID );
+    if ( $desc ne "" )
+    {
+      print OUTFILE " " . $desc;
+    }
+    print OUTFILE "\n";
+    $seq =~ s/(\S{50})/$1\n/g;
+    $seq .= "\n"
+        unless ( $seq =~ /.*\n+$/s );
+    print OUTFILE $seq;
+  }
+  close OUTFILE;
+
+  return ( $seq_cnt, $totalSeqLen, $nonMaskedSeqLen, $totGCLevel, $totBPMasked,
+           $youngBPMasked, $oldBPMasked );
+}
+
+1;
+

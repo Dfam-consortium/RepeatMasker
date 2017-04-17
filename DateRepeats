@@ -1,0 +1,873 @@
+#!/u1/local/bin/perl
+##---------------------------------------------------------------------------##
+##  File:
+##      @(#) DateRepeats
+##  Author:
+##      Arian Smit <asmit@systemsbiology.org>
+##      Robert Hubley <rhubley@systemsbiology.org>
+##  Description:
+##      Labels the lineage specificity of repeats in RepeatMasker annotation
+##      and creates a masked sequence for genomic alignment of related species
+##
+#******************************************************************************
+#* Copyright (C) Institute for Systems Biology 2002-2004 Developed by
+#* Arian Smit and Robert Hubley.
+#*
+#* This work is licensed under the Open Source License v2.1.  To view a copy
+#* of this license, visit http://www.opensource.org/licenses/osl-2.1.php or
+#* see the license.txt file contained in this distribution.
+#*
+###############################################################################
+#
+# ChangeLog
+#
+#   $Log: DateRepeats,v $
+#   Revision 1.93  2017/02/01 21:01:53  rhubley
+#   Cleanup before a distribution
+#
+#
+###############################################################################
+#
+# To Do:
+#
+
+=head1 NAME
+
+DateRepeats - Annotate lineage of repeats.
+
+=head1 SYNOPSIS
+
+  DateRepeats <repeatmasker .out files> -query <species1> 
+              -comp <species2> [-comp <species3> -mask <species2>]
+
+=head1 DESCRIPTION
+
+DateRepeats will create a file similar to the .out file with added column(s)
+indicating if a repeat is expected to be present in the indicated 
+'other species'.
+
+Required Parameters:
+
+=over 4
+
+=item -q(uery) <species1>
+
+The species that has been analyzed.
+
+=item -c(omp) <species2>     
+
+Other mammalian species; can be used multiple times, adding extra 
+columns to the annotation in a  <file.out_species2_species3_etc>.
+
+=back
+
+Optional Parameters:
+
+=over 4
+
+=item -m(ask) <species> 
+
+Produces a sequence file with all lineage specific repeats masked, i.e.
+those predicted to be in the -query and absent in the -mask species
+(sequence <file> and RepeatMasker <file.out> must be in same directory)
+<species> must correspond to one of the -comp species.
+
+=item -a(ggressive)     
+
+Also mask those repeats unclear to be either lineage specific or ancestral.
+
+=item -n(olow)          
+
+Does not mask satellites, simple repeats and low complexity DNA, none 
+of which $script is trying to label lineage-specific or ancestral
+
+=back
+
+Only the following species are currently recognized:
+human, mouse, rat, cat, dog, cow, pig, horse, rabbit 
+Eventually all vertebrates and some other species should be included.
+The script is dependent on the presence of RepeatMasker repeat
+libraries of June 2003 or later, which contain information on the
+phylogeny of mammalian interspersed repeats.
+
+=head1 SEE ALSO
+
+=over 4
+
+RepeatMasker
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2003 Arian Smit, Institute for Systems Biology
+
+=head1 AUTHOR
+
+Arian Smit <asmit@systemsbiology.org>
+
+Robert Hubley <rhubley@systemsbiology.org>
+
+=cut
+
+#
+# Module Dependence
+#
+#use strict;
+use FindBin;
+use lib $FindBin::RealBin;
+use RepbaseEMBL;
+use Getopt::Long;
+use Taxonomy;
+
+# A bug in 5.8 produces way too many warnings
+if ( $] && $] >= 5.008003 ) {
+  use warnings;
+}
+
+##----------------------------------------------------------------------##
+##     CONFIGURE THE FOLLOWING PARAMETERS FOR YOUR INSTALLATION         ##
+##                                                                      ##
+##
+## Set the location for the RepeatMasker repeat libraries
+##
+##      my $dir = "/usr/local/RepeatMasker/Libraries";
+##
+my $dir = "$FindBin::RealBin/Libraries";
+
+##
+##  Set the location of the RepeatMasker Taxonomy database file
+##
+##
+my $taxFile = "$FindBin::RealBin/taxonomy.dat";
+
+##                                                                      ##
+##                      END CONFIGURATION AREA                          ##
+##----------------------------------------------------------------------##
+
+#
+# Verify that the libraries exist
+#
+die "Indicate directory with the RepeatMasker repeat libraries near " . "line "
+    . &getFirstLineNumberMatching( "CONFIGURE THE", $0 )
+    . " of $0\n"
+    unless -s "$dir/RepeatMaskerLib.embl";
+
+die "Indicate directory with the RepeatMasker taxononmy database near "
+    . "line "
+    . &getFirstLineNumberMatching( "my \$taxfile", $0 )
+    . " of $0\n"
+    unless -s "$taxFile";
+
+#
+my ( $script ) = ( $0 =~ m|([^/]*)$| );
+my $usage = "\nUsage: $script <repeatmasker .out files> -query <species1>
+              -comp <species2> [-comp <species3> -mask <species2>]
+
+$script will create a file similar to the .out file with added column(s)
+indicating if a repeat is expected to be present in the indicated \'other 
+species\'.
+
+Required:
+-q -query <species1> The species that has been analyzed.
+-c -comp <species2>  Other mammalian species; can be used multiple times, 
+                     adding extra columns to the annotation in a 
+                     <file.out_species2_species3_etc>
+
+Optional parameters:
+-m -mask <species> Produces a sequence file with all lineage specific 
+                   repeats masked, i.e. those predicted to be in the 
+                   -query and absent in the -mask species (sequence <file> u
+                   and RepeatMasker <file.out> must be in same directory)
+                   <species> must correspond to one of the -comp species.
+-a -aggressive     Also mask those repeats unclear to be lineage specific 
+                   or ancestral.
+-n -nolow          Does not mask satellites, simple repeats and low 
+                   complexity DNA, none of which $script is trying to 
+                   label lineage-specific or ancestral.
+-h -help           Print out the daterepeats help manual.
+
+Only the following species are currently recognized:
+human, mouse, rat, cat, dog, cow, pig, horse, rabbit 
+Eventually all vertebrates and some other species should be included.
+The script is dependent on the presence of RepeatMasker repeat
+libraries of June 2003 or later, which contain information on the
+phylogeny of mammalian interspersed repeats.
+\n";
+
+## currently the following are global parameters
+## @spec @pat %pattern %shared %div $opt_query $opt_comp $opt_mask $opt_help
+
+my @spec = ();
+my @opts =
+    ( "query=s", "comp=s" => \@spec, "mask=s", "aggressive", "nolow", "help" );
+$opt_query = $opt_mask = $opt_aggressive = $opt_nolow = $opt_help;
+@spec = ();    # global; used in all subroutines
+
+unless ( &GetOptions( @opts ) ) {
+  print STDERR "$usage";
+  exit( 1 );
+}
+
+# Print out the big help file if requested
+my $PAGER = $ENV{PAGER};
+$PAGER = "more" if !defined $PAGER;
+system( "$PAGER $FindBin::Bin/daterepeats.help\n" ), exit if $opt_help;
+
+die "$usage" unless $opt_query && $spec[ 0 ];
+
+my $message =
+"You need a RepeatMasker library of June 2003 or later for $script to function\n(the file \"version\" in the $dir directory needs to say 20030606 or later).\nNew RepeatMasker libraries can be downloaded from http://www.girinst.org\n";
+
+unless ( -s "$dir/RepeatMaskerLib.embl" ) {
+  open IN, "$dir/version" || die "$message";
+  $_ = <IN>;
+  my @check = split;
+  $check[ 0 ] && $check[ $#check ] >= 20030600 || die "$message";
+}
+
+@pat = ();    #global
+my $match;
+
+# Open the taxonomy database
+my $tax = Taxonomy->new( taxonomyDataFile => $taxFile );
+
+# Standardize the species names passed to us
+my $query = $tax->isSpecies( $opt_query );
+my $mask  = "";
+if ( $opt_mask ) {
+  $mask = $tax->isSpecies( $opt_mask );
+}
+for $i ( 0 .. $#spec ) {
+  my $normalizedSpecies = $tax->isSpecies( $spec[ $i ] );
+  die "Do not know of species: $spec[$i]!\n" if ( $normalizedSpecies eq "" );
+  $spec[ $i ] = $normalizedSpecies;
+  $match = $i if $mask && $spec[ $i ] eq $mask;
+  die "Query and comparison species must be different\n\n"
+      if ( $query eq $spec[ $i ] );
+}
+
+die "Query and -mask species must be different\n\n"
+    if ( $opt_mask && $query eq $mask );
+
+die "The -mask species has to be the same as one of the -comp species\n\n"
+    if ( $opt_mask && !defined $match );
+
+foreach $rmfile ( @ARGV ) {
+  my $seqfile = $rmfile;
+  $seqfile =~ s/\.out$//;
+  die "$script only accepts RepeatMasker output files ending in .out "
+      . "(unlike \"$rmfile\")\n\n"
+      if ( $rmfile !~ /\.out$/ );
+  unless ( !$opt_mask || -s $seqfile ) {
+    die "No sequence file $seqfile is found in the same directory "
+        . "as $rmfile to create a lineage-specifically masked "
+        . "sequence file\n\n";
+  }
+}
+
+&GetInfo( $tax, $query, \@spec );
+
+foreach $rmfile ( @ARGV ) {
+  my ( %begin, %end, %class, @lines );
+  %pattern = ();    # global; associates an 'age-pattern' with each repeat ID
+  my ( $maxID, $adjustment, $noidea ) = ( 0, 0, 0 );
+  open IN, "<$rmfile" or die "Could not open $rmfile!\n";
+  my $outfile = "$rmfile";
+  foreach my $spec ( @spec ) {
+    $outfile .= "_$spec";
+  }
+  $outfile =~ s/\s+/-/g;
+  die "Output file is input file. $script will not override $rmfile.\n"
+      if ( $outfile eq $rmfile );
+
+  # This should never happen with the die on !$ARGV[2]
+  open OUT, ">$outfile" or die "Could not open $outfile for writing!\n";
+  my @bit         = ();
+  my @correctedID = ();
+  my $lineNum     = 0;
+  while ( <IN> ) {
+    chomp;
+    if ( /^   SW  perc/ ) {
+      $_ .= "     ";    # give it some space (ID is underneath)
+      foreach my $spec ( @spec ) {
+        $_ .= " $spec";
+      }
+    }
+    elsif ( /\(\d+\)/ ) {
+      $_ .= " ";        # in case there is no space at end
+           # Get rid of overlap warnings and provide spacing for new column
+      s/\s+\*?\s*$/    /;
+      @bit = split;
+      if ( $bit[ 14 ] ) {    # for the strangers who delete the IDs
+        if (
+
+          # Sometimes long sequences have been analyzed in chunks
+          # (e.g. at UCSC analyses chunks of 500kb)
+          # in those situtations the IDs start from 1 again; drop is
+          # almost always > 100, so 50 should be catch most if not all
+          # 50 is also high enough; never caught a repeat interrupted
+          # by 50 inserted other repeats.
+          # (A bug introduced in ProcessRepeats version 1.42 does
+          # produce such results; these are fixed in version 1.80,
+          # but similar bugs can be reintroduced; thus, an extra
+          # requirement is now that the ID < 10.
+          $bit[ 14 ] < 10 &&
+
+          # All segments should start with 1 so this may be set
+          # stricter. However, it is possible that, unlike at the
+          # UCSC browser, people use overlapping segments and the
+          # beginning of a segment may be broken of
+          $bit[ 14 ] + $adjustment < $maxID - 20 &&
+
+          # some segments may have few repeats when a very long
+          # N-patch is present (e.g. centromere)
+          (
+               $bit[ 14 ] + $adjustment < $maxID - 50
+            || $bit[ 10 ] ne $class{ $bit[ 14 ] }
+          )
+            )
+        {
+
+          $adjustment = ( $maxID - $bit[ 14 ] + 10 );
+        }
+        $bit[ 14 ] += $adjustment;
+        $class{ $bit[ 14 ] } = $bit[ 10 ];
+      }
+      else {
+        $noidea = 1;
+      }
+      my $patternstring;
+
+      # Some repeat names do not appear in the repeatmasker database
+      # The name changes here are invisible outside the script; they
+      # only help to improve the age estimates. This code should be
+      # replaced by chanes in the database
+
+      # There can't be any case-ambiguity
+      $bit[ 9 ] =~ tr/a-z/A-Z/;
+
+      # PR ambiguates some Alus (and perhaps others) by naming the
+      # repeat e.g. AluSq/x AluJ/F(R)AM
+      if ( $bit[ 10 ] eq 'SINE/Alu' ) {
+        $bit[ 9 ] =~ s/\/\S+$//;
+
+        # 20 CpG pairs drives up the mismatch level improperly
+        $bit[ 1 ] -= 5;
+        $bit[ 1 ] == 0 if $bit[ 1 ] < 0;
+      }
+      elsif ( $bit[ 10 ] =~ /^DNA/ ) {
+
+        # PR throws in some alternative names like Tigger3(Golem),
+        $bit[ 9 ] =~ s/\(\S+$//;
+        $bit[ 9 ] =~ s/^MER7([A-Z])$/TIGGER3$1/;
+        $bit[ 9 ] =~ s/^TIGGER7([A-Z])$/MER44$1/;
+        $bit[ 9 ] =~ s/^TIGGER5([A-Z])$/MER47$1/;
+      }
+      elsif ( $bit[ 10 ] eq 'LINE/L1' ) {
+        if ( $bit[ 9 ] =~ /^L1M\w$/ ) {
+          $bit[ 9 ] =~ s/^L1M[E5]$/L1ME2/;
+          $bit[ 9 ] =~ s/^L1M[CD]$/L1MC2/;
+          $bit[ 9 ] =~ s/^L1M4$/L1MB7/;
+          $bit[ 9 ] =~ s/^L1M3$/L1MB2/;
+          $bit[ 9 ] =~ s/^L1M2$/L1MA7/;
+          $bit[ 9 ] =~ s/^L1M1$/L1MA2/;
+        }
+        elsif ( $bit[ 9 ] =~ /^L1P\w?$/ ) {
+          $bit[ 9 ] =~ s/^L1P1$/L1PA2/;
+          $bit[ 9 ] =~ s/^L1P2$/L1PA5/;
+          $bit[ 9 ] =~ s/^L1P3$/L1PA8/;
+          $bit[ 9 ] =~ s/^L1P4$/L1PA14/;
+          $bit[ 9 ] =~ s/^L1P[5B]$/L1PB2/;
+          $bit[ 9 ] =~ s/^L1P$/L1PA10/;
+        }
+        $bit[ 9 ] =~ s/^L1MC\/D/L1MC3/;
+      }
+      elsif ( $bit[ 10 ] eq 'LTR/ERVL' ) {
+
+# ERVL internal sequences named after MLT2 subfamilies. Primate specific one have HERVL.
+        $bit[ 9 ] =~ s/^ERVL-.+/ERVL/;
+        $bit[ 9 ] =~ s/^HERVL-.+/HERVL/;
+      }
+
+      # Check if shared{} exist (exists if the sequence name appears
+      # in the database) If not: base phylogenetic labeling on
+      # divergence level
+
+      if ( $bit[ 10 ] =~ /^Simple|^Low|^Satel/ ) {
+
+        # Nothing sensible to say about these
+        for $i ( 0 .. $#spec ) {
+          $patternstring .= "-  ";
+        }
+      }
+      elsif ( $bit[ 14 ] && $shared{ $bit[ 9 ] } && $bit[ 10 ] !~ /RNA$/ ) {
+
+        # RNA genes have produced copies "forever"
+        $patternstring =
+            &AdjustSharedInfo( $bit[ 1 ], $bit[ 14 ], $shared{ $bit[ 9 ] } );
+        $pattern{ $bit[ 14 ] } = $patternstring;
+      }
+      else {
+        for $i ( 0 .. $#spec ) {
+          if ( 5 * $div{ $spec[ $i ] } / 4 < $bit[ 1 ] ) {
+            $patternstring .= "X  ";
+          }
+          elsif ( 3 * $div{ $spec[ $i ] } / 4 > $bit[ 1 ] ) {
+            $patternstring .= "0  ";
+          }
+          else {
+            $patternstring .= "?  ";
+          }
+        }
+      }
+      $_ .= $patternstring;
+      $maxID = $bit[ 14 ] if $bit[ 14 ] && $bit[ 14 ] > $maxID;
+    }
+    $correctedID[ $lineNum++ ] = $bit[ 14 ];
+    push @lines, "$_";
+  }
+  close IN;
+  &windback( \@lines, \@correctedID ) unless $noidea;
+  foreach $_ ( @lines ) {
+    print OUT "$_\n";
+    if ( $opt_mask && /\(\d+\)/ ) {
+      my @bits = split;
+      my @pat  = @bits[ 15 .. $#bits ];
+      my $pat  = $pat[ $match ];
+      if (    $pat eq '0'
+           || $pat eq '?' && $opt_aggressive
+           || $pat eq '-' && !$opt_nolow )
+      {
+        push @{ $begin{ $bits[ 4 ] } },
+            $bits[ 5 ];    #makes your nose shrivel, doesn't it
+        push @{ $end{ $bits[ 4 ] } }, $bits[ 6 ];
+      }
+    }
+  }
+  close OUT;
+  &MaskLinSpec( \%begin, \%end ) if $opt_mask;
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $blah = blah();
+##
+##  Input
+##
+##  Returns
+##
+##-------------------------------------------------------------------------##
+sub windback {
+  my $linesRef       = shift;
+  my $correctedIDRef = shift;
+
+  #  %pattern = ();
+  my $i = $#{$linesRef};
+  while ( $i >= 0 ) {
+    my $xandos = "";
+    if ( $linesRef->[ $i ] =~ /\(\d+\)/ ) {
+      my @bits = split( /\s+/, $linesRef->[ $i ] );
+      shift @bits unless $bits[ 0 ] =~ /\d/;   # morose splitting of first space
+      if ( $pattern{ $correctedIDRef->[ $i ] } ) {
+        my $pattern = quotemeta $pattern{ $correctedIDRef->[ $i ] };
+        if ( $linesRef->[ $i ] !~ /$pattern/ ) {
+          my @xandos = &MakeLikeOldPattern( $bits[ 1 ],
+                                            $correctedIDRef->[ $i ],
+                                            @bits[ 15, 16, 17, 18, 19 ] )
+              ;    # don't expect more than 5 species
+          for $j ( 0 .. $#spec ) {
+            $xandos .= "$xandos[$j]  ";
+          }
+          $linesRef->[ $i ] =~
+              s/(.+$bits[13]\s+$bits[14]\s+)([\sX0\?\-]+$)/$1$xandos/;
+        }
+      }
+      $linesRef->[ $i ] =~ /(.+$bits[13]\s+$bits[14]\s+)([\sX0\?\-]+)$/;
+      $pattern{ $correctedIDRef->[ $i ] } = $2;
+    }
+    --$i;
+  }
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $blah = blah();
+##
+##  Input
+##
+##  Returns
+##
+##-------------------------------------------------------------------------##
+sub GetInfo {
+  my $taxonomyDB     = shift;
+  my $query          = shift;
+  my $compSpeciesRef = shift;
+
+  my @combSpecies = ();
+  push @combSpecies, $query;
+  push @combSpecies, @{$compSpeciesRef};
+
+  &CollectInfo( $taxonomyDB, \@combSpecies, "$dir/RepeatMaskerLib.embl" );
+
+  if (    $taxonomyDB->isA( $query, "homo" )
+       || $taxonomyDB->isA( $query, "pan" ) )
+  {
+    for $i ( 0 .. $#spec ) {
+      if ( $spec[ $i ] =~ /^homo[\s\S+]?$|^pan[\s\S+]?$|^gorilla[\s\S+]?$/ ) {
+        $div{ $spec[ $i ] } = 1;
+      }
+      elsif ( $spec[ $i ] =~ /^hylobates[\s\S+]?$/ ) {
+        $div{ $spec[ $i ] } = 2;
+      }
+      elsif ( $spec[ $i ] =~ /^macaca[\s\S+]?$/ ) {
+        $div{ $spec[ $i ] } = 3;
+      }
+      else {    # temporarily only for other orders
+                # 15.5% is Higher than theoretically expected; empirically
+                # best approximate though
+        $div{ $spec[ $i ] } = 15.5;
+      }
+    }
+  }
+  elsif (    $taxonomyDB->isA( $query, "mus" )
+          || $taxonomyDB->isA( $query, "rattus" ) )
+  {
+    for $i ( 0 .. $#spec ) {
+      if ( $spec[ $i ] =~ /^mus musculus$|^rattus$/ ) {
+        $div{ $spec[ $i ] } = 10;
+      }
+      else {
+        $div{ $spec[ $i ] } = 28;
+      }
+    }
+  }
+  elsif (    $taxonomyDB->isA( $query, "canis" )
+          || $taxonomyDB->isA( $query, "felis" ) )
+  {
+    for $i ( 0 .. $#spec ) {
+      if ( $spec[ $i ] =~ /^felis|^canis/ ) {
+        $div{ $spec[ $i ] } = 10;
+      }
+      else {
+        $div{ $spec[ $i ] } = 18;
+      }
+    }
+  }
+  elsif (    $taxonomyDB->isA( $query, "bos" )
+          || $taxonomyDB->isA( $query, "sus" ) )
+  {
+    for $i ( 0 .. $#spec ) {
+      if ( $spec[ $i ] =~ /^bos$|^sus$/ ) {
+        $div{ $spec[ $i ] } = 12;
+      }
+      else {
+        $div{ $spec[ $i ] } = 18;
+      }
+    }
+  }
+  elsif ( $taxonomyDB->isA( $query, "horse" ) ) {
+    for $i ( 0 .. $#spec ) {
+      $div{ $spec[ $i ] } = 14;    # apparently slow rate
+    }
+  }
+  elsif ( $taxonomyDB->isA( $query, "rabbit" ) ) {
+    for $i ( 0 .. $#spec ) {
+      $div{ $spec[ $i ] } = 30;    # worse then rodents
+    }
+  }
+
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $blah = blah();
+##
+##  Input
+##
+##  Returns
+##
+##-------------------------------------------------------------------------##
+sub CollectInfo {
+  my $tax        = shift;
+  my $speciesRef = shift;
+  my $RMLib      = shift;
+
+  my $db = RepbaseEMBL->new( fileName => "$RMLib" );
+  my $seqCount = $db->getRecordCount();
+  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
+    my $record  = $db->getRecord( $i );
+    my $repname = $record->getId();
+    $type = $record->getRMType();
+    if ( $record->getRMSubType() ne "" ) {
+      $type .= "/" . $record->getRMSubType();
+    }
+    next if ( $type =~ /RNA$/ );
+    $repname =~ s/_5end$//;
+    $repname =~ tr/a-z/A-Z/;
+    my $short = "";
+    if ( $repname =~ /_3END(EXTENDED)?$/ ) {
+
+      # A bug in processrepeats left a bunch of '_3endextended's!
+      # Is fixed, but could happen again
+      ( $short = $repname ) =~ s/_3END(EXTENDED)?$//;
+    }
+    elsif ( $type eq 'SINE/Alu' ) {
+      ( $short = $repname ) =~ s/[A-Z1-9]$//;
+    }
+    elsif ( $type =~ /DNA/ ) {
+
+      # In PR unresolved DNA transposons lose their
+      # final subfamily classification
+      ( $short = $repname ) =~ s/[A-Z]$//;
+
+      # if the short version exists as a separate entry,
+      # it will occur earlier in the repeat file (so it's okay)
+    }
+    my $long = "";
+
+    # ints named after LTRs by PR
+    $long = "$repname" . "-INT" if ( $type =~ /LTR/ );
+
+    my $qMatch    = 0;
+    my $sharedStr = "";
+    $qMatch = 1;
+    for $i ( 1 .. $#{$speciesRef} ) {
+      my $compSpecies = $comp[ $i ];
+      my $pMatch      = 0;
+      foreach my $clade ( $record->getRMSpeciesArray() ) {
+        $name =~ s/_/ /g;
+
+        #if (    $tax->isA( $clade, $speciesRef->[ $i ] ) > 0
+        #     || $tax->isA( $speciesRef->[ $i ], $clade ) > 0 )
+        if ( $tax->predates( $clade, $query, $speciesRef->[ $i ] ) > 0 ) {
+          if ( $i == 0 ) {
+            $qMatch = 1;
+          }
+          else {
+            $pMatch = 1;
+            last;
+          }
+        }
+      }
+      if ( $i >= 1 ) {
+        if ( $pMatch || $repname =~ /_OLD/ ) {
+          $sharedStr .= "X  ";
+        }
+        else {
+          $sharedStr .= "0  ";
+        }
+      }
+    }
+
+    if ( $qMatch == 1 || $repname =~ /_OLD/ ) {
+      if ( !$shared{$repname} ) {
+        $shared{$repname} = $sharedStr;
+      }
+      if ( $short && !$shared{$short} ) {
+        $shared{$short} = $sharedStr;
+      }
+      if ( $long && !$shared{$long} ) {
+        $shared{$long} = $sharedStr;
+      }
+    }    # if qMatch
+  }    # While
+  close IN;
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $blah = blah();
+##
+##  Input
+##
+##  Returns
+##
+##-------------------------------------------------------------------------##
+sub AdjustSharedInfo {
+  my $div        = shift;
+  my $id         = shift;
+  my $oldXsandOs = shift;
+  my @xs         = split( /  /, $oldXsandOs );
+  my $xsandos    = "";
+  for $i ( 0 .. $#spec ) {
+    if (
+
+      # labeled as ancestral but low divergence suggests lineage specificity
+      $xs[ $i ] eq 'X'
+      && $div{ $spec[ $i ] } / 2 >= $div
+      && $div{ $spec[ $i ] } - 1 >= $div
+
+      # only effects close species; e.g. for chimp-human (0.6%
+      # div at split, but 1% taken), even perfect matches to
+      # a consensus does not suggest that a shared status is wrong
+      # (this depends on lenght of match and CpG #; perhaps can
+      # be worked in?)
+
+      # labeled as lineage-specific, but high level of
+      # divergence suggests ancestral status
+      || $xs[ $i ] eq '0'
+      && 3 * $div{ $spec[ $i ] } / 2 <= $div
+      && $div{ $spec[ $i ] } + 3 <= $div
+
+      # imperfections in the consensus and subfamily differences
+      # can easily amount to an extra 3% div
+        )
+    {
+
+      # divergence levels too erratic to assign age with confidence
+      # totally arbitrary difference of half and 8% divergence
+      # perhaps there is a statistically valid way to do it.
+      $xsandos .= "?  ";
+    }
+    else {
+      $xsandos .= "$xs[$i]  ";
+    }
+  }
+  if ( $pattern{$id} && $pattern{$id} ne $xsandos ) {
+    $xsandos = "";
+    @xs = &MakeLikeOldPattern( $div, $id, @xs );
+    for $i ( 0 .. $#spec ) {
+      $xsandos .= "$xs[$i]  ";
+    }
+  }
+  return $xsandos;
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $blah = blah();
+##
+##  Input
+##
+##  Returns
+##
+##-------------------------------------------------------------------------##
+sub MakeLikeOldPattern {
+  my $div    = shift;
+  my $id     = shift;
+  my @xs     = @_;
+  my @oldpat = split( /\s+/, $pattern{$id} );
+  for $i ( 0 .. $#spec ) {
+    if ( $xs[ $i ] ne $oldpat[ $i ] && $oldpat[ $i ] ne '?' ) {
+      if (    $xs[ $i ] eq '?'
+           || $xs[ $i ] eq '0' && $div > $div{ $spec[ $i ] }
+           || $xs[ $i ] eq 'X' && $div < $div{ $spec[ $i ] } )
+      {
+        $xs[ $i ] = $oldpat[ $i ];
+      }
+    }
+  }
+  return @xs;
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $blah = blah();
+##
+##  Input
+##
+##  Returns
+##
+##-------------------------------------------------------------------------##
+sub MaskLinSpec {
+  my ( $beginRef, $endRef ) = @_;
+  my ( $seq, $name );
+  my ( %seqwithname, %description, @seqname_array ) = ();
+  my $seqfile = $rmfile;
+  $seqfile =~ s/\.out$//;
+  open F, $seqfile;
+  while ( <F> ) {
+    chomp;
+    if ( /^\s*>\s*(\S*)/ ) {
+      if ( $seqwithname{$name} && $seqwithname{$name} ne $seq ) {
+        die "No special masked file was created as there are two different
+sequences with the name \"$name\" in the file\"$seqfile\"\n";
+      }
+      $seqwithname{$name} = $seq if $seq;
+      $name               = $1;
+      $description{$name} = $_;
+      push( @seqname_array, $name );
+      $seq = '';
+    }
+    else {
+      $seq .= $_;
+    }
+  }
+  if ( $seqwithname{$name} && $seqwithname{$name} ne $seq ) {
+    die "No special masked file was created as there are two different
+sequences with the name \"$name\" in the file\"$seqfile\"\n";
+  }
+  $seqwithname{$name} = $seq if $seq;
+  close F;
+  my $outfile = "$seqfile.masked" . "_vs_$opt_mask";
+  open( MASKOUT, ">$outfile" );
+  my $naam;
+  foreach $naam ( @seqname_array ) {
+    my $XedSeq = "";
+    if ( defined $seqwithname{$naam} )
+    {    # exception when a fasta line is not followed by sequence
+      $XedSeq =
+          &XoutSeq( $seqwithname{$naam}, $beginRef->{$naam}, $endRef->{$naam} );
+    }
+    print MASKOUT "$description{$naam}\n";
+    my $len = length $XedSeq;
+    my $i   = 0;
+    while ( $i < $len - 50 ) {
+      print MASKOUT substr( $XedSeq, $i, 50 ), "\n";
+      $i += 50;
+    }
+    if ( $i < $len ) {
+      print MASKOUT substr( $XedSeq, $i ), "\n";
+    }
+  }
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $blah = blah();
+##
+##  Input
+##
+##  Returns
+##
+##-------------------------------------------------------------------------##
+sub XoutSeq {
+  my ( $XedSeq, $beginRef, $endRef ) = @_;
+  if ( $beginRef ) {
+    my $i;
+    for ( $i = $#$beginRef ; $i > -1 ; $i-- ) {
+      my $len = $$endRef[ $i ] - $$beginRef[ $i ] + 1;
+      substr( $XedSeq, $$beginRef[ $i ] - 1, $len ) = 'N' x $len;
+    }
+  }
+  return $XedSeq;
+}
+
+##-------------------------------------------------------------------------##
+## Use:  my $lineNum = getFirstLineNumberMatching( $regEx, $filename );
+##
+##  Input
+##
+##       $regex :   A regular expression to look for in the file.
+##       $filename: The filename to query.
+##
+##  Returns
+##
+##       $lineNum :  The first line number the regular expression
+##                   was found on or -1 if the the expression could
+##                   not be found or if the file could not be opened.
+##-------------------------------------------------------------------------##
+sub getFirstLineNumberMatching {
+  my $regEx    = shift;
+  my $filename = shift;
+
+  open IN, "<$filename" || return -1;
+
+  my $lineNum = 0;
+  while ( <IN> ) {
+    $lineNum++;
+    s/[\n\r]//g;
+    if ( /$regEx/ ) {
+      close IN;
+      return $lineNum;
+    }
+  }
+  close IN;
+  return -1;
+}
+
+1;

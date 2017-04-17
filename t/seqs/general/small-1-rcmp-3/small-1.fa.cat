@@ -1,0 +1,767 @@
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/sinecutlib -matrix ../../..//Matrices/14p43g.matrix -gap_init -35 -ins_gap_ext -7 -del_gap_ext -6 -minmatch 8 -minscore 1200 -masklevel 1 -bandwidth 20 
+cross_match version 0.990329
+
+Run date:time  040108:144014
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/sinecutlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/14p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0 -11 -18 -19 -21 -16  -4 -14  -5  -1 -30
+R   3   3  11 -18 -18 -19  -9  -8  -9  -9  -1 -30
+G  -7   1  11 -18 -18 -18  -3 -12  -3 -12  -1 -30
+C -18 -18 -18  11   2  -7 -12  -3  -3 -12  -1 -30
+Y -19 -18 -18  11   0   3  -8  -9  -9  -9  -1 -30
+T -21 -19 -18 -10   0   9  -4 -16 -14  -5  -1 -30
+K -14  -8  -3 -14  -9  -4  -3 -14  -9  -9  -1 -30
+M  -4  -9 -14  -3  -8 -14 -14  -3  -9  -9  -1 -30
+S -12  -8  -3  -3  -8 -12  -8  -8  -3 -12  -1 -30
+W  -5 -10 -14 -14 -10  -5 -10 -10 -14  -5  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -35, gap_ext: -2, ins_gap_ext: -7, del_gap_ext: -6, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 8, maxmatch: 8, max_group_size: 20, minscore: 1200, bandwidth: 20, indexwordsize: 8
+vector_bound: 0
+word_raw: 0
+masklevel: 1
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/sinecutlib -matrix ../../..//Matrices/14p43g.matrix -gap_init -35 -ins_gap_ext -7 -del_gap_ext -6 -minmatch 8 -minscore 800 -masklevel 1 -bandwidth 20 
+cross_match version 0.990329
+
+Run date:time  040108:144014
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/sinecutlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/14p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0 -11 -18 -19 -21 -16  -4 -14  -5  -1 -30
+R   3   3  11 -18 -18 -19  -9  -8  -9  -9  -1 -30
+G  -7   1  11 -18 -18 -18  -3 -12  -3 -12  -1 -30
+C -18 -18 -18  11   2  -7 -12  -3  -3 -12  -1 -30
+Y -19 -18 -18  11   0   3  -8  -9  -9  -9  -1 -30
+T -21 -19 -18 -10   0   9  -4 -16 -14  -5  -1 -30
+K -14  -8  -3 -14  -9  -4  -3 -14  -9  -9  -1 -30
+M  -4  -9 -14  -3  -8 -14 -14  -3  -9  -9  -1 -30
+S -12  -8  -3  -3  -8 -12  -8  -8  -3 -12  -1 -30
+W  -5 -10 -14 -14 -10  -5 -10 -10 -14  -5  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -35, gap_ext: -2, ins_gap_ext: -7, del_gap_ext: -6, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 8, maxmatch: 8, max_group_size: 20, minscore: 800, bandwidth: 20, indexwordsize: 8
+vector_bound: 0
+word_raw: 0
+masklevel: 1
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/sinecutlib -matrix ../../..//Matrices/18p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 400 -masklevel 10 -bandwidth 14 
+cross_match version 0.990329
+
+Run date:time  040108:144014
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/sinecutlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/18p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0  -8 -15 -17 -18 -13  -3 -12  -4  -1 -30
+R   2   1   0 -16 -16 -17  -8  -6  -7  -7  -1 -30
+G  -5   2  10 -16 -16 -16  -2 -10  -2 -10  -1 -30
+C -16 -16 -16  10   2  -5 -10  -2  -2 -10  -1 -30
+Y -17 -16 -16   0   1   2  -6  -8  -7  -7  -1 -30
+T -18 -17 -15  -8   0   9  -3 -13 -12  -4  -1 -30
+K -11  -7  -2 -12  -7  -3  -2 -12  -7  -7  -1 -30
+M  -3  -7 -12  -2  -7 -11 -12  -2  -7  -7  -1 -30
+S -10  -6  -2  -2  -6 -10  -6  -6  -2 -10  -1 -30
+W  -4  -8 -12 -12  -8  -4  -8  -8 -12  -4  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -30, gap_ext: -2, ins_gap_ext: -6, del_gap_ext: -5, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 8, maxmatch: 8, max_group_size: 20, minscore: 400, bandwidth: 14, indexwordsize: 8
+vector_bound: 0
+word_raw: 0
+masklevel: 10
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/shortcutlib -matrix ../../..//Matrices/18p43g.matrix -gap_init -33 -ins_gap_ext -5 -del_gap_ext -4 -minmatch 10 -minscore 300 -masklevel 1 -bandwidth 40 
+cross_match version 0.990329
+
+Run date:time  040108:144014
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/shortcutlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/18p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0  -8 -15 -17 -18 -13  -3 -12  -4  -1 -30
+R   2   1   0 -16 -16 -17  -8  -6  -7  -7  -1 -30
+G  -5   2  10 -16 -16 -16  -2 -10  -2 -10  -1 -30
+C -16 -16 -16  10   2  -5 -10  -2  -2 -10  -1 -30
+Y -17 -16 -16   0   1   2  -6  -8  -7  -7  -1 -30
+T -18 -17 -15  -8   0   9  -3 -13 -12  -4  -1 -30
+K -11  -7  -2 -12  -7  -3  -2 -12  -7  -7  -1 -30
+M  -3  -7 -12  -2  -7 -11 -12  -2  -7  -7  -1 -30
+S -10  -6  -2  -2  -6 -10  -6  -6  -2 -10  -1 -30
+W  -4  -8 -12 -12  -8  -4  -8  -8 -12  -4  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -33, gap_ext: -2, ins_gap_ext: -5, del_gap_ext: -4, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 10, maxmatch: 10, max_group_size: 20, minscore: 300, bandwidth: 40, indexwordsize: 10
+vector_bound: 0
+word_raw: 0
+masklevel: 1
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/cutlib -matrix ../../..//Matrices/18p43g.matrix -gap_init -33 -ins_gap_ext -5 -del_gap_ext -4 -minmatch 10 -minscore 300 -masklevel 90 -bandwidth 40 
+cross_match version 0.990329
+
+Run date:time  040108:144014
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/cutlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/18p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0  -8 -15 -17 -18 -13  -3 -12  -4  -1 -30
+R   2   1   0 -16 -16 -17  -8  -6  -7  -7  -1 -30
+G  -5   2  10 -16 -16 -16  -2 -10  -2 -10  -1 -30
+C -16 -16 -16  10   2  -5 -10  -2  -2 -10  -1 -30
+Y -17 -16 -16   0   1   2  -6  -8  -7  -7  -1 -30
+T -18 -17 -15  -8   0   9  -3 -13 -12  -4  -1 -30
+K -11  -7  -2 -12  -7  -3  -2 -12  -7  -7  -1 -30
+M  -3  -7 -12  -2  -7 -11 -12  -2  -7  -7  -1 -30
+S -10  -6  -2  -2  -6 -10  -6  -6  -2 -10  -1 -30
+W  -4  -8 -12 -12  -8  -4  -8  -8 -12  -4  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -33, gap_ext: -2, ins_gap_ext: -5, del_gap_ext: -4, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 10, maxmatch: 10, max_group_size: 20, minscore: 300, bandwidth: 40, indexwordsize: 10
+vector_bound: 0
+word_raw: 0
+masklevel: 90
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked ../../..//Libraries/l1.lib -matrix ../../..//Matrices/25p43g.matrix -gap_init -27 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 300 -masklevel 90 -bandwidth 14 -raw 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   ../../..//Libraries/l1.lib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/25p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   8   1  -6 -13 -14 -15 -11  -2  -9  -3  -1 -27
+R   2   2   1 -13 -13 -14  -6  -5  -5  -5  -1 -27
+G  -2   3   9 -13 -13 -13  -1  -8  -1  -8  -1 -27
+C -13 -13 -13   9   3  -2  -8  -1  -1  -8  -1 -27
+Y -14 -13 -13   1   2   3  -5  -6  -5  -5  -1 -27
+T -15 -14 -13  -6   1   8  -2 -11  -9  -3  -1 -27
+K  -9  -5  -1  -9  -6  -2  -1  -9  -5  -5  -1 -27
+M  -2  -6 -10  -1  -5  -9  -9  -1  -5  -5  -1 -27
+S  -8  -4  -1  -1  -4  -8  -4  -4  -1  -8  -1 -27
+W  -3  -6  -9  -9  -6  -3  -6  -6  -9  -3  -1 -27
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -27
+X -27 -27 -27 -27 -27 -27 -27 -27 -27 -27 -27 -27
+
+Gap penalties: gap_init: -27, gap_ext: -2, ins_gap_ext: -6, del_gap_ext: -5, 
+Using raw scores.
+
+minmatch: 8, maxmatch: 8, max_group_size: 20, minscore: 300, bandwidth: 14, indexwordsize: 8
+vector_bound: 0
+word_raw: 0
+masklevel: 90
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked ../../..//Libraries/mir.lib -matrix ../../..//Matrices/25p43g.matrix -gap_init -27 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 6 -minscore 250 -masklevel 90 -bandwidth 14 -raw 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   ../../..//Libraries/mir.lib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/25p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   8   1  -6 -13 -14 -15 -11  -2  -9  -3  -1 -27
+R   2   2   1 -13 -13 -14  -6  -5  -5  -5  -1 -27
+G  -2   3   9 -13 -13 -13  -1  -8  -1  -8  -1 -27
+C -13 -13 -13   9   3  -2  -8  -1  -1  -8  -1 -27
+Y -14 -13 -13   1   2   3  -5  -6  -5  -5  -1 -27
+T -15 -14 -13  -6   1   8  -2 -11  -9  -3  -1 -27
+K  -9  -5  -1  -9  -6  -2  -1  -9  -5  -5  -1 -27
+M  -2  -6 -10  -1  -5  -9  -9  -1  -5  -5  -1 -27
+S  -8  -4  -1  -1  -4  -8  -4  -4  -1  -8  -1 -27
+W  -3  -6  -9  -9  -6  -3  -6  -6  -9  -3  -1 -27
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -27
+X -27 -27 -27 -27 -27 -27 -27 -27 -27 -27 -27 -27
+
+Gap penalties: gap_init: -27, gap_ext: -2, ins_gap_ext: -6, del_gap_ext: -5, 
+Using raw scores.
+
+minmatch: 6, maxmatch: 6, max_group_size: 20, minscore: 250, bandwidth: 14, indexwordsize: 6
+vector_bound: 0
+word_raw: 0
+masklevel: 90
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked ../../..//Libraries/mirs.lib -matrix ../../..//Matrices/25p43g.matrix -gap_init -27 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 6 -minscore 180 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   ../../..//Libraries/mirs.lib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/25p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   8   1  -6 -13 -14 -15 -11  -2  -9  -3  -1 -27
+R   2   2   1 -13 -13 -14  -6  -5  -5  -5  -1 -27
+G  -2   3   9 -13 -13 -13  -1  -8  -1  -8  -1 -27
+C -13 -13 -13   9   3  -2  -8  -1  -1  -8  -1 -27
+Y -14 -13 -13   1   2   3  -5  -6  -5  -5  -1 -27
+T -15 -14 -13  -6   1   8  -2 -11  -9  -3  -1 -27
+K  -9  -5  -1  -9  -6  -2  -1  -9  -5  -5  -1 -27
+M  -2  -6 -10  -1  -5  -9  -9  -1  -5  -5  -1 -27
+S  -8  -4  -1  -1  -4  -8  -4  -4  -1  -8  -1 -27
+W  -3  -6  -9  -9  -6  -3  -6  -6  -9  -3  -1 -27
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -27
+X -27 -27 -27 -27 -27 -27 -27 -27 -27 -27 -27 -27
+
+Gap penalties: gap_init: -27, gap_ext: -2, ins_gap_ext: -6, del_gap_ext: -5, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 6, maxmatch: 6, max_group_size: 20, minscore: 180, bandwidth: 14, indexwordsize: 6
+vector_bound: 0
+word_raw: 0
+masklevel: 90
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked ../../..//Libraries/at.lib -matrix ../../..//Matrices/at.matrix -gap_init -10 -ins_gap_ext -3 -del_gap_ext -3 -minmatch 5 -minscore 21 -masklevel 95 -bandwidth 2 -raw -word_raw 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   ../../..//Libraries/at.lib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/at.matrix
+    A   R   G   C   Y   T   M   W   S   K   N   X
+A   1   0  -6  -6   0   1   0   1  -6   0  -1 -20
+R   0   0   0   0   0   0   0   0   0   0  -1 -20
+G  -6   0   1   1   0  -6   0  -6   1   0  -1 -20
+C  -6   0   1   1   0  -6   0  -6   1   0  -1 -20
+Y   0   0   0   0   0   0   0   0   0   0  -1 -20
+T   1   0  -6  -6   0   1   0   1  -6   0  -1 -20
+M   0   0   0   0   0   0   0   0   0   0  -1 -20
+W   0   0  -6  -6   0   0   0   1  -6   0  -1 -20
+S  -6   0   0   0   0  -6   0  -6   1   0  -1 -20
+K   0   0   0   0   0   0   0   0   0   0  -1 -20
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -20
+X -20 -20 -20 -20 -20 -20 -20 -20 -20 -20 -20 -20
+
+Gap penalties: gap_init: -10, gap_ext: -2, ins_gap_ext: -3, del_gap_ext: -3, 
+Using raw scores.
+
+minmatch: 5, maxmatch: 5, max_group_size: 20, minscore: 21, bandwidth: 2, indexwordsize: 5
+vector_bound: 0
+word_raw: 1
+masklevel: 95
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/longlib -matrix ../../..//Matrices/20p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 225 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/longlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/20p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0  -8 -15 -16 -17 -13  -2 -11  -4  -1 -30
+R   2   1   1 -15 -15 -16  -7  -6  -7  -7  -1 -30
+G  -4   2  10 -15 -15 -15  -2  -9  -2  -9  -1 -30
+C -15 -15 -15  10   2  -4  -9  -2  -2  -9  -1 -30
+Y -16 -15 -15   1   1   2  -6  -7  -7  -7  -1 -30
+T -17 -16 -15  -8   0   9  -2 -12 -11  -4  -1 -30
+K -11  -6  -2 -11  -7  -2  -2 -11  -7  -7  -1 -30
+M  -2  -7 -11  -2  -6 -11 -11  -2  -7  -7  -1 -30
+S  -9  -6  -2  -2  -6  -9  -6  -6  -2  -9  -1 -30
+W  -4  -8 -11 -11  -7  -4  -8  -7 -11  -4  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -30, gap_ext: -2, ins_gap_ext: -6, del_gap_ext: -5, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 8, maxmatch: 8, max_group_size: 20, minscore: 225, bandwidth: 14, indexwordsize: 8
+vector_bound: 0
+word_raw: 0
+masklevel: 90
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/retrolib -matrix ../../..//Matrices/20p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 10 -minscore 250 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/retrolib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/20p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0  -8 -15 -16 -17 -13  -2 -11  -4  -1 -30
+R   2   1   1 -15 -15 -16  -7  -6  -7  -7  -1 -30
+G  -4   2  10 -15 -15 -15  -2  -9  -2  -9  -1 -30
+C -15 -15 -15  10   2  -4  -9  -2  -2  -9  -1 -30
+Y -16 -15 -15   1   1   2  -6  -7  -7  -7  -1 -30
+T -17 -16 -15  -8   0   9  -2 -12 -11  -4  -1 -30
+K -11  -6  -2 -11  -7  -2  -2 -11  -7  -7  -1 -30
+M  -2  -7 -11  -2  -6 -11 -11  -2  -7  -7  -1 -30
+S  -9  -6  -2  -2  -6  -9  -6  -6  -2  -9  -1 -30
+W  -4  -8 -11 -11  -7  -4  -8  -7 -11  -4  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -30, gap_ext: -2, ins_gap_ext: -6, del_gap_ext: -5, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 10, maxmatch: 10, max_group_size: 20, minscore: 250, bandwidth: 14, indexwordsize: 10
+vector_bound: 0
+word_raw: 0
+masklevel: 90
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked ../../..//Libraries/simple.lib -matrix ../../..//Matrices/simple1.matrix -gap_init -40 -ins_gap_ext -15 -del_gap_ext -15 -minmatch 9 -minscore 180 -masklevel 1 -bandwidth 1 -raw -word_raw 
+cross_match version 0.990329
+
+Run date:time  040108:144014
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   ../../..//Libraries/simple.lib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/simple1.matrix
+    A   R   G   C   Y   T   M   W   S   K   N   X
+A   9   3 -12 -24 -24 -24   0   0  -9  -9  -1 -30
+R   5   5   5 -30 -30 -30  -6  -6  -6  -6  -1 -30
+G -12   3   9 -24 -24 -24  -9  -9   0   0  -1 -30
+C -24 -24 -24   9   3 -12   0  -9   0  -9  -1 -30
+Y -30 -30 -30   5   5   5  -6  -6  -6  -6  -1 -30
+T -24 -24 -24 -12   3   9  -9   0  -9   0  -1 -30
+M   0  -6  -9   0  -6  -9   0  -6  -6  -9  -1 -30
+W   0  -6  -9  -9  -6   0  -6   0  -9  -6  -1 -30
+S  -9  -6   0   0  -6  -9  -6  -9   0  -6  -1 -30
+K  -9  -6   0  -9  -6   0  -9  -6  -6   0  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -40, gap_ext: -2, ins_gap_ext: -15, del_gap_ext: -15, 
+Using raw scores.
+
+minmatch: 9, maxmatch: 9, max_group_size: 20, minscore: 180, bandwidth: 1, indexwordsize: 9
+vector_bound: 0
+word_raw: 1
+masklevel: 1
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       84
+  C       79
+  G       24
+  T       26
+Total    213
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+986  0.00  0.88  0.00  seq1  100  213  (0)  (CA)n#Simple_repeat  2  116  (64)  0
+
+1 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked ../../..//Libraries/simple.lib -matrix ../../..//Matrices/simple1.matrix -gap_init -40 -ins_gap_ext -15 -del_gap_ext -15 -minmatch 8 -minscore 180 -masklevel 25 -bandwidth 4 -raw -word_raw 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   ../../..//Libraries/simple.lib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/simple1.matrix
+    A   R   G   C   Y   T   M   W   S   K   N   X
+A   9   3 -12 -24 -24 -24   0   0  -9  -9  -1 -30
+R   5   5   5 -30 -30 -30  -6  -6  -6  -6  -1 -30
+G -12   3   9 -24 -24 -24  -9  -9   0   0  -1 -30
+C -24 -24 -24   9   3 -12   0  -9   0  -9  -1 -30
+Y -30 -30 -30   5   5   5  -6  -6  -6  -6  -1 -30
+T -24 -24 -24 -12   3   9  -9   0  -9   0  -1 -30
+M   0  -6  -9   0  -6  -9   0  -6  -6  -9  -1 -30
+W   0  -6  -9  -9  -6   0  -6   0  -9  -6  -1 -30
+S  -9  -6   0   0  -6  -9  -6  -9   0  -6  -1 -30
+K  -9  -6   0  -9  -6   0  -9  -6  -6   0  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -40, gap_ext: -2, ins_gap_ext: -15, del_gap_ext: -15, 
+Using raw scores.
+
+minmatch: 8, maxmatch: 8, max_group_size: 20, minscore: 180, bandwidth: 4, indexwordsize: 8
+vector_bound: 0
+word_raw: 1
+masklevel: 25
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked ../../..//Libraries/simple.lib -matrix ../../..//Matrices/simple.matrix -gap_init -35 -ins_gap_ext -10 -del_gap_ext -10 -minmatch 7 -minscore 200 -masklevel 75 -bandwidth 4 -raw -word_raw 
+cross_match version 0.990329
+
+Run date:time  040108:144015
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   ../../..//Libraries/simple.lib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/simple.matrix
+    A   R   G   C   Y   T   M   W   S   K   N   X
+A   9   3  -7 -16 -16 -16   0   0  -9  -9  -1 -30
+R   5   5   5 -30 -30 -30  -6  -6  -6  -6  -1 -30
+G  -5   3   9 -16 -16 -16  -9  -9   0   0  -1 -30
+C -16 -16 -16   9   3  -5   0  -9   0  -9  -1 -30
+Y -30 -30 -30   5   5   5  -6  -6  -6  -6  -1 -30
+T -16 -16 -16  -7   3   9  -9   0  -9   0  -1 -30
+M   0  -6  -9   0  -6  -9   0  -6  -6  -9  -1 -30
+W   0  -6  -9  -9  -6   0  -6   0  -9  -6  -1 -30
+S  -9  -6   0   0  -6  -9  -6  -9   0  -6  -1 -30
+K  -9  -6   0  -9  -6   0  -9  -6  -6   0  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -35, gap_ext: -2, ins_gap_ext: -10, del_gap_ext: -10, 
+Using raw scores.
+
+minmatch: 7, maxmatch: 7, max_group_size: 20, minscore: 200, bandwidth: 4, indexwordsize: 7
+vector_bound: 0
+word_raw: 1
+masklevel: 75
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+cross_match /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/shortlib -matrix ../../..//Matrices/20p43g.matrix -gap_init -30 -ins_gap_ext -6 -del_gap_ext -5 -minmatch 8 -minscore 225 -masklevel 90 -bandwidth 14 
+cross_match version 0.990329
+
+Run date:time  040108:144014
+Query file(s):  /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked
+Subject file(s):   /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/shortlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix ../../..//Matrices/20p43g.matrix
+    A   R   G   C   Y   T   K   M   S   W   N   X
+A   9   0  -8 -15 -16 -17 -13  -2 -11  -4  -1 -30
+R   2   1   1 -15 -15 -16  -7  -6  -7  -7  -1 -30
+G  -4   2  10 -15 -15 -15  -2  -9  -2  -9  -1 -30
+C -15 -15 -15  10   2  -4  -9  -2  -2  -9  -1 -30
+Y -16 -15 -15   1   1   2  -6  -7  -7  -7  -1 -30
+T -17 -16 -15  -8   0   9  -2 -12 -11  -4  -1 -30
+K -11  -6  -2 -11  -7  -2  -2 -11  -7  -7  -1 -30
+M  -2  -7 -11  -2  -6 -11 -11  -2  -7  -7  -1 -30
+S  -9  -6  -2  -2  -6  -9  -6  -6  -2  -9  -1 -30
+W  -4  -8 -11 -11  -7  -4  -8  -7 -11  -4  -1 -30
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1 -30
+X -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30 -30
+
+Gap penalties: gap_init: -30, gap_ext: -2, ins_gap_ext: -6, del_gap_ext: -5, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.285  R: 0.000  G: 0.215  C: 0.215  Y: 0.000  T: 0.285  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  X: 0.000  
+
+minmatch: 8, maxmatch: 8, max_group_size: 20, minscore: 225, bandwidth: 14, indexwordsize: 8
+vector_bound: 0
+word_raw: 0
+masklevel: 90
+
+Sequence file: /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked    1 entries
+Residue counts:
+  A       26
+  C       23
+  G       24
+  T       26
+  x        1
+Total    100
+
+NO QUALITY FILE /users/rhubley/projects/RepeatMasker/t/seqs/general/RM_32516.ThuJan81440132004/small-1.fa.masked.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+
+0 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+
+1 sequence with 213 bp (213 bp not contained in strings of more than 20 Ns)
+114 bp masked
+GC level 48.36 %	(47.47 % after masking)
+RepeatMasker version development-$Id: small-1.fa.cat,v 1.1 2004/01/13 18:37:26 rhubley Exp $ , default mode
+run with cross_match version 0.990329
+RepBase Update 8.8, RM database version 20030921 +rodent updates
+

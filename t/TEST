@@ -1,0 +1,72 @@
+#!/usr/local/bin/perl
+
+use strict;
+
+# This script is run Test::Harness on the tests found under the
+# "t" directory.
+
+# First we check if we already are within the "t" directory
+unless (-e "TEST") {
+  # try to move into test directory
+  chdir "t" or die "Can't chdir: $!";
+
+  # fix all relative library locations
+  foreach ( @INC ) {
+    $_ = "../$_" unless m,^/,;
+  }
+}
+# Pick up the library files from the ../blib directory
+unshift( @INC, "..", "../.." );
+# print "\@INC is @INC\n";
+
+# Just eval if they specify the -p flag..
+my $just_eval = undef;
+if( ( $ARGV[ 0 ] eq '-p' ) || ( $ARGV[ 0 ] eq '--perl' ) ) {
+  $just_eval = shift;
+}
+
+use Test::Harness;
+$Test::Harness::verbose = shift
+  if( ( $ARGV[ 0 ] =~ /^\d+$/ ) || ( $ARGV[ 0 ] eq "-v" ) );
+
+my @tests;
+
+# If they specified tests, use them.
+if( @ARGV ) {
+  for( @ARGV ) {
+    if( -d $_ ) {
+      push( @tests, <$_/*.t> );
+    } else {
+      $_ .= ".t" unless /\.t$/;
+      push( @tests, $_ );
+    }
+  }
+} else { # If they didn't specify tests, run them all.
+
+  @tests = ( <*.t> );
+
+}
+
+if( $just_eval ) {
+
+  my $fileContents;
+  my $oldSep = $/;
+
+  my $test_file;
+  foreach $test_file ( @tests ) {
+    open( FH, $test_file ) or
+      die "Unable to open test file \"$test_file\" for eval: $!";
+
+    undef $/;
+    $fileContents = <FH>;
+    $/ = $oldSep;
+
+    eval( $fileContents );
+    print $@;
+
+    close FH;
+  }
+
+} else {
+  runtests @tests;
+}

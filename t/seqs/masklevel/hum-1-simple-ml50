@@ -1,0 +1,176 @@
+cross_match -minmatch 10 -minscore 250 -matrix /usr/local/RepeatModeler/Matrices/wublast/nt/comparison.matrix -gap_init -25 -gap_ext -6 ../general/hum-1.fa /usr/local/RepeatMasker/Libraries/20050112/homo/sinecutlib -masklevel 50 
+cross_match version 0.990329
+
+Run date:time  050407:151521
+Query file(s):  ../general/hum-1.fa
+Subject file(s):   /usr/local/RepeatMasker/Libraries/20050112/homo/sinecutlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix /usr/local/RepeatModeler/Matrices/wublast/nt/comparison.matrix
+    A   R   G   C   Y   T   K   M   S   W   N
+A   9   1  -6 -15 -16 -17 -12  -2 -10  -4  -1
+R   1   1   1 -15 -15 -16  -6  -6  -6  -7  -1
+G  -6   1  10 -15 -15 -15  -2 -10  -2 -10  -1
+C -15 -15 -15  10   2  -6  -9  -2  -2  -9  -1
+Y -16 -15 -15   1   1   1  -6  -7  -7  -7  -1
+T -17 -16 -15  -6   1   9  -2 -12 -11  -4  -1
+K -12  -6  -2 -11  -6  -2  -2 -11  -7  -7  -1
+M  -2  -6 -10  -2  -7 -12 -11  -2  -7  -7  -1
+S -10  -6  -2  -2  -7 -11  -7  -7  -2 -10  -1
+W  -4  -7 -10 -11  -7  -4  -7  -7 -10  -4  -1
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1
+
+Gap penalties: gap_init: -25, gap_ext: -6, ins_gap_ext: -6, del_gap_ext: -6, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.250  R: 0.000  G: 0.250  C: 0.250  Y: 0.000  T: 0.250  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  
+
+minmatch: 10, maxmatch: 10, max_group_size: 20, minscore: 250, bandwidth: 14, indexwordsize: 10
+vector_bound: 0
+word_raw: 0
+masklevel: 50
+
+Sequence file: ../general/hum-1.fa    4 entries
+Residue counts:
+  A    36283
+  C    39521
+  G    38823
+  T    36435
+Total  151062
+
+NO QUALITY FILE ../general/hum-1.fa.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+humanmhc3.fa_1_150000   A   Score:  303   Residues:  3601 -  3642
+humanmhc3.fa_1_150000   A   Score:  301   Residues: 109397 - 109467
+humanmhc3.fa_1_150000   A   Score:  291   Residues: 67651 - 67709
+humanmhc3.fa_1_150000   A   Score:  251   Residues: 13995 - 14091
+humanmhc3.fa_1_150000   C   Score:  514   Residues: 39516 - 39750
+humanmhc3.fa_1_150000   C   Score:  357   Residues: 77839 - 77922
+humanmhc3.fa_1_150000   C   Score:  317   Residues: 98513 - 98571
+humanmhc3.fa_1_150000   T   Score:  288   Residues: 93830 - 93881
+humanmhc3.fa_1_150000   T   Score:  260   Residues: 24305 - 24342
+humanmhc3.fa_1_150000   T   Score:  256   Residues: 88326 - 88370
+humanmhc3.fa_1_150000   T   Score:  264   Residues: 135739 - 135769
+
+2080 10.67 2.67 0.67  littlepiece3      364   663 (135)    AluY#SINE/Alu        5   310 (1)  
+
+2080 10.67 2.67 0.67  humanmhc3.fa_1_150000      364   663 (149337)    AluY#SINE/Alu        5   310 (1)  
+2752  1.64 0.00 0.00  humanmhc3.fa_1_150000      951  1255 (148745)  C AluYb9#SINE/Alu   (13)   305     1  
+1815 16.83 0.32 1.29  humanmhc3.fa_1_150000     1773  2081 (147919)  C AluJb#SINE/Alu   (5)   307     2  
+2099 10.56 3.30 1.32  humanmhc3.fa_1_150000     3327  3629 (146371)    AluSx#SINE/Alu        3   311 (1)  
+ 962 15.91 1.70 3.41  humanmhc3.fa_1_150000     3674  3849 (146151)    AluJo#SINE/Alu      129   301 (11)  
+1980 10.49 5.94 0.35  humanmhc3.fa_1_150000     4058  4343 (145657)    AluSq#SINE/Alu        1   302 (11)  
+1098  8.82 0.00 0.00  humanmhc3.fa_1_150000    13441 13576 (136424)    AluSq#SINE/Alu        1   136 (177)  
+2041  9.29 0.00 0.00  humanmhc3.fa_1_150000    13577 13845 (136155)    AluY#SINE/Alu       35   303 (8)  
+1404 17.39 1.45 2.90  humanmhc3.fa_1_150000    13749 14024 (135976)    AluSx#SINE/Alu       41   312 (0) *
+2084 10.23 0.66 3.30  humanmhc3.fa_1_150000    14927 15229 (134771)    AluSx#SINE/Alu        1   295 (17)  
+ 914 19.59 10.82 1.03  humanmhc3.fa_1_150000    16298 16491 (133509)    AluJb#SINE/Alu       82   294 (18)  
+2091 11.15 1.91 2.87  humanmhc3.fa_1_150000    18268 18581 (131419)  C AluSx#SINE/Alu   (1)   311     1  
+2107 12.66 0.00 0.32  humanmhc3.fa_1_150000    18604 18911 (131089)  C AluSg#SINE/Alu   (3)   307     1  
+2099 13.03 0.98 0.33  humanmhc3.fa_1_150000    19981 20287 (129713)  C AluSx#SINE/Alu   (1)   311     3  
+2005 14.94 0.00 1.30  humanmhc3.fa_1_150000    21132 21439 (128561)  C AluSx#SINE/Alu   (8)   304     1  
+1793 10.83 9.03 0.72  humanmhc3.fa_1_150000    21866 22142 (127858)  C AluSg#SINE/Alu   (10)   300     1  
+2140 10.69 0.00 4.40  humanmhc3.fa_1_150000    22229 22546 (127454)  C AluSq#SINE/Alu   (9)   304     1  
+2358  8.74 0.65 0.32  humanmhc3.fa_1_150000    22660 22968 (127032)    AluSg#SINE/Alu        1   310 (0)  
+2180  9.93 0.00 2.98  humanmhc3.fa_1_150000    23841 24142 (125858)  C AluSx#SINE/Alu   (19)   293     1  
+2445  8.39 0.00 0.00  humanmhc3.fa_1_150000    24313 24622 (125378)  C AluSg#SINE/Alu   (0)   310     1  
+2264  9.63 0.66 0.00  humanmhc3.fa_1_150000    26687 26987 (123013)    AluSp#SINE/Alu        1   303 (10)  
+2372  8.28 0.33 0.00  humanmhc3.fa_1_150000    29382 29683 (120317)    AluY#SINE/Alu        1   303 (8)  
+ 945 19.13 1.09 0.55  humanmhc3.fa_1_150000    29990 30172 (119828)  C AluSg#SINE/Alu   (8)   302   119 *
+2383  9.97 0.00 0.00  humanmhc3.fa_1_150000    30162 30472 (119528)  C AluY#SINE/Alu   (0)   311     1  
+1293 15.81 1.40 1.86  humanmhc3.fa_1_150000    30392 30606 (119394)  C AluSx#SINE/Alu   (94)   218     5 *
+2579  5.19 0.00 0.00  humanmhc3.fa_1_150000    31775 32082 (117918)    AluY#SINE/Alu        1   308 (3)  
+ 784 16.92 1.54 0.00  humanmhc3.fa_1_150000    36109 36238 (113762)  C AluJb#SINE/Alu   (5)   307   176  
+2168 11.51 0.33 0.33  humanmhc3.fa_1_150000    36374 36677 (113323)  C AluSx#SINE/Alu   (8)   304     1  
+ 594 16.13 10.48 2.42  humanmhc3.fa_1_150000    42299 42422 (107578)    FLAM_A#SINE/Alu        1   134 (8)  
+2178  9.97 0.31 4.98  humanmhc3.fa_1_150000    47860 48180 (101820)    AluSp#SINE/Alu        1   306 (7)  
+ 664 17.76 0.00 0.00  humanmhc3.fa_1_150000    55881 55987 (94013)    AluJo#SINE/Alu        1   107 (205)  
+2379  8.39 0.00 0.00  humanmhc3.fa_1_150000    57563 57860 (92140)  C AluSg#SINE/Alu   (12)   298     1  
+1247 11.43 0.00 4.76  humanmhc3.fa_1_150000    64070 64279 (85721)  C AluSp#SINE/Alu   (0)   313   114  
+2289  6.88 0.62 3.12  humanmhc3.fa_1_150000    64302 64621 (85379)  C AluSx#SINE/Alu   (0)   312     1  
+2256  9.12 0.33 0.65  humanmhc3.fa_1_150000    64682 64988 (85012)    AluSg#SINE/Alu        5   310 (0)  
+2115 14.42 0.00 0.00  humanmhc3.fa_1_150000    67369 67680 (82320)    AluSx#SINE/Alu        1   312 (0)  
+1432 11.90 0.95 0.48  humanmhc3.fa_1_150000    67871 68080 (81920)    AluSx#SINE/Alu        1   211 (101) *
+2208  8.81 1.69 0.00  humanmhc3.fa_1_150000    68005 68299 (81701)    AluSx#SINE/Alu        1   300 (12)  
+2209 10.86 0.66 0.00  humanmhc3.fa_1_150000    68300 68603 (81397)    AluSq#SINE/Alu        1   306 (7)  
+1899 12.82 4.03 0.00  humanmhc3.fa_1_150000    68885 69157 (80843)  C AluJb#SINE/Alu   (14)   298    15  
+2143  9.83 1.69 0.00  humanmhc3.fa_1_150000    69205 69499 (80501)  C AluSx#SINE/Alu   (12)   300     1  
+2304  6.23 0.00 0.69  humanmhc3.fa_1_150000    69544 69832 (80168)    AluY#SINE/Alu        1   287 (24)  
+2240 10.56 0.33 0.33  humanmhc3.fa_1_150000    69869 70171 (79829)    AluY#SINE/Alu        1   303 (8)  
+2372  8.03 0.67 0.00  humanmhc3.fa_1_150000    70436 70734 (79266)  C AluSp#SINE/Alu   (10)   303     3  
+2001 12.68 2.82 0.00  humanmhc3.fa_1_150000    72377 72660 (77340)    AluSx#SINE/Alu        1   292 (20)  
+1934 13.36 1.37 1.37  humanmhc3.fa_1_150000    72698 72989 (77011)  C AluSx#SINE/Alu   (19)   293     2  
+2264  9.49 0.34 0.00  humanmhc3.fa_1_150000    73484 73778 (76222)    AluSx#SINE/Alu        1   296 (16)  
+2252  9.28 0.34 0.00  humanmhc3.fa_1_150000    82426 82716 (67284)    AluSq#SINE/Alu        1   292 (21)  
+ 918 13.74 0.00 0.76  humanmhc3.fa_1_150000    84121 84251 (65749)    AluJo#SINE/Alu       10   139 (173)  
+1862  5.65 0.43 0.43  humanmhc3.fa_1_150000    84258 84487 (65513)    AluY#SINE/Alu       74   303 (8)  
+2251 11.18 0.00 0.00  humanmhc3.fa_1_150000    84496 84799 (65201)    AluSx#SINE/Alu        1   304 (8)  
+ 741 24.88 4.23 2.82  humanmhc3.fa_1_150000    84746 84958 (65042)    AluSg#SINE/Alu       83   298 (12) *
+2370  8.16 0.00 0.00  humanmhc3.fa_1_150000    85451 85744 (64256)    AluY#SINE/Alu        1   294 (17)  
+2134 11.15 0.96 1.27  humanmhc3.fa_1_150000    85981 86294 (63706)  C AluSq#SINE/Alu   (0)   313     1  
+ 780 12.82 0.85 0.00  humanmhc3.fa_1_150000    86295 86411 (63589)  C AluJo#SINE/Alu   (5)   307   190  
+1283 12.24 1.27 5.06  humanmhc3.fa_1_150000    86419 86655 (63345)  C AluSg#SINE/Alu   (0)   310    83 *
+2255  7.72 0.00 3.54  humanmhc3.fa_1_150000    86605 86915 (63085)  C AluY#SINE/Alu   (11)   300     1  
+2198 10.93 0.96 0.32  humanmhc3.fa_1_150000    86918 87228 (62772)  C AluSq#SINE/Alu   (0)   313     1  
+1003 23.64 1.82 1.82  humanmhc3.fa_1_150000    87146 87365 (62635)  C AluJo#SINE/Alu   (92)   220     1 *
+2342  7.26 2.31 0.66  humanmhc3.fa_1_150000    88339 88641 (61359)  C AluSx#SINE/Alu   (0)   312     5  
+2398  8.67 0.00 0.00  humanmhc3.fa_1_150000    89530 89829 (60171)    AluSc#SINE/Alu        1   300 (9)  
+2370  9.68 0.00 0.00  humanmhc3.fa_1_150000    90310 90619 (59381)    AluSq#SINE/Alu        1   310 (3)  
+1675 17.71 6.60 0.35  humanmhc3.fa_1_150000    90702 90989 (59011)    AluSx#SINE/Alu        1   306 (6)  
+2220  9.67 0.00 1.00  humanmhc3.fa_1_150000    90989 91288 (58712)    AluSx#SINE/Alu        1   297 (15)  
+1783 17.75 2.73 0.00  humanmhc3.fa_1_150000    91454 91746 (58254)    AluJb#SINE/Alu        2   302 (10)  
+1712 18.21 0.00 0.36  humanmhc3.fa_1_150000    92352 92631 (57369)    AluJb#SINE/Alu        1   279 (33)  
+2172 11.48 0.00 0.98  humanmhc3.fa_1_150000    92900 93204 (56796)    AluSg#SINE/Alu        1   302 (8)  
+2305  9.87 0.00 0.00  humanmhc3.fa_1_150000    93856 94159 (55841)  C AluSc#SINE/Alu   (4)   305     2  
+1377 11.97 3.85 4.27  humanmhc3.fa_1_150000    94555 94788 (55212)  C AluJo#SINE/Alu   (2)   310    78  
+2304  8.70 0.33 0.67  humanmhc3.fa_1_150000    95092 95390 (54610)  C AluSq#SINE/Alu   (15)   298     1  
+1997 10.86 0.37 0.00  humanmhc3.fa_1_150000    96037 96303 (53697)  C AluSx#SINE/Alu   (44)   268     1  
+1531 12.33 0.00 0.00  humanmhc3.fa_1_150000    96538 96756 (53244)  C AluSg#SINE/Alu   (2)   308    90  
+1613  8.88 1.87 0.00  humanmhc3.fa_1_150000    96768 96981 (53019)  C AluSx#SINE/Alu   (49)   263    46 *
+2186 12.09 0.00 0.00  humanmhc3.fa_1_150000    96979 97284 (52716)    AluSx#SINE/Alu        6   311 (1)  
+ 923 11.97 0.70 1.41  humanmhc3.fa_1_150000    97677 97818 (52182)    FLAM_C#SINE/Alu        2   142 (1)  
+1855 10.04 0.00 1.49  humanmhc3.fa_1_150000    98264 98532 (51468)  C AluY#SINE/Alu   (5)   306    42  
+ 340  7.69 5.77 0.00  humanmhc3.fa_1_150000    98557 98608 (51392)  C AluJo#SINE/Alu   (257)    55     1  
+1922 10.29 0.37 0.74  humanmhc3.fa_1_150000    98608 98879 (51121)  C AluSc#SINE/Alu   (3)   306    36  
+1808  6.20 9.09 0.00  humanmhc3.fa_1_150000    98884 99125 (50875)  C AluSq#SINE/Alu   (49)   264     1  
+1638  7.89 0.00 3.07  humanmhc3.fa_1_150000    99131 99358 (50642)  C AluSg#SINE/Alu   (0)   310    90  
+1853 18.39 0.00 0.32  humanmhc3.fa_1_150000    102977 103286 (46714)  C AluJo#SINE/Alu   (0)   312     4  
+2172 11.19 0.00 0.34  humanmhc3.fa_1_150000    104092 104386 (45614)  C AluSg#SINE/Alu   (16)   294     1  
+2126  6.86 6.86 0.00  humanmhc3.fa_1_150000    104739 105015 (44985)    AluYa5#SINE/Alu        1   296 (14)  
+1954 12.20 2.03 1.36  humanmhc3.fa_1_150000    105647 105941 (44059)  C AluSp#SINE/Alu   (14)   299     3  
+1924  8.16 0.41 0.00  humanmhc3.fa_1_150000    106179 106423 (43577)    AluY#SINE/Alu        1   246 (65)  
+1987 14.29 0.00 2.54  humanmhc3.fa_1_150000    106613 106927 (43073)  C AluSx#SINE/Alu   (5)   307     1  
+2384  6.02 1.00 0.33  humanmhc3.fa_1_150000    107000 107298 (42702)  C AluY#SINE/Alu   (10)   301     1  
+2291  8.75 0.67 0.00  humanmhc3.fa_1_150000    108148 108444 (41556)  C AluSp#SINE/Alu   (14)   299     1  
+2423  8.41 0.00 0.00  humanmhc3.fa_1_150000    109115 109423 (40577)    AluSx#SINE/Alu        1   309 (3)  
+2372  7.89 0.00 0.33  humanmhc3.fa_1_150000    109468 109771 (40229)    AluY#SINE/Alu        1   303 (8)  
+2149 11.48 0.00 0.98  humanmhc3.fa_1_150000    111250 111554 (38446)  C AluSx#SINE/Alu   (10)   302     1  
+1965  9.51 9.51 0.70  humanmhc3.fa_1_150000    115137 115420 (34580)  C AluSg#SINE/Alu   (1)   309     1  
+ 837 11.68 0.73 5.11  humanmhc3.fa_1_150000    116758 116894 (33106)  C FLAM_C#SINE/Alu   (12)   131     1  
+1980 15.18 0.00 0.66  humanmhc3.fa_1_150000    124929 125231 (24769)    AluJo#SINE/Alu        1   301 (11)  
+2283  9.84 0.33 0.33  humanmhc3.fa_1_150000    125835 126139 (23861)    AluSx#SINE/Alu        1   305 (7)  
+2208 10.28 0.00 4.05  humanmhc3.fa_1_150000    126406 126726 (23274)  C AluSx#SINE/Alu   (4)   308     1  
+2207 12.05 0.00 0.00  humanmhc3.fa_1_150000    126919 127225 (22775)  C AluSc#SINE/Alu   (2)   307     1  
+1867 16.33 0.34 0.34  humanmhc3.fa_1_150000    127844 128137 (21863)    AluJo#SINE/Alu        3   296 (16)  
+1097 17.29 3.27 3.27  humanmhc3.fa_1_150000    128144 128357 (21643)    AluSx#SINE/Alu        5   218 (94) *
+2231  8.56 0.34 0.34  humanmhc3.fa_1_150000    128277 128568 (21432)    AluY#SINE/Alu        1   292 (19)  
+ 710 14.41 6.78 0.00  humanmhc3.fa_1_150000    128526 128643 (21357)    AluJo#SINE/Alu       85   210 (102) *
+2216  9.57 1.65 0.00  humanmhc3.fa_1_150000    128763 129065 (20935)  C AluSq#SINE/Alu   (5)   308     1  
+1909 16.40 0.96 0.64  humanmhc3.fa_1_150000    129109 129419 (20581)  C AluJb#SINE/Alu   (0)   312     1  
+2137 12.62 0.00 0.00  humanmhc3.fa_1_150000    129461 129761 (20239)    AluSx#SINE/Alu        1   301 (11)  
+ 879 19.35 5.99 4.61  humanmhc3.fa_1_150000    130203 130419 (19581)    AluJo#SINE/Alu        1   220 (92) *
+2118 11.38 0.69 0.00  humanmhc3.fa_1_150000    130341 130630 (19370)    AluSx#SINE/Alu        7   298 (14)  
+2323 10.26 0.32 0.00  humanmhc3.fa_1_150000    131087 131398 (18602)    AluSp#SINE/Alu        1   313 (0)  
+2055 12.62 0.00 1.89  humanmhc3.fa_1_150000    135741 136057 (13943)  C AluJb#SINE/Alu   (1)   311     1  
+1359 13.94 0.48 0.96  humanmhc3.fa_1_150000    137144 137351 (12649)  C AluSq#SINE/Alu   (0)   313   107  
+2108 11.95 1.37 0.00  humanmhc3.fa_1_150000    138091 138383 (11617)    AluSq#SINE/Alu        1   297 (16)  
+2487  6.00 0.33 0.00  humanmhc3.fa_1_150000    138455 138754 (11246)    AluSp#SINE/Alu        1   301 (12)  
+1792 11.22 1.32 6.93  humanmhc3.fa_1_150000    145910 146212 (3788)    AluJo#SINE/Alu       11   296 (16)  
+2477  7.40 0.00 0.00  humanmhc3.fa_1_150000    149352 149662 (338)    AluY#SINE/Alu        1   311 (0)  
+
+2 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+

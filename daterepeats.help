@@ -1,0 +1,109 @@
+###################################################################
+DateRepeats
+
+Developed by Arian Smit and Robert Hubley
+Please refer to: Smit, AFA, Hubley, R. & Green, P "RepeatMasker" at
+http://www.repeatmasker.org
+###################################################################
+                                                                                
+
+The script "DateRepeats" takes a RepeatMasker .out file and creates
+annotation with one or more added columns indicating if a repeat is
+expected to be present in the indicated 'other species' as well as a
+sequence with lineage-specific repeats masked only.
+
+Interspersed repeats are by and large derived from transposable
+elements. Dependent on the time a transposable element was active, i.e. 
+before or after the speciation of two species, an interspersed repeat
+is expected to be present at orthologous sites in those two species.
+
+Each repeat consensus in the RepeatMasker repeat libraries has a
+phylogenetic label. The interspersed repeat is expected to be found in
+all species belonging to the specified genus, family, order, etc. The
+label is based on the presence or absence of repeats at orthologous
+sites in different genomes and on the average divergence of repeat
+copies from their derived consensus sequence. This phylogeny will
+become much more accurate and refined over time.
+
+The tag allows RepeatMasker to compare queries only to repeats
+expected to be found in the query species, without having to provide a
+library for each species. For example, a rat query currently is
+compared to repeats tagged with Rattus, Murinae, Muridae, Rodentia,
+Eutheria, and Mammalia.
+
+It also allows one to mask only those interspersed repeats that have
+arrived in a genome after the speciation of two species. For optimal
+alignment of genomic sequences of two species, 'ancestral repeats'
+that are located at orthologous sites in both genomes (unless deleted)
+should not be masked, whereas 'lineage-specific' repeats should be
+masked or clipped out. Preliminary versions of this RepeatMasker
+feature have been used in the alignment of the mouse to the human
+genome (Waterston et al. 2002, Nature 420, 20-62), and the rat to the
+mouse and human genomes (Gibbs et al 2004, Nature 428: 493-521). By
+clipping out rather than masking the lineage-specific repeats the
+aligning fraction for the mouse genome could be increased from 35% to
+40% (see also Schwartz et al 2003, NAR 31:3518-24, and Thomas et al
+2003, Nature 424:788-93).
+
+Usage:
+
+DateRepeats <repeatmasker .out files> -query <species1> -comp
+<species2> [-comp <species3> -mask <species2>]
+
+The required flags are:
+-q -query <species1> the species that has been analyzed
+-c -comp <species2>  other species; can be used multiple times, adding extra 
+                     columns to the annotation in <file.out_species2_species3_etc>
+
+Optional parameters are:
+-m -mask <species> produces a sequence file with all lineage specific repeats masked, i.e.
+                   those predicted to be in the -query and absent in the -mask species
+                   (sequence <file> and RepeatMasker <file.out> files must be in same directory)
+                   <species> must correspond to one of the -comp species
+-a -aggressive     also mask those repeats unclear to be lineage specific or ancestral
+-n -nolow          does not mask (micro)satellites or low complexity DNA, which are 
+                   generally lineage specific, but hard to date 
+(-a and -n have no effect unless -m is used)
+
+
+
+For example the command line:
+DateRepeats chr3_4000001_4005000.out  -q mouse -c rat -c human
+prints the following output to chr3_4000001_4005000.out_rat_human:
+
+  SW  perc perc perc  query   position in query   matching repeat      position in  repeat      rat hum
+score  div. del. ins. sequence begin  end (left)  repeat   class/family  begin  end (left)  ID
+
+12436  19.0  1.7  7.7 chr3_400    9  536 (4464) +  L1_Mur2  LINE/L1        1850 2408 (3469)   1    X  0  
+ 2728   5.2  0.0  3.9 chr3_400  537  896 (4104) +  ORR1A0   LTR/MaLR          1  346    (0)   2    0  0  
+12436  19.0  1.7  7.7 chr3_400  897 2441 (2559) +  L1_Mur2  LINE/L1        2408 3665 (2212)   1    X  0  
+ 5229   7.2  0.0  1.1 chr3_400 2442 3134 (1866) +  L1Md_F2  LINE/L1        5877 6580    (2)   3    0  0  
+12436  19.0  1.7  7.7 chr3_400 3135 4259  (741) +  L1_Mur2  LINE/L1        3665 4856 (1021)   1    X  0  
+  394  20.9  0.0  0.9 chr3_400 4260 4351  (649) +  Lx2      LINE/L1        6892 6996    (1)   4    X  0  
+
+The X indicates that the repeat is expected to be present at
+orthologous sites, while the O predicts an absence. None of the above
+repeats are found in the human genome. Notice that a mouse-specific
+ORR1 (#2) and L1 (#4) has inserted into a rodent specific L1 (#1).
+
+
+A few lines of the output for
+DateRepeats chr19.fa.out -q rat -c mouse -c human -m mouse -a -n
+are
+1199 17.9 11.2 1.8 chr19 313706 313990 (58909535) C  Lx9     LINE/L1         (9) 7635 7324  377  X  0
+  23  0.0  0.0 0.0 chr19 314125 314147 (58909378) +  AT_rich Low_complexity    1   23  (0)  378  -  -
+ 726 17.5  1.3 8.9 chr19 314152 314308 (58909217) +  B1_Rn   SINE/Alu          2  146  (2)  379  ?  0
+ 228 32.8  0.0 7.4 chr19 314355 314476 (58909049) C  B3      SINE/B2        (77)  139   27  380  X  0
+
+The chr19.fa.masked_vs_mouse file contains a sequence appropriately
+masked for alignment against mouse. It has repeats 377 & 380
+masked. The -n flag leaves the AT-rich region unmasked, while the -a
+flag forced it to mask repeat 379 as well. B1_Rn is rat specific, but
+the 17.5% divergence from the consensus is much higher than the
+average divergence level of non-functional DNA since the rat-mouse
+split. It therefore gets the "?" assignment. The rules for assigning
+question marks are arbitrary; currently question marks are used when a
+match shows a 2-fold lower or a 1.5-fold higher divergence level as
+expected for a repeat at the boundary.
+
+

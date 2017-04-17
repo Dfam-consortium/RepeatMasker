@@ -1,0 +1,15 @@
+
+
+is1.fa: Insertion Sequence Tests
+
+   seq1: Contains a complete IS1 element (n-bp) inside a n-bp
+         sequence.  There is a 7bp identical flanking sequence 
+         on either side of the IS1 element.  Valid IS1 elements
+         are flanked by 8, 9, or 10bp identical flanking sequences
+         so this is an ify match.  The correct action would be
+         to warn the user of this match and not remove it.
+
+   seq2: The same sequence as above + an extra base on each 
+         flanking sequence bringing it to a total of 8bp.  This
+         one should be cliped out including one side of the
+         flanking duplication leaving n-bp of sequence.

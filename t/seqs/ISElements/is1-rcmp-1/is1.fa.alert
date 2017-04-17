@@ -1,0 +1,14 @@
+One or more E. coli IS elements were found:
+  IS1#ARTEFACT in seq2: 709 - 1476
+
+These elements and one flanking duplicated site have been clipped out
+before the repeatmasker run, so that coordinates do not correspond
+everywhere with the original sequence. A clipped version of the
+sequence(s) is in the file /users/rhubley/projects/RepeatMasker/t/RM_15326.MonApr120945012004/is1.fa.withoutIS
+
+No corresponding Phred file (wrkdir/is1.fa.qual) could be read in this directory,
+ so no modified quality file has been made
+
+
+The following E coli IS elements could not be confidently clipped out:
+  IS1#ARTEFACT in seq1: 708 - 1475

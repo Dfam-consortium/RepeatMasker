@@ -1,0 +1,61 @@
+RepeatMasker Installation Notes
+===============================
+
+Pre-requisites
+--------------
+
+  - A UNIX based operating system.
+
+  - Perl 5.8.0 or higher installed.
+
+  - TRF 4.04 or higher ( http://tandem.bu.edu/trf/trf.html )
+  
+  - A search engine.  We currently support:
+
+       crossmatch : http://www.phrap.org
+       rmblast :  http://www.repeatmasker.org/RMBlast.html
+       nhmmer : Pre release version - 
+              ftp://selab.janelia.org/pub/pickup/hmmer3.1-snap20121016.1.tgz 
+              ( Dfam required )
+       abblast/wublast : http://blast.advbiocomp.com/licensing/
+
+  - Dfam and/or RepeatMasker libraries.  Dfam 1.0 is
+    included in this release ( human repeats only ). 
+    Updates can be found at: www.dfam.org.
+    The full RepeatMasker Library can be obtained
+    at: http://www.girinst.org
+       
+
+Installation 
+------------
+
+  1. Unpack the files to the directory you wish to install
+     them in.
+
+  2. Configure the distribution by invoking Perl on the
+     the "configure" script, i.e.:
+  
+            perl ./configure
+
+     The configure script will prompt you for all the
+     information needed to setup the RepeatMasker suite of
+     programs.
+
+
+Library Cache Directories
+-------------------------
+
+Since version 3.0 RepeatMasker creates species-specific libraries
+on the fly.  These libraries are cached in the first writable 
+directory in the programs library path.  The default path is:
+
+  1. The RepeatMasker installation "Library" directory.
+  2. The ".RepeatMaskerCache" subdirectory of the users home
+     directory.
+  3. The temporary processing directory "RM_#" created
+     in the same directory as the sequence file and 
+     removed at the end of the run.
+  
+NOTE: If the program cannot save libraries in either path 1 or 2, the
+libraries will need to be created each time the program runs.  This
+will slow down runs on shorter sequences.

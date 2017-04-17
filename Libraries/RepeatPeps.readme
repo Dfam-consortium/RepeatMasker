@@ -1,0 +1,91 @@
+
+Transposable element protein database
+=====================================
+
+The transposable element protein database now contains 5411 
+predicted proteins, with a combined length of 4.3 million amino acids. 
+
+A breakdown of the main classes is given in the following table:
+
+                   (sub)classes    proteins    AA (x 1000)
+DNA transposons        
+hAT                      14          361          244
+Tc1-Mariner              16          337          136
+MuDR                      1          258          150
+Maverick / Polinton       1          243          104
+En/Spm                    1          110           95
+Other                    21          475          280
+            
+LINEs            
+L1                        2          399          337
+L2                        2          248          177
+CR1                       1          180          130
+Other (incl. Penelope)   20          461          381
+            
+LTR elements        
+Gypsy                     1          994          968
+ERV                       7          638          444
+Copia                     1          401          513
+Other                     6          235          245
+              
+Rolling circles           1           66           85
+
+
+About 870 of these proteins are entries extracted from the nr
+GenBank databases. Most of the remaining peptides are translations of
+interspersed repeat consensus sequences. Many of the coding elements in
+repeat libraries contain frame shifts and stop codons reflecting errors
+in the consensus. In order to represent these elements currently some
+( 1500 entries ) interrupted coding regions have been translated by 
+using TFASTY or GeneWise, guided by the closest related proteins in 
+the database.
+
+Very similar proteins are represented by only one sequence (e.g. there
+is only one HIV-1 pol entry). A cut-off of 90% similarity and/or 85%
+identity has been used, but if many differences appear to be due to
+ambiguities or errors, more distant matching proteins have been excluded.
+
+The protein database is still very much under development but functions
+fine for the purpose of masking repetitive DNA that could give rise to
+spurious matches in translated database searches.  As most proteins are
+classified to the level RepeatMasker classifies transposable elements,
+it is also already useful for classifying transposable elements. This
+will be its central role in the interspersed repeat identification
+program that we are developing. In the future phylogenetic comparisons
+of transposable elements based on their coding regions can be performed
+using this database, though we will need to (and will) curate the database
+significantly before this can be done properly.
+
+Tandem repeats and low complexity DNA
+=====================================
+
+Prior to being compared with WU_BLASTX to the transposable element protein
+database, the query is checked for the presence of tandem repeats using
+Tandem Repeat Finder followed by the simple repeat / low complexity
+algorithm of RepeatMasker. This will avoid false annotations in the
+comparison against the transposable element proteins. The button allows
+you to turn off the masking/annotating of low complexity and simple
+repeats in the final output. Low complexity and simple repeat analysis
+will still occur prior to looking for matches to the RepeatPep database.
+
+False positives
+===============
+We have run RepeatProteinMasker on several megabases of genomic DNA
+and compared it to RepeatMasker output to identify false positive
+matches. This number could be reduced to zero by eliminating certain
+low-complexity proteins from the database and reporting matches based on
+a complexity adjusted alignment score, very similar to that implemented
+in RepeatMasker. False matches to inverse, non-complimented genomic DNA
+are also absent, except for an occasional match in very (>70%) GC-rich
+DNA (no such cases were seen with a score above 30).
+
+A surprisingly large number of genes are derived from transposable
+element proteins. In 2001 I had identified 50 in the human genome and
+it is more than likely that other genomes are very similar if not more
+so, considering that most other genomes are exposed to a much larger
+variety of transposable elements and DNA transposons in general. So,
+be aware that some genes may be (partially) masked.
+
+
+Developed by Arian Smit
+Institute for Systems Biology

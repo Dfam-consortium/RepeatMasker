@@ -1,0 +1,49 @@
+==================================================
+file name: hum-1.fa
+sequences:             4
+total length:     151062 bp  (151062 bp excl N/X-runs
+GC level:         51.86 %
+bases masked:      47789 bp ( 31.64 %)
+==================================================
+               number of      length   percentage
+               elements*    occupied  of sequence
+--------------------------------------------------
+SINEs:              124        32087 bp    21.24 %
+      ALUs          108        29803 bp    19.73 %
+      MIRs           16         2284 bp     1.51 %
+
+LINEs:               22        11877 bp     7.86 %
+      LINE1           9         4820 bp     3.19 %
+      LINE2          13         7057 bp     4.67 %
+      L3/CR1          0            0 bp     0.00 %
+
+LTR elements:         2          443 bp     0.29 %
+      MaLRs           0            0 bp     0.00 %
+      ERVL            1          152 bp     0.10 %
+      ERV_classI      1          291 bp     0.19 %
+      ERV_classII     0            0 bp     0.00 %
+
+DNA elements:        12         1913 bp     1.27 %
+      MER1_type       9         1434 bp     0.95 %
+      MER2_type       1          215 bp     0.14 %
+
+Unclassified:         0            0 bp     0.00 %
+
+Total interspersed repeats:    46320 bp    30.66 %
+
+
+Small RNA:            0            0 bp     0.00 %
+
+Satellites:           0            0 bp     0.00 %
+Simple repeats:      15          498 bp     0.33 %
+Low complexity:      14          998 bp     0.66 %
+==================================================
+
+* most repeats fragmented by insertions or deletions
+  have been counted as one element
+
+
+The query species was assumed to be Homo
+RepeatMasker version development-$Id: RepeatMasker,v 1.205 2007/04/02 18:25:12 rhu
+run with cross_match version 0.990329
+RepBase Update 20070221, RM database version 20070221

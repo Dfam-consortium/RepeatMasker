@@ -1,0 +1,64 @@
+cross_match -minmatch 10 -minscore 250 -matrix /usr/local/RepeatModeler/Matrices/wublast/nt/comparison.matrix -gap_init -25 -gap_ext -6 ../general/hum-1.fa /usr/local/RepeatMasker/Libraries/20050112/homo/sinecutlib -masklevel 0 
+cross_match version 0.990329
+
+Run date:time  050407:151544
+Query file(s):  ../general/hum-1.fa
+Subject file(s):   /usr/local/RepeatMasker/Libraries/20050112/homo/sinecutlib
+Presumed sequence type: DNA
+
+Pairwise comparison algorithm: banded Smith-Waterman
+
+Score matrix /usr/local/RepeatModeler/Matrices/wublast/nt/comparison.matrix
+    A   R   G   C   Y   T   K   M   S   W   N
+A   9   1  -6 -15 -16 -17 -12  -2 -10  -4  -1
+R   1   1   1 -15 -15 -16  -6  -6  -6  -7  -1
+G  -6   1  10 -15 -15 -15  -2 -10  -2 -10  -1
+C -15 -15 -15  10   2  -6  -9  -2  -2  -9  -1
+Y -16 -15 -15   1   1   1  -6  -7  -7  -7  -1
+T -17 -16 -15  -6   1   9  -2 -12 -11  -4  -1
+K -12  -6  -2 -11  -6  -2  -2 -11  -7  -7  -1
+M  -2  -6 -10  -2  -7 -12 -11  -2  -7  -7  -1
+S -10  -6  -2  -2  -7 -11  -7  -7  -2 -10  -1
+W  -4  -7 -10 -11  -7  -4  -7  -7 -10  -4  -1
+N  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1  -1
+
+Gap penalties: gap_init: -25, gap_ext: -6, ins_gap_ext: -6, del_gap_ext: -6, 
+Using complexity-adjusted scores. Assumed background frequencies:
+ A: 0.250  R: 0.000  G: 0.250  C: 0.250  Y: 0.000  T: 0.250  K: 0.000  M: 0.000  S: 0.000  W: 0.000  N: 0.000  
+
+minmatch: 10, maxmatch: 10, max_group_size: 20, minscore: 250, bandwidth: 14, indexwordsize: 10
+vector_bound: 0
+word_raw: 0
+masklevel: 0
+
+Sequence file: ../general/hum-1.fa    4 entries
+Residue counts:
+  A    36283
+  C    39521
+  G    38823
+  T    36435
+Total  151062
+
+NO QUALITY FILE ../general/hum-1.fa.qual WAS FOUND. REMAINING INPUT QUALITIES SET TO 15.
+Maximal single base matches (low complexity regions):
+humanmhc3.fa_1_150000   A   Score:  303   Residues:  3601 -  3642
+humanmhc3.fa_1_150000   A   Score:  301   Residues: 109397 - 109467
+humanmhc3.fa_1_150000   A   Score:  291   Residues: 67651 - 67709
+humanmhc3.fa_1_150000   A   Score:  251   Residues: 13995 - 14091
+humanmhc3.fa_1_150000   C   Score:  514   Residues: 39516 - 39750
+humanmhc3.fa_1_150000   C   Score:  357   Residues: 77839 - 77922
+humanmhc3.fa_1_150000   C   Score:  317   Residues: 98513 - 98571
+humanmhc3.fa_1_150000   T   Score:  288   Residues: 93830 - 93881
+humanmhc3.fa_1_150000   T   Score:  260   Residues: 24305 - 24342
+humanmhc3.fa_1_150000   T   Score:  256   Residues: 88326 - 88370
+humanmhc3.fa_1_150000   T   Score:  264   Residues: 135739 - 135769
+
+2080 10.67 2.67 0.67  littlepiece3      364   663 (135)    AluY#SINE/Alu        5   310 (1)  
+
+2752  1.64 0.00 0.00  humanmhc3.fa_1_150000      951  1255 (148745)  C AluYb9#SINE/Alu   (13)   305     1  
+
+2 matching entries (first file).
+
+Discrepancy summary:
+Qual algn  cum    rcum    (%)    unalgn X    N  sub del ins  total (%)   cum  rcum (%)
+

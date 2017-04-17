@@ -1,0 +1,891 @@
+#!/usr/bin/env perl 
+##---------------------------------------------------------------------------##
+##  File:
+##      @(#) configure
+##  Author:
+##      Robert Hubley <rhubley@systemsbiology.org>
+##  Description:
+##      A configuration utility for the RepeatMasker distribution.
+##
+#******************************************************************************
+#* Copyright (C) Institute for Systems Biology 2003-2012 Developed by
+#* Arian Smit and Robert Hubley.
+#*
+#* This work is licensed under the Open Source License v2.1.  To view a copy
+#* of this license, visit http://www.opensource.org/licenses/osl-2.1.php or
+#* see the license.txt file contained in this distribution.
+#*
+###############################################################################
+# ChangeLog
+#
+#   $Log: configure,v $
+#   Revision 1.99  2017/02/01 21:01:56  rhubley
+#   Cleanup before a distribution
+#
+#
+###############################################################################
+#
+# To Do:
+#
+
+=head1 NAME
+
+configure - Configure the RepeatMasker distribution
+
+=head1 SYNOPSIS
+
+  perl ./configure 
+
+=head1 DESCRIPTION
+
+  An installation script for the RepeatMasker distribution
+
+=head1 SEE ALSO
+
+=over 4
+
+RepeatMasker
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2004 Robert Hubley, Institute for Systems Biology
+
+=head1 AUTHOR
+
+Robert Hubley <rhubley@systemsbiology.org>
+
+=cut
+
+#
+# Module Dependence
+#
+use strict;
+use Cwd;
+use FindBin;
+use lib $FindBin::Bin;
+use Getopt::Long;
+use LibraryUtils;
+
+my @getopt_args = ( '-re_exec_perl=s' );
+
+my %options = ();
+Getopt::Long::config( "noignorecase", "bundling_override" );
+GetOptions( \%options, @getopt_args );
+
+##
+## First...make sure we are running in the same directory
+## as the script is located.  This avoids problems where
+## this script ends up in someones path and they run it
+## unqualified from another installation directory.
+##
+if ( cwd() ne $FindBin::RealBin ) {
+  print "\n    The RepeatMasker configure script must be run from\n"
+      . "    inside the RepeatMasker installation directory:\n\n"
+      . "       $FindBin::RealBin\n\n"
+      . "    Perhaps this is not the \"configure\" you are looking for?\n\n";
+  exit;
+}
+
+##
+## Perl interpreter location
+##
+my $answer;
+my $goodParam;
+my $perlLocation = $^X;
+if ( $options{'re_exec_perl'} ) {
+  $perlLocation = $options{'re_exec_perl'};
+}
+else {
+  ##
+  ## Introduce ourselves
+  ##
+  system( "clear" );
+  print "\n\n\nRepeatMasker Configuration Program\n\n";
+  print "This program assists with the configuration of the\n";
+  print "RepeatMasker program.  The next set of screens will ask\n";
+  print "you to enter information pertaining to your system\n";
+  print "configuration.  At the end of the program your RepeatMasker\n";
+  print "installation will be ready to use.\n";
+  print "\n\n\n<PRESS ENTER TO CONTINUE>\n";
+  $answer = <STDIN>;
+
+  do {
+    $goodParam = 1;
+    $perlLocation = &promptScreen(
+"**PERL PROGRAM**\n\n  This is the full path to the Perl interpreter.\n  e.g. /usr/local/bin/perl or enter \"env\" if you prefer to use\n  the \"/usr/bin/env perl\" mechanism to locate perl.\n",
+      "Enter path",
+      $perlLocation
+    );
+    if ( $perlLocation eq "env" ) {
+      $perlLocation = "/usr/bin/env perl";
+    }
+    else {
+      if ( !( $perlLocation =~ /^.*perl$/ ) ) {
+        $perlLocation .= "/" if ( !( $perlLocation =~ /^.*\/$/ ) );
+        $perlLocation .= "perl";
+      }
+      if (    !-f $perlLocation
+           || !-x $perlLocation )
+      {
+        print "Perl not found at \"$perlLocation\"\n";
+        print "<PRESS ENTER TO CONTINUE>\n";
+        $answer    = <STDIN>;
+        $goodParam = 0;
+      }
+      elsif ( $perlLocation ne $^X ) {
+
+        # Rerun with intended version of perl
+        exec(
+"$perlLocation $FindBin::RealBin/configure -re_exec_perl $perlLocation" );
+      }
+    }
+  } while ( $goodParam != 1 );
+}
+
+##
+## Check for RepeatMasker dependencies
+##
+BEGIN {
+  my @modDependencies = (
+                          "Tie::File",  "Getopt::Long",
+                          "POSIX",      "File::Copy",
+                          "File::Path", "Data::Dumper",
+                          "Cwd",        "Storable"
+  );
+
+  my @missingModules = ();
+  foreach my $module ( @modDependencies ) {
+    unless ( eval "require " . $module . ";" ) {
+      push @missingModules, $module;
+    }
+  }
+  if ( @missingModules ) {
+    print "\nThe following perl modules required by RepeatMasker "
+        . "are missing from\nyour system.  Please install these or "
+        . "or upgrade your perl version\nto 5.8.x first:\n    "
+        . join( "\n    ", @missingModules ) . "\n";
+    exit;
+  }
+}
+
+#
+# Check for XS version of Scalar::Util
+#
+eval "use Scalar::Util qw(weaken);";
+if ( $@ ) {
+  print "\nThe CPAN module Scalar::Util included in this version of perl\n"
+      . "is not compiled with the XS option.  RepeatMasker requires the\n"
+      . "XS version of the module.  Please reinstall XS Scalar::Util from\n"
+      . "CPAN and restart the configure process.\n\n";
+  exit;
+}
+
+#
+# Check Storable Version
+#
+my $storableVersion =
+    `$perlLocation -mStorable -e 'print \$Storable::VERSION' 2>/dev/null`;
+if ( $storableVersion < 2.06 ) {
+  print "\nYour perl installation contains an old Storable CPAN module\n"
+      . "( version = $storableVersion ).  Please upgrade your Storable module "
+      . "to\nversion 2.06 or higher and then re-run the configure program.\n\n";
+  exit;
+}
+
+##
+## Check for perl version
+##
+if ( $] && $] < 5.008 ) {
+  system( "clear" );
+  print "RepeatMasker should be used with perl 5.008 or higher.\n"
+      . "Perl $] is being used to run configure.";
+  print "\n\n\n<PRESS ENTER TO CONTINUE>\n";
+  my $answer = <STDIN>;
+}
+
+# So that we can get the engine versions
+require NCBIBlastSearchEngine;
+require WUBlastSearchEngine;
+require CrossmatchSearchEngine;
+require HMMERSearchEngine;
+
+##
+## RepeatMasker location
+##
+my $rmLocation = "$FindBin::Bin";
+$rmLocation = &promptScreen(
+"**REPEATMASKER INSTALLATION DIRECTORY**\n\n  This is the path to the directory where\n  the RepeatMasker program has been installed.\n",
+  "Enter path",
+  $rmLocation
+);
+
+my ( $combLib, $tag1, $rmLibraryVersion ) =
+    LibraryUtils::validateLibraries( "$rmLocation/Libraries", "CONSENSUS" );
+
+my ( $na, $tag2, $dfamLibraryVersion ) =
+    LibraryUtils::validateLibraries( "$rmLocation/Libraries", "HMM" );
+
+## TODO: Place this in the LibraryUtils package
+print "\n  -- Building FASTA database...";
+system(
+"$rmLocation/util/buildRMLibFromEMBL.pl $rmLocation/Libraries/RepeatMaskerLib.embl > $rmLocation/Libraries/RepeatMasker.lib 2>/dev/null"
+);
+
+##
+## TRF location
+##
+my $trfProgram = `/usr/bin/which trf`;
+$trfProgram =~ s/[\n\r\s]+//g;
+
+#$trfProgram = "" if ( $trfProgram eq "" );
+do {
+  $goodParam = 1;
+  my $prompt =
+"**TRF PROGRAM**\n\n  This is the full path to the TRF program.\n This is now used by RepeatMasker to mask simple repeats.\n";
+  $trfProgram = &promptScreen( $prompt, "Enter path", $trfProgram );
+  if ( $trfProgram ne "" ) {
+    if ( -d "$trfProgram" ) {
+      unless ( -x "$trfProgram/trf" ) {
+        print "$trfProgram is a directory *and* it does not contain a\n"
+            . "executable file called trf!";
+        $goodParam = 0;
+      }
+      else {
+        $trfProgram .= "/trf";
+        $trfProgram =~ s/\/\//\//g;
+      }
+    }
+    unless ( -x "$trfProgram" ) {
+      print "$trfProgram does not exist\n";
+      $goodParam = 0;
+    }
+    if ( $goodParam == 0 ) {
+      print "<PRESS ENTER TO CONTINUE, CTRL-C TO BREAK>\n";
+      my $answer = <STDIN>;
+    }
+  }
+  else {
+    print "This is a required parameter.\n";
+    print "<PRESS ENTER TO CONTINUE, CTRL-C TO BREAK>\n";
+    $answer    = <STDIN>;
+    $goodParam = 0;
+  }
+} while ( $goodParam != 1 );
+
+# Initialize config from template.
+system( "cp RepeatMaskerConfig.tmpl RepeatMaskerConfig.pm" );
+
+# Make changes to file.
+my $configFile = "RepeatMaskerConfig.pm";
+open IN,  "<$configFile"     || die "Could not open $configFile";
+open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
+while ( <IN> ) {
+  s/^(\s*\$TRF_PRGM\s*=\s*)\S+;/$1\"$trfProgram\";/;
+  print OUT $_;
+}
+close IN;
+close OUT;
+system( "mv $configFile.tmp $configFile" );
+
+##
+## Search Engine Configuration
+##
+searchEngineMenu( "RepeatMaskerConfig.pm" );
+
+##
+## Alter perl invocation headers
+##
+print " -- Setting perl interpreter...\n";
+my @progFiles = (
+                  "RepeatMasker",
+                  "DateRepeats",
+                  "ProcessRepeats",
+                  "RepeatProteinMask",
+                  "DupMasker",
+                  "util/queryRepeatDatabase.pl",
+                  "util/queryTaxonomyDatabase.pl",
+                  "util/rmOutToGFF3.pl",
+                  "util/rmToUCSCTables.pl"
+);
+my $perlLocEsc = $perlLocation;
+$perlLocEsc =~ s/\//\\\//g;
+
+foreach my $file ( @progFiles ) {
+  system(
+         "$perlLocation -i -0pe \'s/^#\\!.*perl.*/#\\!$perlLocEsc/g\;' $file" );
+}
+
+print "\nCongratulations!  RepeatMasker is now ready to use.\n";
+
+#if ( $isMinLibrary ) {
+#  print "The program is installed with a minimal repeat library\n";
+#  print "by default.  This library only contains simple, low-complexity,\n";
+#  print "and common artefact ( contaminate ) sequences.  These are\n";
+#  print "adequate for use with your own custom repeat library.  If you\n";
+#  print "plan to search using common species specific repeats you will\n";
+#  print "need to obtain the complete RepeatMasker repeat library from\n";
+#  print "GIRI ( www.giriinst.org ) and install it in $rmLocation.\n\n";
+#}
+#else {
+print "The program is installed with a the following repeat libraries:\n";
+if ( $dfamLibraryVersion ne "" ) {
+  print "  $dfamLibraryVersion\n";
+}
+if ( $rmLibraryVersion ne "" ) {
+  print "  $rmLibraryVersion\n";
+}
+
+#  print "  Repbase Version = $repbaseVersion\n";
+#}
+print "Further documentation on the program may be found here:\n";
+print "  $rmLocation/repeatmasker.help\n\n";
+
+####################### S U B R O U T I N E S ##############################
+
+sub searchEngineMenu {
+  my $configFile = shift;
+
+  my @searchEngines = (
+                  {
+                    name         => "crossmatch",
+                    desc         => "CrossMatch",
+                    status       => 0,
+                    configurator => \&configCrossMatch
+                  },
+                  {
+                    name => "ncbi",
+                    desc => "RMBlast - NCBI Blast with RepeatMasker extensions",
+                    status       => 0,
+                    configurator => \&configRMBlast
+                  },
+                  {
+                    name         => "wublast",
+                    desc         => "WUBlast/ABBlast (required by DupMasker)",
+                    status       => 0,
+                    configurator => \&configWUBlast
+                  },
+                  {
+                    name         => "hmmer",
+                    desc         => "HMMER3.1 & DFAM",
+                    status       => 0,
+                    configurator => \&configHMMER
+                  }
+  );
+
+  my $done          = 0;
+  my $defaultEngine = "";
+  do {
+    system( "clear" );
+    print "\n\n\n";
+    print "Add a Search Engine:\n";
+    my $i;
+    for ( $i = 0 ; $i <= $#searchEngines ; $i++ ) {
+      print "   " . ( $i + 1 ) . ". $searchEngines[$i]->{'desc'}: [ ";
+      if ( $searchEngines[ $i ]->{'status'} == 0 ) {
+        print "Un-configured ]\n";
+      }
+      elsif ( $searchEngines[ $i ]->{'status'} == 1 ) {
+        print "Configured ]\n";
+      }
+      else {
+        print "Configured, Default ]\n";
+      }
+    }
+    print "\n";
+    print "   " . ( $i + 1 ) . ". Done\n";
+
+    print "\n\nEnter Selection: ";
+    $answer = <STDIN>;
+    $answer =~ s/[\n\r]+//g;
+
+    if ( $answer =~ /\d+/ && $answer > 0 && $answer <= ( $#searchEngines + 2 ) )
+    {
+      if ( $answer == ( $#searchEngines + 2 ) ) {
+        if ( $defaultEngine eq "" ) {
+          print "You must configure at least one search engine!\n";
+          print "<PRESS ENTER TO CONTINUE - CTRL-C to QUIT>\n";
+          $answer = <STDIN>;
+        }
+        else {
+          $done = 1;
+        }
+      }
+      else {
+        $searchEngines[ $answer - 1 ]->{'status'} =
+            $searchEngines[ $answer - 1 ]->{'configurator'}->( $configFile );
+        if ( $searchEngines[ $answer - 1 ]->{'status'} == 2 ) {
+          $defaultEngine = $searchEngines[ $answer - 1 ]->{'name'};
+
+          # Reset other default status
+          for ( my $j = 0 ; $j <= $#searchEngines ; $j++ ) {
+            next if ( $j == ( $answer - 1 ) );
+            $searchEngines[ $j ]->{'status'} = 1
+                if ( $searchEngines[ $j ]->{'status'} == 2 );
+          }
+        }
+        elsif (    $searchEngines[ $answer - 1 ]->{'status'} == 1
+                && $defaultEngine eq "" )
+        {
+          $defaultEngine = $searchEngines[ $answer - 1 ]->{'name'};
+        }
+      }
+    }
+    else {
+      print "Invalid selection!\n";
+      print "<PRESS ENTER TO CONTINUE>\n";
+      $answer = <STDIN>;
+    }
+  } while ( $done == 0 );
+
+  # Figure out who is the default.
+  if ( $defaultEngine ne "" ) {
+    open IN,  "<$configFile"     || die "Could not open $configFile";
+    open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
+    while ( <IN> ) {
+      s/^(\s*\$DEFAULT_SEARCH_ENGINE\s*=\s*)\S+;/$1\"$defaultEngine\";/;
+      print OUT $_;
+    }
+    close IN;
+    close OUT;
+    system( "mv $configFile.tmp $configFile" );
+  }
+
+}
+
+sub configCrossMatch {
+  my $configFile = shift;
+
+  my $answer;
+  my $cmLocation;
+  do {
+    $goodParam = 1;
+    $cmLocation = &promptScreen(
+"**CROSS_MATCH INSTALLATION PATH**\n\n  This is the path to the location where\n  the cross_match program has been installed.\n",
+      "Enter path",
+      ""
+    );
+    if ( $cmLocation ne "" ) {
+      $cmLocation .= "/bin"
+          if ( !-f "$cmLocation/cross_match"
+               && -f "$cmLocation/bin/cross_match" );
+      if ( !-d $cmLocation ) {
+        print "$cmLocation is not a directory!\n";
+        $goodParam = 0;
+      }
+      elsif ( !-s "$cmLocation/cross_match" ) {
+        print "$cmLocation does not contain the cross_match executable!\n";
+        $goodParam = 0;
+      }
+      if ( $goodParam == 0 ) {
+        print "<PRESS ENTER TO CONTINUE>\n";
+        $answer = <STDIN>;
+      }
+    }
+  } while ( $goodParam != 1 );
+
+  if ( $cmLocation eq "" ) {
+    print "Crossmatch not configured!\n";
+    print "<PRESS ENTER TO CONTINUE>\n";
+    $answer = <STDIN>;
+    return 0;
+  }
+
+  # Make changes to file.
+  open IN,  "<$configFile"     || die "Could not open $configFile";
+  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
+  while ( <IN> ) {
+    s/^(\s*\$CROSSMATCH_DIR\s*=\s*)\S+;/$1\"$cmLocation\";/;
+    print OUT $_;
+  }
+  close IN;
+  close OUT;
+  system( "mv $configFile.tmp $configFile" );
+
+  my $cmDefault = &promptScreen(
+    "",
+"Do you want CrossMatch to be your default\nsearch engine for Repeatmasker? (Y/N) ",
+    "Y",
+  );
+
+  $cmDefault = lc( $cmDefault );
+  return ( 2 ) if ( $cmDefault eq "y" || $cmDefault eq "yes" );
+
+  return ( 1 );
+}
+
+sub configRMBlast {
+  my $configFile = shift;
+
+  my $answer;
+  my $pgLocation;
+  do {
+    $goodParam = 1;
+    $pgLocation = &promptScreen(
+"**RMBlast (rmblastn) INSTALLATION PATH**\n\n  This is the path to the location where\n  the rmblastn and makeblastdb programs can be found.\n",
+      "Enter path",
+      ""
+    );
+    if ( $pgLocation ne "" ) {
+      $pgLocation .= "/bin"
+          if ( !-f "$pgLocation/rmblastn"
+               && -f "$pgLocation/bin/rmblastn" );
+      unless ( -d "$pgLocation" ) {
+        print "$pgLocation does not exist\n";
+        $goodParam = 0;
+      }
+      unless ( -s "$pgLocation/rmblastn" ) {
+        print "$pgLocation/rmblastn does not exist\n";
+        $goodParam = 0;
+      }
+      unless ( -s "$pgLocation/makeblastdb" ) {
+        print "$pgLocation/makeblastdb does not exist\n";
+        $goodParam = 0;
+      }
+      unless ( -s "$pgLocation/blastx" ) {
+        print "$pgLocation/blastx does not exist\n";
+        $goodParam = 0;
+      }
+      if ( $goodParam == 0 ) {
+        print "<PRESS ENTER TO CONTINUE>\n";
+        my $answer = <STDIN>;
+      }
+    }
+  } while ( $goodParam != 1 );
+
+  if ( $pgLocation eq "" ) {
+    print "RMBlast not configured!\n";
+    print "NOTE: NCBI now ( since 2.2.27+ ) separates rmblastn from the\n";
+    print "      rest of the NCBI toolkit binary distributions.  If you\n";
+    print "      downloaded the binary rmblast distribution you will\n";
+    print "      also need to download the standard NCBI Blast Toolkit\n";
+    print "      and install both in the same directory.\n\n";
+    print "<PRESS ENTER TO CONTINUE>\n";
+    $answer = <STDIN>;
+    return 0;
+  }
+  $pgLocation =~ s/(.*)\/$/$1/;
+
+  # Make sure we can run the program and get the version info
+  my $searchEngine =
+      NCBIBlastSearchEngine->new( pathToEngine => "$pgLocation/rmblastn" );
+  my $version = $searchEngine->getVersion();
+
+  # Make changes to file.
+  open IN,  "<$configFile"     || die "Could not open $configFile";
+  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
+  while ( <IN> ) {
+    s/^(\s*\$RMBLAST_DIR\s*=\s*)\S+;/$1\"$pgLocation\";/;
+    print OUT $_;
+  }
+  close IN;
+  close OUT;
+  system( "mv $configFile.tmp $configFile" );
+
+  # Freeze RM and RMPep libraries for RepeatModeler use among others
+  my $rmLocation = "$FindBin::Bin";
+  print "Building RMBlast frozen libraries..\n";
+  system(   "$pgLocation/makeblastdb -dbtype nucl -in "
+          . "$rmLocation/Libraries/RepeatMasker.lib > /dev/null 2>&1" );
+  system(   "$pgLocation/makeblastdb -dbtype prot -in "
+          . "$rmLocation/Libraries/RepeatPeps.lib > /dev/null 2>&1" );
+
+  my $pgDefault = &promptScreen(
+    "",
+"Do you want RMBlast to be your default\nsearch engine for Repeatmasker? (Y/N) ",
+    "Y",
+  );
+
+  $pgDefault = lc( $pgDefault );
+  return ( 2 ) if ( $pgDefault eq "y" || $pgDefault eq "yes" );
+
+  return ( 1 );
+
+}
+
+sub configWUBlast {
+  my $configFile = shift;
+
+  my $answer;
+  my $wuLocation;
+  do {
+    $goodParam = 1;
+    $wuLocation = &promptScreen(
+"**ABBlast/WUBlast BLASTP INSTALLATION PATH**\n\n  This is the path to the location where\n  the ABblast/WUblast blastp and setdb programs can be found.\n",
+      "Enter path",
+      ""
+    );
+    if ( $wuLocation ne "" ) {
+      $wuLocation .= "/bin"
+          if ( !-f "$wuLocation/blastp"
+               && -f "$wuLocation/bin/blastp" );
+      unless ( -d "$wuLocation" ) {
+        print "$wuLocation does not exist\n";
+        $goodParam = 0;
+      }
+      unless ( -s "$wuLocation/blastp" ) {
+        print "$wuLocation/blastp does not exist\n";
+        $goodParam = 0;
+      }
+      unless ( -s "$wuLocation/setdb" ) {
+        print "$wuLocation/setdb does not exist\n";
+        $goodParam = 0;
+      }
+      if ( $goodParam == 0 ) {
+        print "<PRESS ENTER TO CONTINUE>\n";
+        my $answer = <STDIN>;
+      }
+    }
+  } while ( $goodParam != 1 );
+
+  if ( $wuLocation eq "" ) {
+    print "WUBlast/ABBlast not configured!\n";
+    print "<PRESS ENTER TO CONTINUE>\n";
+    $answer = <STDIN>;
+    return 0;
+  }
+  $wuLocation =~ s/(.*)\/$/$1/;
+
+  # Make changes to file.
+  open IN,  "<$configFile"     || die "Could not open $configFile";
+  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
+  while ( <IN> ) {
+    s/^(\s*\$WUBLAST_DIR\s*=\s*)\S+;/$1\"$wuLocation\";/;
+    print OUT $_;
+  }
+  close IN;
+  close OUT;
+  system( "mv $configFile.tmp $configFile" );
+
+  # Freeze RM and RMPep libraries
+  my $rmLocation = "$FindBin::Bin";
+  print "Building WUBlast/ABBlast frozen libraries..\n";
+  system(   "$wuLocation/xdformat -n -I "
+          . "$rmLocation/Libraries/RepeatMasker.lib > /dev/null 2>&1" );
+  system(   "$wuLocation/xdformat -p -I "
+          . "$rmLocation/Libraries/RepeatPeps.lib > /dev/null 2>&1" );
+
+  my $wuDefault = &promptScreen(
+    "",
+"Do you want ABBlast/WUBlast to be your default\nsearch engine for Repeatmasker? (Y/N) ",
+    "Y",
+  );
+
+  $wuDefault = lc( $wuDefault );
+  return ( 2 ) if ( $wuDefault eq "y" || $wuDefault eq "yes" );
+
+  return ( 1 );
+
+}
+
+sub configHMMER {
+  my $configFile = shift;
+
+  my $answer;
+  my $location;
+  my $concatLine;
+  $goodParam = 0;
+  $location = &promptScreen(
+                     "**HMMER INSTALLATION PATH**\n\n  This is the path "
+                         . "to the location where\n  the nhmmer program can be "
+                         . "found.\n",
+                     "Enter path",
+                     ""
+  );
+  if ( $location ne "" ) {
+    $location .= "/bin"
+        if ( !-f "$location/nhmmscan"
+             && -f "$location/bin/nhmmscan" );
+    if ( -f "$location/nhmmscan" ) {
+      my $result = `$location/nhmmscan -h 2>&1`;
+
+      # HMMER 3.0dev (March 2010); http://hmmer.org/
+      # HMMER 3.1dev_0.33 (July 2012); http://hmmer.org
+      # HMMER hmmer3.1-snap20120830 (August 2012); http://hmmer.org/
+      # HMMER 3.1b1 (May 2013); http://hmmer.org/
+      while ( $result =~ /([^\n\r]*)[\n\r]/ig ) {
+        my $line = $1;
+
+        if ( $line =~ /^#\s+HMMER\s+(\d+\.\d+).*/ ) {
+          if ( $1 >= 3.1 ) {
+            $goodParam = 1;
+          }
+          else {
+            print
+"ERROR: Only HMMER version 3.1 ( currently in pre-release ) and above are "
+                . "supported. This directory contains version: $1\n";
+          }
+        }
+        $concatLine .= $line . "\n";
+        last if ( $line !~ /^#/ );
+      }    # while()
+
+      if ( $goodParam != 1 ) {
+        print "ERROR: Could not identify version of the nhmmer program.\n"
+            . "       Most likely this is older than 3.1.  Please\n"
+            . "       ensure you have at least 3.1 installed and then\n"
+            . "       rerun configure.\n"
+            . "       Data returned from nhmmer exec:\n$concatLine\n\n";
+      }
+    }
+    else {
+      print "ERROR: Could not find nhmmer program in this directory!\n";
+    }
+  }
+
+  if ( $location eq "" || $goodParam == 0 ) {
+    print "HMMER not configured!\n";
+    print "<PRESS ENTER TO CONTINUE>\n";
+    $answer = <STDIN>;
+    return 0;
+  }
+
+  # Make changes to file.
+  open IN,  "<$configFile"     || die "Could not open $configFile";
+  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
+  while ( <IN> ) {
+    s/^(\s*\$HMMER_DIR\s*=\s*)\S+;/$1\"$location\";/;
+    print OUT $_;
+  }
+  close IN;
+  close OUT;
+  system( "mv $configFile.tmp $configFile" );
+
+  my $default = &promptScreen(
+    "",
+"Do you want HMMER to be your default\nsearch engine for Repeatmasker? (Y/N) ",
+    "Y",
+  );
+
+  $default = lc( $default );
+  return ( 2 ) if ( $default eq "y" || $default eq "yes" );
+
+  return ( 1 );
+}
+
+sub configDeCypher {
+  my $configFile = shift;
+
+  my $answer;
+  my $deLocation;
+  do {
+    $goodParam = 1;
+    $deLocation = &promptScreen(
+"**DeCypher INSTALLATION PATH**\n\n  This is the path to the location where\n  the DeCypher Blast and dc_make_target programs can be found.\n",
+      "Enter path",
+      ""
+    );
+    if ( $deLocation ne "" ) {
+
+      # Place checks for common programs here.  If they don't exist...set
+      # $goodParam  to 0
+      # ===>
+      if ( $goodParam == 0 ) {
+        print "<PRESS ENTER TO CONTINUE>\n";
+        my $answer = <STDIN>;
+      }
+    }
+  } while ( $goodParam != 1 );
+
+  if ( $deLocation eq "" ) {
+    print "DeCypher not configured!\n";
+    print "<PRESS ENTER TO CONTINUE>\n";
+    $answer = <STDIN>;
+    return 0;
+  }
+
+  # Make changes to file.
+  open IN,  "<$configFile"     || die "Could not open $configFile";
+  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
+  while ( <IN> ) {
+    s/^(\s*\$DECYPHER\s*=\s*)\S+;/$1\"$deLocation\";/;
+    print OUT $_;
+  }
+  close IN;
+  close OUT;
+  system( "mv $configFile.tmp $configFile" );
+
+  my $deDefault = &promptScreen(
+    "",
+"Do you want DeCypher to be your default\nsearch engine for Repeatmasker? (Y/N) ",
+    "Y",
+  );
+
+  $deDefault = lc( $deDefault );
+  return ( 2 ) if ( $deDefault eq "y" || $deDefault eq "yes" );
+
+  return ( 1 );
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
+=item Use: my $retVal =  &promptScreen( $screenText, $promptText, 
+                                        $defaultAnswer, [$validResponses] );
+
+Clear the screen and prompt the user for input
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub promptScreen {
+  my $screenText     = shift;
+  my $promptText     = shift;
+  my $defaultAnswer  = shift;
+  my $validResponses = shift;
+
+  my $answer = undef;
+
+  # Clear the screen
+  system( "clear" );
+
+  print "\n\n\n";
+  print $screenText;
+  my $numLines = ( $screenText =~ s/(\n)/$1/g );
+  for ( my $i = 0 ; $i < 15 - $numLines ; $i++ ) {
+    print "\n";
+  }
+  if ( defined $validResponses ) {
+    $promptText .= " ( " . $validResponses . " )";
+  }
+  if ( defined $defaultAnswer ) {
+    $promptText .= " [ " . $defaultAnswer . " ]: ";
+  }
+  print $promptText;
+  $answer = <STDIN>;
+
+  if ( $answer =~ /^\s*$/ ) {
+    $answer = $defaultAnswer;
+  }
+  else {
+    $answer =~ s/[\n\r]+//g;
+  }
+
+  return ( $answer );
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
+=item Use: my $vers =  &getModVersion( "/usr/perl5/lib/foo.pm" );
+
+Extract the version from a given perl module.
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getModVersion {
+  my $mod     = shift;
+  my $version =
+      `/usr/bin/perl -mStorable -e 'print \$${mod}::VERSION' 2>/dev/null`;
+  return ( $version || undef );
+}
+
+1;

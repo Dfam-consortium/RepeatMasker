@@ -1,0 +1,744 @@
+#!/u1/local/bin/perl
+##---------------------------------------------------------------------------##
+##  File:
+##      @(#) RepeatProteinMask
+##  Author:
+##      Arian Smit <asmit@systemsbiology.org>
+##      Robert Hubley <rhubley@systemsbiology.org>
+##  Description:
+##      Given a sequence file and a protein database, mask
+##      all hits using blastx.
+##
+#******************************************************************************
+#* Copyright (C) Institute for Systems Biology 2005 Developed by
+#* Arian Smit and Robert Hubley.
+#*
+#* This work is licensed under the Open Source License v2.1.  To view a copy
+#* of this license, visit http://www.opensource.org/licenses/osl-2.1.php or
+#* see the license.txt file contained in this distribution.
+#*
+###############################################################################
+#  ChangeLog:
+#
+#    $Log: RepeatProteinMask,v $
+#    Revision 1.36  2013/11/06 18:36:59  rhubley
+#      - getting ready for a release
+#
+#    Revision 1.35  2013/10/31 21:53:06  rhubley
+#      - Tidy'd up.
+#      - Fixed a bug with WUBlastSearchEngine.pm rescoring ( matrix transposition )
+#      - Minor option changes
+#
+#    Revision 1.34  2013/09/12 21:05:26  rhubley
+#      - fixed matrix problem
+#
+#    Revision 1.33  2013/09/12 20:29:19  rhubley
+#      - Fixed a bug with RepeatProteinMask ( relative directories and such )
+#
+#    Revision 1.32  2013/06/20 17:35:22  rhubley
+#     - Getting ready for a release
+#
+#    Revision 1.31  2013/02/20 23:44:45  rhubley
+#    *** empty log message ***
+#
+#    Revision 1.30  2012/09/13 18:17:57  rhubley
+#      - Another round of perltidy
+#
+#    Revision 1.29  2012/09/13 17:51:56  rhubley
+#      - Perl Tidy
+#
+#    Revision 1.28  2012/06/07 19:58:28  rhubley
+#      - Added support for NCBI BlastX to RepeatProteinMask. Also removed
+#        independent TRF runs.  TRF is now the default engine for RepeatMasker
+#
+#    Revision 1.27  2012/06/07 16:25:23  rhubley
+#     -- Fixed a bug with the parameterName variable in TRF.pm
+#
+#    Revision 1.26  2012/04/12 19:07:37  rhubley
+#     - Oh boy...lots o changes.  Mostly to RepeatMasker script.  Cleaning up
+#       and generalizing the search stages.  Removing dead code.  Cleaning up
+#       the old Choose ( now filterRepeats ) routine and trying desperately to
+#       remove the metadata which is causing grief for HMMER integration.
+#
+#    Revision 1.25  2012/02/07 00:36:12  rhubley
+#      - Working towards a HMMER release
+#
+#    Revision 1.24  2011/10/25 20:45:50  rhubley
+#      - Fixed an issue with refining ALUs.  The xdrop_gap_final parameter
+#        of NCBIBlast was occassionally fragmenting refinement alignments.
+#        This caused ProcessRepeats to drop portions of the refinement from
+#        the final output.
+#
+#    Revision 1.23  2009/03/26 23:44:11  rhubley
+#      - WUBlast to ABBlast changes
+#      - Fixed the matrix parsing in WUBlastSearchEngine
+#      - Fixed an optimization problem in ProcessRepeats
+#
+#    Revision 1.22  2009/03/26 17:27:20  rhubley
+#       - Stupid Debian/Ubuntu switched /bin/sh from BASH to DASH thus breaking
+#         many many scripts in the holy name of POSIX compliance.  To quote the
+#         mormon south park episode: "Dumb dumb dumb dumb dumb".
+#         I went through and changed all occurances of ">&" to "> file 2>&1"
+#
+#    Revision 1.21  2008/10/28 22:33:28  rhubley
+#      - added a "-noTRF" option to RepeatProteinMask.
+#
+#    Revision 1.20  2008/05/01 22:28:46  rhubley
+#      - Added support in configure for RepeatProteinMask (TRF)
+#
+#    Revision 1.19  2006/09/06 20:42:19  rhubley
+#     - formating changes
+#
+#    Revision 1.18  2006/08/08 18:48:02  rhubley
+#      - prettyPrinted' everything
+#      - Added usage header to ProcessRepeats
+#      - Added -lcambig option to ProcessRepeats: Prints ambiguous DNA transposon
+#        fragment names in lower case ( everything else in upper case ).
+#
+#    Revision 1.17  2006/03/31 20:22:44  rhubley
+#      - Documentation in ProcessRepeats
+#      - Bug fixes in RepeatProteinMask
+#
+#    Revision 1.16  2005/05/10 16:22:27  rhubley
+#      - Changed spacing
+#
+#    Revision 1.15  2005/05/02 21:09:04  rhubley
+#      - type column work
+#
+#    Revision 1.14  2005/05/02 21:01:45  rhubley
+#      - Fixed querystatlen
+#
+#    Revision 1.13  2005/05/02 20:54:49  rhubley
+#     - More adding type column
+#
+#    Revision 1.12  2005/05/02 20:53:13  rhubley
+#      - Added type column
+#
+#    Revision 1.11  2005/05/02 18:49:49  rhubley
+#      - Updated default parameters
+#
+#    Revision 1.10  2005/04/26 00:04:03  rhubley
+#      - fixed querystatlen
+#
+#    Revision 1.9  2005/04/21 20:14:04  rhubley
+#      - Complexity adjust mand effective query length
+#
+#    Revision 1.8  2005/04/19 23:52:34  rhubley
+#      - fixed a bug where it was marking hits as coming from RepeatMasker instead
+#        of wublastx
+#
+#    Revision 1.7  2005/04/19 23:20:34  rhubley
+#      - Give this a shot
+#
+#    Revision 1.6  2005/04/15 20:48:24  rhubley
+#      - Bug fix ( didn't print all TRF matches )
+#      - default changes ( 0.0001, and 333 )
+#
+#    Revision 1.5  2005/04/14 23:28:04  rhubley
+#      - Updates
+#
+#    Revision 1.4  2005/04/14 19:16:43  rhubley
+#     - Small changes
+#
+#    Revision 1.3  2005/04/14 00:21:33  rhubley
+#      - Working toward a perfect RepeatProteinMask
+#
+#    Revision 1.2  2005/04/12 23:36:10  rhubley
+#      - Updates including Arians changes
+#
+#    Revision 1.1  2005/04/12 17:52:18  rhubley
+#      - Adding a new component to the RepeatMasker suite.  RepeatProteinMask
+#        masks sequence based on it's similarity with interspersed repeat
+#        peptides ( RepeatPeps.lib ).  This uses WUBlastX to do it's work.
+#
+#
+###############################################################################
+#
+# To Do:
+#
+#
+
+=head1 NAME
+
+RepeatProteinMask - Mask Repeat Proteins in DNA sequence
+
+=head1 SYNOPSIS
+
+  RepeatProteinMask [-engine ncbi|abblast|wublast] [-pvalue #] 
+                    [-minscore #] [-wordsize #] [-maxAADist] 
+                    [-noLowSimple] [-queryStatLen #] <fasta file>
+
+=head1 DESCRIPTION
+
+The options are:
+
+=over 4
+
+=item -h(elp)
+
+=item -engine ncbi|abblast|wublast
+
+Use the provided search engine to run the blastx runs.
+
+=item -pvalue #
+
+The threshold for accepting matches. Matches must hava a pvalue
+less than this number. Default is *NOT* to threshold.
+
+=item -minscore #
+
+Threshold on minscore.  Note no default is added. So all hits 
+will be returned unless a minscore is used.
+
+=item -wordsize #
+
+The wordsize to use with the blastx search. Default is 3
+
+=item -querystatlen #
+
+The effective length of the query to use in statistical calculations.
+
+=item -maxaadist #
+
+The maximum distance to consider two blastx hits as the same
+(and thus contributing to Sum P scores).  Default is 333.
+
+
+=item -noLowSimple
+
+Turns off masking/annotating of low complexity and simple repeats
+in the final output.  Low complexity and simple repeat analysis 
+will still occur prior to looking for matches to the RepeatPep
+database.
+
+Detailed help
+
+=back
+
+=head1 SEE ALSO
+
+=over 4
+
+RepeatModeler
+
+=back
+
+=head1 COPYRIGHT
+
+Copyright 2005 Institute for Systems Biology
+
+=head1 AUTHOR
+
+Robert Hubley <rhubley@systemsbiology.org>
+
+=cut
+
+#
+# Module Dependence
+#
+use strict;
+use FindBin;
+use lib $FindBin::RealBin;
+use Data::Dumper;
+use Carp;
+use Getopt::Long;
+
+# RepeatMasker Libraries
+use RepeatMaskerConfig;
+use SeqDBI;
+use FastaDB;
+use WUBlastXSearchEngine;
+use NCBIBlastXSearchEngine;
+use CrossmatchSearchEngine;
+use TRF;
+use TRFSearchResult;
+use SearchEngineI;
+
+#
+# Class Globals & Constants
+#
+my $CLASS = "RepeatProteinMask";
+my $DEBUG = 0;
+$DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
+
+#
+# Option processing
+#  e.g.
+#   -t: Single letter binary option
+#   -t=s: String parameters
+#   -t=i: Number paramters
+#
+my @opts =
+    qw( help consensi=s wordsize=s pvalue=s maxaadist=s nolowsimple minscore=s querystatlen=s engine=s );
+
+## Pvalue default used to be 0.0001 now it doesn't filter by default
+
+#
+# Get the supplied command line options, and set flags
+#
+my %options = ();
+unless ( &GetOptions( \%options, @opts ) )
+{
+  exec "pod2text $0";
+  exit( 1 );
+}
+
+# Print the internal POD documentation if something is missing
+if ( $options{'help'} || !$#ARGV < 1 )
+{
+
+  # This is a nifty trick so we don't have to have
+  # a duplicate "USAGE()" subroutine.  Instead we
+  # just recycle our POD docs.  See PERL POD for more
+  # details.
+  exec "pod2text $0";
+  die;
+}
+
+# This will miss alot. But in GC rich DNA a lower score
+# will cause false positives
+my $minScore = 20;
+if ( defined $options{'minscore'} )
+{
+  $minScore = $options{'minscore'};
+}
+
+my $maxAADist = 333;
+if ( defined $options{'maxaadist'} )
+{
+  $maxAADist = $options{'maxaadist'};
+}
+
+#determines which matches above which P value will be ignored
+#my $cutoffP = 0.0001;
+#if ( defined $options{'pvalue'} ) {
+#  $cutoffP = $options{'pvalue'};
+#}
+
+my $wordSize = 3;
+if ( defined $options{'wordsize'} )
+{
+  $wordSize = $options{'wordsize'};
+}
+
+my $fastaFile = "";
+my $fileDir   = "";
+if ( -s $ARGV[ 0 ] )
+{
+  my @fileParts = File::Spec->splitpath( $ARGV[ 0 ] );
+  $fileDir   = $fileParts[ 1 ];
+  $fastaFile = $fileParts[ 2 ];
+} else
+{
+  die $CLASS . ": Missing fasta file parameter!\n";
+}
+
+#
+# Assume we want to place the results next to the original file
+#
+if ( $fileDir ne "." && $fileDir ne "" )
+{
+  chdir( $fileDir );
+}
+
+# open up the consensi database
+#
+if ( exists $options{'nolowsimple'} )
+{
+  print
+      "Identifying Simple and Low Complexity Repeats...(masking turned off)\n";
+} else
+{
+  print "Masking Simple Repeats...\n";
+}
+my $seqDB = FastaDB->new(
+                          fileName    => $fastaFile,
+                          openMode    => SeqDBI::ReadOnly,
+                          maxIDLength => 50
+);
+
+if ( $seqDB->getSeqCount() <= 0 )
+{
+  die "\n\nSomething is wrong with the input sequence. Possibly a formatting "
+      . "problem.  Please correct your sequence data and resubmit.\n";
+}
+
+my $scratchDir = "/tmp";
+
+#
+# RepeatMasker
+#
+system( "cp $fastaFile $fastaFile.rmsimple" );
+`$RepeatMaskerConfig::REPEATMASKER_DIR/RepeatMasker -qq -noint -no_is $fastaFile.rmsimple > /dev/null 2>&1`;
+my $RMResults;
+if ( -e "$fastaFile.rmsimple.out" && -e "$fastaFile.rmsimple.masked" )
+{
+  $RMResults =
+      CrossmatchSearchEngine::parseOutput(
+                                    searchOutput => "$fastaFile.rmsimple.out" );
+  print "   - Tandem Repeats: " . $RMResults->size() . "\n";
+  system( "mv $fastaFile.rmsimple.masked $fastaFile.rmsimple" );
+} else
+{
+  print "   - Tandem Repeats: 0\n";
+}
+
+unlink( "$fastaFile.rmsimple.out" ) if ( -e "$fastaFile.rmsimple.out" );
+unlink( "$fastaFile.rmsimple.cat" ) if ( -e "$fastaFile.rmsimple.cat" );
+unlink( "$fastaFile.rmsimple.tbl" ) if ( -e "$fastaFile.rmsimple.tbl" );
+unlink( "$fastaFile.rmsimple.log" ) if ( -e "$fastaFile.rmsimple.log" );
+
+#
+# Comparison against database of transposon proteins
+#
+# blastx the simple-masked consensi vs the transposable element
+# protein database with the fasta line format
+#      >TWIFBIG#DNA/HAT-Ac
+#
+# This name may be *immediately* followed by #ReverseORF to indicate
+# that the product is encoded on the opposite strand of the
+# transposable element. It needs to be right after it, otherwise it
+# may fall on the next line in the blastx output's hit description.
+#
+print "Masking Repeat Proteins...\n";
+
+# Set the environment
+my $searchEngineX;
+
+#
+# Parameter Translations:
+#   WU/ABBlastX       NCBIBlastX
+#   -------------     -----------------
+#   -hspsepqmax #     -max_intron_length #
+#   -W #              -word_size #
+#   -Y #              -searchsp #
+#   -T #              -threshold #
+#
+my $queryStatLen = 1000000;
+if ( defined $options{'querystatlen'} )
+{
+  $queryStatLen = $options{'querystatlen'};
+}
+
+if ( $options{'engine'} =~ /ncbi|rmblast/i )
+{
+  $searchEngineX =
+      NCBIBlastXSearchEngine->new(
+                         pathToEngine => "$RepeatMaskerConfig::RMBLASTX_PRGM" );
+
+  if ( !-s "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib.psq" )
+  {
+    system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype prot -in "
+            . "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib "
+            . "> /dev/null 2>&1" );
+  }
+
+  my $additionalParams =
+        " -word_size $wordSize -max_intron_length $maxAADist"
+      . " -searchsp $queryStatLen -threshold $queryStatLen ";
+  $searchEngineX->setAdditionalParameters( $additionalParams );
+} else
+{
+  $ENV{BLASTMAT} = "$RepeatMaskerConfig::WUBLAST_DIR/matrix";
+  $searchEngineX =
+      WUBlastXSearchEngine->new(
+                    pathToEngine => "$RepeatMaskerConfig::WUBLAST_DIR/blastx" );
+
+  if ( !-s "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib.xps" )
+  {
+    system(
+"$RepeatMaskerConfig::XDFORMAT_PRGM -p $RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib"
+    );
+  }
+
+  my $additionalParams =
+      " -W=$wordSize hspsepqmax=$maxAADist" . " -Y=$queryStatLen ";
+  $searchEngineX->setAdditionalParameters( $additionalParams );
+}
+
+$searchEngineX->setQuery( "$fastaFile.rmsimple" );
+$searchEngineX->setSubject(
+                   "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib" );
+$searchEngineX->setFilterWords( 1 );
+if ( defined $options{'pvalue'} )
+{
+  $searchEngineX->setPValueCutoff( $options{'pvalue'} );
+}
+if ( $minScore ne "" )
+{
+  $searchEngineX->setMinScore( $minScore );
+}
+$searchEngineX->setScoreMode( SearchEngineI::complexityAdjustedScoreMode );
+$searchEngineX->setMaskLevel( 85 );
+my ( $status, $resultCollection ) = $searchEngineX->search();
+
+print "   - Protein Hits = " . $resultCollection->size() . "\n";
+if ( $resultCollection->size() > 0 )
+{
+  if ( exists $options{'nolowsimple'} )
+  {
+    unlink( "$fastaFile.rmsimple" );
+    maskResults( resultsRef => $resultCollection,
+                 fastaFile  => $fastaFile );
+  } else
+  {
+    maskResults( resultsRef => $resultCollection,
+                 fastaFile  => "$fastaFile.rmsimple" );
+    unlink( "$fastaFile.rmsimple" );
+    system( "mv $fastaFile.rmsimple.masked $fastaFile.masked" );
+  }
+} else
+{
+  if ( exists $options{'nolowsimple'} )
+  {
+    system( "cp $fastaFile $fastaFile.masked" );
+  } else
+  {
+    system( "mv $fastaFile.rmsimple $fastaFile.masked" );
+  }
+}
+
+# Sort through results and create annotation file.
+open ANO, ">$fastaFile.annot";
+my $hdrStr = sprintf(
+"%-10.10s %6s %-14.14s %-18.18s %-8.8s %-8.8s %1s %-18.18s %-18.18s %-8.8s %-8.8s\n",
+  "pValue", "Score",  "Method", "SeqID", "Begin", "End",
+  " ",      "Repeat", "Type",   "Begin", "End"
+);
+print ANO $hdrStr;
+unless ( exists $options{'nolowsimple'}
+         || !defined $RMResults )
+{
+  $resultCollection->addAll( $RMResults );
+  $resultCollection->sort(
+    sub ($$) {
+      $_[ 0 ]->getQueryName() cmp $_[ 1 ]->getQueryName()
+          || $_[ 0 ]->getQueryStart() <=> $_[ 1 ]->getQueryStart();
+    }
+  );
+}
+
+if ( $resultCollection->size() > 0 )
+{
+  my $prevQueryName = $resultCollection->get( 0 )->getQueryName();
+  for ( my $k = 0 ; $k < $resultCollection->size() ; $k++ )
+  {
+    my $result = $resultCollection->get( $k );
+    my $orient = "+";
+    $orient = "-" if ( $result->getOrientation() eq "C" );
+
+    # Break up the subject name into repeat name and repeat type
+    my $subjName = $result->getSubjName();
+    my $subjType = $result->getSubjType();
+    if ( $result->getSubjName() =~ /(\S+)\#(\S+)/ )
+    {
+      $subjName = $1;
+      $subjType = $2;
+    }
+
+    my $outStr;
+    if ( !$result->getPValue() =~ /[\d\.\-\e]+/ )
+    {
+
+      # Result came from RepeatMasker
+      $outStr = sprintf(
+         "%-10.2s %6d %-14s %-18.18s %-8d %-8d %1s %-15.15s %-15.15s %8d %8d\n",
+         "-",                      $result->getScore(),
+         "RMasker/TRF",            $result->getQueryName(),
+         $result->getQueryStart(), $result->getQueryEnd(),
+         $orient,                  $subjName,
+         $subjType,                $result->getSubjStart(),
+         $result->getSubjEnd()
+      );
+
+    } else
+    {
+      $outStr = sprintf(
+         "%-10.2e %6d %-14s %-18.18s %-8d %-8d %1s %-15.15s %-15.15s %8d %8d\n",
+         $result->getPValue(),     $result->getScore(),
+         "WUBlastX",               $result->getQueryName(),
+         $result->getQueryStart(), $result->getQueryEnd(),
+         $orient,                  $subjName,
+         $subjType,                $result->getSubjStart(),
+         $result->getSubjEnd()
+      );
+
+    }
+    print ANO "$outStr";
+
+  }
+}
+close ANO;
+
+# Cya!
+print "Done!\n";
+exit;
+
+#-------------------- S U B R O U T I N E S ------------------------------#
+
+##---------------------------------------------------------------------##
+##
+##  maskResults()
+##
+##  Use: maskDatabase( resultsRef => #ref#,
+##                     fastaFile => "/jo/bob/seq.fa",
+##                   );
+##
+##
+##
+##---------------------------------------------------------------------##
+sub maskResults
+{
+  my %parameters = @_;
+
+  # Parameter checking
+  die $CLASS
+      . "::maskResults(): Missing or invalid resultsRef "
+      . "parameter!\n"
+      if ( !defined $parameters{'resultsRef'} );
+  my $resultsRef = $parameters{'resultsRef'};
+
+  die $CLASS . "::maskResults(): Missing fastaFile parameter!\n"
+      if (    !defined $parameters{'fastaFile'}
+           || !-s $parameters{'fastaFile'} );
+  my $fastaFile = $parameters{'fastaFile'};
+
+  my %maskRanges = ();
+  my $maskDB = FastaDB->new( fileName => $fastaFile,
+                             openMode => SeqDBI::ReadOnly );
+  open OUT, ">$fastaFile.masked";
+
+  for ( my $k = 0 ; $k < $resultsRef->size() ; $k++ )
+  {
+    my $result = $resultsRef->get( $k );
+    push @{ $maskRanges{ $result->getQueryName() } },
+        [
+          $result->getQueryStart() - 1,
+          $result->getQueryEnd() - $result->getQueryStart() + 1
+        ];
+  }
+
+  my %idsSeen = ();
+  foreach my $idKey ( keys( %maskRanges ) )
+  {
+    $idsSeen{$idKey} = 1;
+    print OUT ">" . $idKey . " " . $maskDB->getDescription( $idKey ) . "\n";
+    my $seq = $maskDB->getSequence( $idKey );
+    foreach my $range ( @{ $maskRanges{$idKey} } )
+    {
+
+      #print " Masking seq: " .  $range->[ 0 ] . " - " .  $range->[ 1 ] . "\n";
+      substr( $seq, $range->[ 0 ], $range->[ 1 ] ) = "N" x $range->[ 1 ];
+    }
+    $seq =~ s/(.{50})/$1\n/g;
+    print OUT "$seq\n";
+  }
+
+  # Write out any records which didn't have any masking
+  foreach my $idKey ( $maskDB->getIDs() )
+  {
+    next if ( exists $idsSeen{$idKey} );
+    print OUT ">" . $idKey . " " . $maskDB->getDescription( $idKey ) . "\n";
+    my $seq = $maskDB->getSequence( $idKey );
+    $seq =~ s/(.{50})/$1\n/g;
+    print OUT "$seq\n";
+  }
+  close OUT;
+
+}
+
+########################################################################################
+########################################################################################
+########################################################################################
+########################################################################################
+
+#sub TRFMask {
+#  my $seqDB      = shift;
+#  my $trfObj     = shift;
+#  my $maskFile   = shift;
+#  my $scratchDir = shift;
+#
+#  open OUT, ">$maskFile"
+#      || die $CLASS . "::TRFMask: Could not open file $maskFile!\n";
+#
+#  # Create a tempDirectory for us
+#  my $tmpDir;
+#  do {
+#    $tmpDir = $scratchDir . "/trfResults-" . time();
+#  } while ( -d $tmpDir );
+#  mkdir( $tmpDir );
+#  $scratchDir = $tmpDir;
+#
+#  # Foreach sequence
+#  my $repeatsMasked = 0;
+#  my %allResults    = ();
+#  foreach my $seqID ( $seqDB->getIDs() ) {
+#
+#    print OUT ">" . $seqID . " " . $seqDB->getDescription( $seqID ) . "\n";
+#    my $seqLen = $seqDB->getSeqLength( $seqID );
+#
+#    # TODO: Make this capable of batching small sequences!
+#    # Break into 5mb pieces...NOTE: Must keep track of seqID
+#    for ( my $i = 0 ; $i < $seqLen ; $i += 5000000 ) {
+#      my $batchSeq;
+#
+#      # Create temp seq file
+#      open TMPFILE, ">$scratchDir/tmpseq.fa"
+#          || die $CLASS
+#          . ": Could not open "
+#          . "temporary file $scratchDir/tmpseq.fa for output!\n";
+#      print TMPFILE ">seq1\n";
+#      if ( $i + 5000000 > $seqLen ) {
+#        $batchSeq = $seqDB->getSubstr( $seqID, $i );
+#      }
+#      else {
+#        $batchSeq = $seqDB->getSubstr( $seqID, $i, 5000000 );
+#      }
+#      print TMPFILE "$batchSeq\n";
+#      close TMPFILE;
+#
+#      # Run TRF
+#      my ( $retCode, $trfResults ) = $trf->search( sequenceFile => "$scratchDir/tmpseq.fa",
+#                                                  workDir      => $scratchDir );
+#
+#      print $CLASS. ": TRF Returned " . $trfResults->size() . " results\n"
+#      ;
+#      #if ( $DEBUG );
+#
+#      for ( my $j = 0; $j < $trfResults->size(); $j++ )
+#      {
+#        my $result = $trfResults->get($j);
+#        bless $result, "TRFSearchResult";
+#
+#        # TODO: Document why?
+#        if (    $result->getCopyNumber() > 4
+#             && $result->getPeriod() > 1 )
+#        {
+#          # Mask
+#          my $start = $result->getQueryStart() - 1;
+#          my $len   = $result->getQueryEnd() - $start;
+#
+#          #print "Masking: ".$result->toString()."\n";
+#          substr( $batchSeq, $start, $len ) = "N" x $len;
+#          $repeatsMasked++;
+#          push @{ $allResults{$seqID} }, $result;
+#        }
+#      }
+#
+#      # write chunk out
+#      $batchSeq =~ s/(.{50})/$1\n/g;
+#      print OUT "$batchSeq\n";
+#
+#    }
+#  }
+#  close OUT;
+#  unlink( "$scratchDir/tmpseq.fa" ) if ( -e "$scratchDir/tmpseq.fa" );
+#
+#  system( "rm -rf $scratchDir" );
+#
+#  #print "   $repeatsMasked Tandem Repeats Masked\n";
+#
+#  return ( $repeatsMasked, \%allResults );
+#}
+
+1;

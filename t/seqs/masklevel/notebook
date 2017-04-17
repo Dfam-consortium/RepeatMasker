@@ -1,0 +1,12 @@
+
+
+
+   +----------QUERY--------------+
+
+     +---left---+  +----right--+
+           +----middle---+
+
+
+
+cross_match -minmatch 10 -minscore 250 -matrix /usr/local/RepeatModeler/Matrices/wublast/nt/comparison.matrix -gap_init -25 -gap_ext -6 ../general/hum1.fa /usr/local/RepeatMasker/Libraries/RepeatMasker.lib 
+

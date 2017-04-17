@@ -1,0 +1,49 @@
+==================================================
+file name: small-1.fa
+sequences:             1
+total length:        213 bp  (213 bp excl N-runs)
+GC level:         48.36 %
+bases masked:        114 bp ( 53.52 %)
+==================================================
+               number of      length   percentage
+               elements*    occupied  of sequence
+--------------------------------------------------
+SINEs:                0            0 bp     0.00 %
+      ALUs            0            0 bp     0.00 %
+      MIRs            0            0 bp     0.00 %
+
+LINEs:                0            0 bp     0.00 %
+      LINE1           0            0 bp     0.00 %
+      LINE2           0            0 bp     0.00 %
+      L3/CR1          0            0 bp     0.00 %
+
+LTR elements:         0            0 bp     0.00 %
+      MaLRs           0            0 bp     0.00 %
+      ERVL            0            0 bp     0.00 %
+      ERV_classI      0            0 bp     0.00 %
+      ERV_classII     0            0 bp     0.00 %
+
+DNA elements:         0            0 bp     0.00 %
+      MER1_type       0            0 bp     0.00 %
+      MER2_type       0            0 bp     0.00 %
+
+Unclassified:         0            0 bp     0.00 %
+
+Total interspersed repeats:        0 bp     0.00 %
+
+
+Small RNA:            0            0 bp     0.00 %
+
+Satellites:           0            0 bp     0.00 %
+Simple repeats:       1          114 bp    53.52 %
+Low complexity:       0            0 bp     0.00 %
+==================================================
+
+* most repeats fragmented by insertions or deletions
+  have been counted as one element
+
+
+The query species was assumed to be homo
+RepeatMasker version development-$Id: RepeatMasker
+run with cross_match version 0.990329
+RepBase Update 8.8, RM database version 20030921 +
