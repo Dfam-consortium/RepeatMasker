@@ -1,9 +1,9 @@
-######################################################################
+---
 RepeatMasker
 Developed by Arian Smit and Robert Hubley
 Please refer to: Smit, AFA, Hubley, R. & Green, P "RepeatMasker" at
 http://www.repeatmasker.org
-######################################################################
+---
 
 RepeatMasker is a program that screens DNA sequences for interspersed
 repeats and low complexity DNA sequences. The output of the program is
