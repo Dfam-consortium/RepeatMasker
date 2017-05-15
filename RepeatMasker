@@ -451,7 +451,7 @@ else {
   $options{'engine'} = $engine;
 }
 
-if ( defined $options{'int'} || defined $optiosn{'low'} )
+if ( defined $options{'int'} || defined $options{'low'} )
 {
   die "\nThe options -int and -low have been deprecated.  Please use either\n" .
       "-noint or -nolow instead.\n\n";

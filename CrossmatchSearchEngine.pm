@@ -278,40 +278,7 @@ sub setPathToEngine {
 
 ##-------------------------------------------------------------------------##
 sub getParameters {
-  my $this = shift;
-
-  return ( "Not implemented at this time" );
-}
-
-##-------------------------------------------------------------------------##
-
-=head2 search()
-
-  Use: my ( $resultCode, $SearchResultCollectionI ) = search( );
- or
-  Use: my ( $resultCode, $SearchResultCollectionI )
-                          = search( matrix=>"7p16g.matrix",
-                                    ...
-                                  );
-
-  Run the search and return a SearchResultsCollectionI.
-
-=cut
-
-##-------------------------------------------------------------------------##
-sub search {
   my $this           = shift;
-  my %nameValuePairs = @_;
-
-  if ( %nameValuePairs ) {
-    while ( my ( $name, $value ) = each( %nameValuePairs ) ) {
-      my $method = "set" . _ucFirst( $name );
-      unless ( $this->can( $method ) ) {
-        croak( $CLASS . "::search: Instance variable $name doesn't exist." );
-      }
-      $this->$method( $value );
-    }
-  }
 
   # Test if engine is available
   my $engine = $this->getPathToEngine();
@@ -362,16 +329,10 @@ sub search {
   if ( ( $value = $this->getMaskLevel() ) ) {
     $parameters .= " -masklevel $value" if ( $value > 0 );
   }
-  my @matrixName = ();
   if ( ( $value = $this->getMatrix() ) ) {
-
     # test if matrix exists
     if ( -f $value ) {
       $parameters .= " -matrix $value";
-      my @path = split( /[\\\/]/, $value );
-      my $matrix = $path[ $#path ];
-      $matrix =~ s/[\n\r]//g;
-      @matrixName = ( matrixName => $matrix );
     }
     else {
       croak $CLASS. "::search: Error...matrix ($value) does not exist!\n";
@@ -400,6 +361,58 @@ sub search {
     croak $CLASS. "::search: Error subject undefined!\n";
   }
 
+  return ( "$engine $parameters" );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 search()
+
+  Use: my ( $resultCode, $SearchResultCollectionI ) = search( );
+ or
+  Use: my ( $resultCode, $SearchResultCollectionI )
+                          = search( matrix=>"7p16g.matrix",
+                                    ...
+                                  );
+
+  Run the search and return a SearchResultsCollectionI.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub search {
+  my $this           = shift;
+  my %nameValuePairs = @_;
+
+  if ( %nameValuePairs ) {
+    # TODO: Consider deprecating this way of setting up the object
+    while ( my ( $name, $value ) = each( %nameValuePairs ) ) {
+      my $method = "set" . _ucFirst( $name );
+      unless ( $this->can( $method ) ) {
+        croak( $CLASS . "::search: Instance variable $name doesn't exist." );
+      }
+      $this->$method( $value );
+    }
+  }
+
+  # Form the command line
+  my $cmdLine = $this->getParameters();
+
+  # Get matrix name for post-processing results
+  my @matrixName = ();
+  if ( ( my $value = $this->getMatrix() ) ) {
+    # test if matrix exists
+    if ( -f $value ) {
+      my @path = split( /[\\\/]/, $value );
+      my $matrix = $path[ $#path ];
+      $matrix =~ s/[\n\r]//g;
+      @matrixName = ( matrixName => $matrix );
+    }
+    else {
+      croak $CLASS. "::search: Error...matrix ($value) does not exist!\n";
+    }
+  }
+
   my $outputDirName;
   if ( defined $this->getTempDir() && -d $this->getTempDir() ) {
     $outputDirName = $this->getTempDir();
@@ -425,10 +438,10 @@ sub search {
 
   print $CLASS
       . "::search(): Running crossmatch as:\n    "
-      . "$engine $parameters 2>/dev/null |\n"
+      . "$cmdLine 2>/dev/null |\n"
       if ( $this->getDEBUG() );
 
-  $pid = open( $POUTPUT, "$engine $parameters 2>/dev/null |" );
+  $pid = open( $POUTPUT, "$cmdLine 2>/dev/null |" );
 
   my $resultCode = 0;
   my $searchResultsCollection;
