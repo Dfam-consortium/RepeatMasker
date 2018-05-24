@@ -366,7 +366,7 @@ sub getParameters {
   }
 
   # Generate parameter line
-  my $parameters    = "";
+  my $parameters    = " -num_alignments 9999999";
   my $spanParameter = "";
   my $value;
   if ( ( $value = $this->getSubject() ) ) {

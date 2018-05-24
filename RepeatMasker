@@ -3476,7 +3476,7 @@ sub runHMMERSearchStages {
     ##
     # 11/9/2015
     #unless ( $options{'nocut'} || $options{'low'} || $options{'alu'} ) {
-    unless ( $options{'low'} || $options{'alu'} ) {
+    unless ( $options{'nolow'} || $options{'alu'} ) {
       &runTRFStage(
                     \%options,            "identifying Simple Repeats",
                     $batchIdentifierText, "PERFECT",
@@ -3791,7 +3791,7 @@ sub runHMMERSearchStages {
       last if ( $seqDB->getSubtLength() < 15 );
     }    # unless only low complexity sequences are masked
 
-    unless ( $options{'low'} ) {
+    unless ( $options{'nolow'} ) {
 
       &runTRFStage(
                     \%options,            "identifying Simple Repeats",
@@ -4032,7 +4032,7 @@ sub runSearchStages {
     ##
     # 11/9/2015
     #unless ( $options{'nocut'} || $options{'low'} || $options{'alu'} ) {
-    unless ( $options{'low'} || $options{'alu'} ) {
+    unless ( $options{'nolow'} || $options{'alu'} ) {
       &runTRFStage(
                     \%options,            "identifying Simple Repeats",
                     $batchIdentifierText, "PERFECT",
@@ -4547,7 +4547,7 @@ sub runSearchStages {
       last if ( $seqDB->getSubtLength() < 15 );
     }    # unless only low complexity sequences are masked
 
-    unless ( $options{'low'} ) {
+    unless ( $options{'nolow'} ) {
 
       &runTRFStage(
                     \%options,            "identifying Simple Repeats",

@@ -160,6 +160,7 @@ my $DEBUG = 0;
 my @getopt_args = (
                     '-version',    # print out the version and exit
                     '-div=s',
+                    '-maxScale=s',
                     '-g=s',
                     '-twoBit=s',
                     '-t=s',
