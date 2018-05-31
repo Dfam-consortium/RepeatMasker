@@ -7633,13 +7633,16 @@ sub joinDNATransposonFragments {
     # Fake a range if hit name
     my @curRanges = ();
     if ( $curName eq $curHitName ) {
-      push @curRanges,
-          {
-            'start'   => 1,
-            'end'     => $chainEndHash->{ $currentAnnot->getPRID() },
-            'eqstart' => 1,
-            'eqend'   => $chainEndHash->{ $currentAnnot->getPRID() }
-          };
+      if ( $chainEndHash->{ $currentAnnot->getPRID() } )
+      {
+        push @curRanges,
+            {
+              'start'   => 1,
+              'end'     => $chainEndHash->{ $currentAnnot->getPRID() },
+              'eqstart' => 1,
+              'eqend'   => $chainEndHash->{ $currentAnnot->getPRID() }
+            };
+      }
     }
     if ( defined $curEquivHash->{$curName} ) {
       push @curRanges, @{ $curEquivHash->{$curName} };
