@@ -2843,6 +2843,12 @@ sub runStage {
   #
   my $cmMaskLevel = 101;
 
+  if ( $DEBUG )
+  {
+    print "Saving pre-stage maskfile to: $maskfile-$stage\n";
+    system("cp $maskfile $maskfile-$stage");
+  }
+
   my ( $minmatch, $bandwidth, $resultsCollection ) = &search(
                            $options,          $DIRECTORY,        $outfile,
                            $maskfile,         $lib,              $minmatch,
@@ -5118,6 +5124,23 @@ sub filterResults {
 
       # this (high) limit prevents cutting out ancient elements
       # misassigned as young elements
+      #
+      # WARNING: This only looks back one.  So...in a case like this:
+      #
+      #  Original Annotations:
+      #  #0:  511 15.96 0.00 0.00 CebAlb_disco_line_24154 693 786 (615) C L1PA8_3end#LINE/L1 (1) 918 825
+      #  #1:  341 24.37 9.92 0.84 CebAlb_disco_line_24154 693 811 (590) C L1PA8A_3end#LINE/L1 (0) 878 748
+      #  #2:  508 19.81 0.00 0.00 CebAlb_disco_line_24154 693 798 (603) C L1PA7_3end#LINE/L1 (1) 900 795
+      #
+      #  Deleting annotation (1): Filter #9 - < 75% identical.
+      #  Doing actual removals:
+      #  Removing element 1
+      #  Final Annotations:
+      #  #0:  511 15.96 0.00 0.00 CebAlb_disco_line_24154 693 786 (615) C L1PA8_3end#LINE/L1 (1) 918 825
+      #  #1:  508 19.81 0.00 0.00 CebAlb_disco_line_24154 693 798 (603) C L1PA7_3end#LINE/L1 (1) 900 795
+      #
+      # This should be fixed.  
+      #
       if ( $diverge + $gaps < 25 ) {
 
         if ( $name =~ /_3end\#/ && $left < 20 ) {
@@ -5946,15 +5969,19 @@ sub postProcessSearch {
       # Check for overlaps
       if ( $prevName eq $name && $prevBeg <= $end ) {
         $len = $prevBeg - $begin;
-        $seqDB->setSubstr( $name, $begin - 1, $len, 'x' x $sentinelLength );
-        $excisionRanges->add(
-                              new SearchResult(
-                                                queryName  => $name,
-                                                queryStart => $begin,
-                                                queryEnd   => $prevBeg - 1
-                              )
-        );
-
+        # Handle special case where something like this occurs:
+        #        --------->
+        #        ----->
+        if ( $len > 0 ) {
+          $seqDB->setSubstr( $name, $begin - 1, $len, 'x' x $sentinelLength );
+          $excisionRanges->add(
+                                new SearchResult(
+                                                  queryName  => $name,
+                                                  queryStart => $begin,
+                                                  queryEnd   => $prevBeg - 1
+                                )
+          );
+        }
       }
       else {
         $seqDB->setSubstr( $name, $begin - 1, $len, 'x' x $sentinelLength );
@@ -6029,7 +6056,7 @@ sub postProcessSearch {
       );
     }
 
-    #print "TRANSLATING: $begin-$end to $globalBegin-$globalEnd\n";
+    print "TRANSLATING: $begin-$end to $globalBegin-$globalEnd\n" if ( $DEBUG );
     $result->setQueryStart( $globalBegin );
     $result->setQueryEnd( $globalEnd );
   }
@@ -6110,6 +6137,7 @@ sub addExcisionSet {
     $i++;
   }
 
+
   #
   # Add ranges to excision list
   #
@@ -6118,7 +6146,7 @@ sub addExcisionSet {
     my $start = $range->[ 1 ];
     my $end   = $range->[ 2 ];
 
-    print "$subroutine: Adding range: $id:$start-$end\n"
+    print "$subroutine: Adding range: $id:$start-$end ( " . ( $end-$start+1) . " )\n"
         if ( $DEBUG );
 
     my $posAdjustment = 0;
@@ -6262,9 +6290,9 @@ sub queryExcision {
       elsif (    $excisionRec->[ 1 ] - $posAdjustment >= $start
               && $excisionRec->[ 1 ] - $posAdjustment <= $end )
       {
-        print "Contained.. $posAdjustment\n" if ( $DEBUG );
         $startPosAdj = $posAdjustment if ( $startPosAdj == -1 );
         $posAdjustment += $excisionRec->[ 2 ] - $sentinelLength;
+        print "Contained.. $startPosAdj, $posAdjustment\n" if ( $DEBUG );
       }
     }
     if ( $startPosAdj > -1 ) {
