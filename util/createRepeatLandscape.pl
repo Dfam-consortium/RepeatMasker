@@ -26,10 +26,7 @@
 #
 # ChangeLog
 #
-#     $Log: createRepeatLandscape.pl,v $
-#     Revision 1.14  2017/02/01 21:01:57  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #
@@ -158,7 +155,7 @@ my $DEBUG = 0;
 #   -t=i: Number paramters
 #
 my @getopt_args = (
-                    '-version',    # print out the version and exit
+                    '-version',      # print out the version and exit
                     '-div=s',
                     '-maxScale=s',
                     '-g=s',

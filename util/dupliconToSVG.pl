@@ -25,10 +25,7 @@
 #
 # ChangeLog
 #
-#     $Log: dupliconToSVG.pl,v $
-#     Revision 1.29  2017/02/01 21:01:57  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #

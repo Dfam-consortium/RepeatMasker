@@ -18,10 +18,7 @@
 ###############################################################################
 # ChangeLog
 #
-#   $Log: configure,v $
-#   Revision 1.99  2017/02/01 21:01:56  rhubley
-#   Cleanup before a distribution
-#
+#   $Log$
 #
 ###############################################################################
 #
@@ -234,10 +231,9 @@ system(
 );
 
 ## Uncompress taxonomy.dat
-if ( -s "$rmLocation/Libraries/taxonomy.dat.gz" )
-{
+if ( -s "$rmLocation/Libraries/taxonomy.dat.gz" ) {
   print "\n  -- Uncompressing taxonomy.dat...";
-  system("gunzip $rmLocation/Libraries/taxonomy.dat.gz");
+  system( "gunzip $rmLocation/Libraries/taxonomy.dat.gz" );
 }
 
 ##

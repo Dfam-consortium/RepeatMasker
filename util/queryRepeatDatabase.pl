@@ -20,10 +20,7 @@
 #
 # ChangeLog
 #
-#     $Log: queryRepeatDatabase.pl,v $
-#     Revision 1.100  2017/02/01 21:01:57  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #

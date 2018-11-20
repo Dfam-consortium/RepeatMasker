@@ -20,10 +20,7 @@
 #
 # ChangeLog
 #
-#     $Log: LibraryUtils.pm,v $
-#     Revision 1.6  2017/02/01 21:01:54  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #

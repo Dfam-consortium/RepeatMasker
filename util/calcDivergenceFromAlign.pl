@@ -20,10 +20,7 @@
 #
 # ChangeLog
 #
-#     $Log: calcDivergenceFromAlign.pl,v $
-#     Revision 1.27  2017/02/01 21:01:56  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #

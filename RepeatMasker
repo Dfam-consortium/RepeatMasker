@@ -34,14 +34,7 @@
 ###############################################################################
 #  ChangeLog:
 #
-#    $Log: RepeatMasker,v $
-#    Revision 1.332  2017/04/17 19:01:11  rhubley
-#      - Allow number of cores to be set with RMBlast
-#      - Deprecate -int and -low options
-#
-#    Revision 1.331  2017/02/01 21:01:55  rhubley
-#    Cleanup before a distribution
-#
+#    $Log$
 #
 ###############################################################################
 #
@@ -451,10 +444,9 @@ else {
   $options{'engine'} = $engine;
 }
 
-if ( defined $options{'int'} || defined $options{'low'} )
-{
-  die "\nThe options -int and -low have been deprecated.  Please use either\n" .
-      "-noint or -nolow instead.\n\n";
+if ( defined $options{'int'} || defined $options{'low'} ) {
+  die "\nThe options -int and -low have been deprecated.  Please use either\n"
+      . "-noint or -nolow instead.\n\n";
 }
 
 if ( !-e $RepeatMaskerConfig::TRF_PRGM ) {
@@ -486,16 +478,16 @@ elsif ( $engine eq "hmmer" ) {
                              pathToEngine => $RepeatMaskerConfig::NHMMSCAN_PRGM,
                              DEBUG        => $engineDEBUG );
 
-  # Used to allow a single instance to use all the cores ( ie. default nhmmer 
+  # Used to allow a single instance to use all the cores ( ie. default nhmmer
   # prior to 3.2 ).  Now ( like nhmmer 3.2 ) we require the user to be explicit
-  # about how many parallel proceses to use.  
+  # about how many parallel proceses to use.
   # BEFORE:
   #if ( exists $options{'parallel'} && $options{'parallel'} > 1 ) {
-    # Limit nhmmer cores to 2 per batch.
-    #$searchEngine->setCores( 2 );
+  # Limit nhmmer cores to 2 per batch.
+  #$searchEngine->setCores( 2 );
   #}
   # NOW:
-  # For each parallel batch invoke nhmmer with 2 cores each.  I.e -pa 4 
+  # For each parallel batch invoke nhmmer with 2 cores each.  I.e -pa 4
   # would run 4 nhmmer jobs each using 2 cores
   $searchEngine->setCores( 2 );
 
@@ -2850,10 +2842,9 @@ sub runStage {
   #
   my $cmMaskLevel = 101;
 
-  if ( $DEBUG )
-  {
+  if ( $DEBUG ) {
     print "Saving pre-stage maskfile to: $maskfile-$stage\n";
-    system("cp $maskfile $maskfile-$stage");
+    system( "cp $maskfile $maskfile-$stage" );
   }
 
   my ( $minmatch, $bandwidth, $resultsCollection ) = &search(
@@ -5129,25 +5120,25 @@ sub filterResults {
       # other consensus seqs are only there to correctly classify
       # matches
 
-      # this (high) limit prevents cutting out ancient elements
-      # misassigned as young elements
-      #
-      # WARNING: This only looks back one.  So...in a case like this:
-      #
-      #  Original Annotations:
-      #  #0:  511 15.96 0.00 0.00 CebAlb_disco_line_24154 693 786 (615) C L1PA8_3end#LINE/L1 (1) 918 825
-      #  #1:  341 24.37 9.92 0.84 CebAlb_disco_line_24154 693 811 (590) C L1PA8A_3end#LINE/L1 (0) 878 748
-      #  #2:  508 19.81 0.00 0.00 CebAlb_disco_line_24154 693 798 (603) C L1PA7_3end#LINE/L1 (1) 900 795
-      #
-      #  Deleting annotation (1): Filter #9 - < 75% identical.
-      #  Doing actual removals:
-      #  Removing element 1
-      #  Final Annotations:
-      #  #0:  511 15.96 0.00 0.00 CebAlb_disco_line_24154 693 786 (615) C L1PA8_3end#LINE/L1 (1) 918 825
-      #  #1:  508 19.81 0.00 0.00 CebAlb_disco_line_24154 693 798 (603) C L1PA7_3end#LINE/L1 (1) 900 795
-      #
-      # This should be fixed.  
-      #
+# this (high) limit prevents cutting out ancient elements
+# misassigned as young elements
+#
+# WARNING: This only looks back one.  So...in a case like this:
+#
+#  Original Annotations:
+#  #0:  511 15.96 0.00 0.00 CebAlb_disco_line_24154 693 786 (615) C L1PA8_3end#LINE/L1 (1) 918 825
+#  #1:  341 24.37 9.92 0.84 CebAlb_disco_line_24154 693 811 (590) C L1PA8A_3end#LINE/L1 (0) 878 748
+#  #2:  508 19.81 0.00 0.00 CebAlb_disco_line_24154 693 798 (603) C L1PA7_3end#LINE/L1 (1) 900 795
+#
+#  Deleting annotation (1): Filter #9 - < 75% identical.
+#  Doing actual removals:
+#  Removing element 1
+#  Final Annotations:
+#  #0:  511 15.96 0.00 0.00 CebAlb_disco_line_24154 693 786 (615) C L1PA8_3end#LINE/L1 (1) 918 825
+#  #1:  508 19.81 0.00 0.00 CebAlb_disco_line_24154 693 798 (603) C L1PA7_3end#LINE/L1 (1) 900 795
+#
+# This should be fixed.
+#
       if ( $diverge + $gaps < 25 ) {
 
         if ( $name =~ /_3end\#/ && $left < 20 ) {
@@ -5976,6 +5967,7 @@ sub postProcessSearch {
       # Check for overlaps
       if ( $prevName eq $name && $prevBeg <= $end ) {
         $len = $prevBeg - $begin;
+
         # Handle special case where something like this occurs:
         #        --------->
         #        ----->
@@ -6144,7 +6136,6 @@ sub addExcisionSet {
     $i++;
   }
 
-
   #
   # Add ranges to excision list
   #
@@ -6153,7 +6144,8 @@ sub addExcisionSet {
     my $start = $range->[ 1 ];
     my $end   = $range->[ 2 ];
 
-    print "$subroutine: Adding range: $id:$start-$end ( " . ( $end-$start+1) . " )\n"
+    print "$subroutine: Adding range: $id:$start-$end ( "
+        . ( $end - $start + 1 ) . " )\n"
         if ( $DEBUG );
 
     my $posAdjustment = 0;
