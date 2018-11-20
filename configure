@@ -233,6 +233,13 @@ system(
 "$rmLocation/util/buildRMLibFromEMBL.pl $rmLocation/Libraries/RepeatMaskerLib.embl > $rmLocation/Libraries/RepeatMasker.lib 2>/dev/null"
 );
 
+## Uncompress taxonomy.dat
+if ( -s "$rmLocation/Libraries/taxonomy.dat.gz" )
+{
+  print "\n  -- Uncompressing taxonomy.dat...";
+  system("gunzip $rmLocation/Libraries/taxonomy.dat.gz");
+}
+
 ##
 ## TRF location
 ##
