@@ -8,13 +8,15 @@ predicted proteins, with a combined length of 16.1 million amino acids.
 A breakdown of the main classes is given in the following table:
 
                    (sub)classes    proteins     AA (x 1000)
+
 LTR elements
   Gypsy                   1           3530           3716
   Copia                   1           2116           2847
   ERV                     7            975            684
+  Pao                     1            592           1036
   DIRS                    1            424            288
   Ngaro                   1             86             42
-  Other                   4            654           1102
+  Other                   3             62             65
 
 DNA
   TcMar                  17           1127            464
@@ -26,6 +28,7 @@ DNA
   PiggyBac                3            195            145
   Crypton                 9            141             84
   Sola                    3            133             97
+  P-element               2            110             91
   Zisupton                1             85             75
   Merlin                  1             80             22
   Kolobok                 4             70             43
@@ -33,18 +36,19 @@ DNA
   Dada                    1             34             36
   Ginger                  2             31             20
   IS3EU                   1             23             13
-  Other                   5            128            107
+  Other                   3             18             15
 
 LINEs
   L1                      4           1701           1461
   L2                      1            695            498
   CR1                     2            699            529
+  I/Jockey                2            759            636
   RTE                     4            219            211
   Penelope                1            185            123
   CRE                     3             65             67
-  Other                  16           1866           1645
+  Other                  14           1107           1009
 
-Rolling Circles           2            124            182
+Rolling Circle            2            124            182
 
 Other                     6             30             22
 
