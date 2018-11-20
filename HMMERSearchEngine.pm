@@ -509,6 +509,15 @@ sub search {
   print "HMMER returned a the following result code >$resultCode<\n"
       if ( $this->getDEBUG() );
 
+  ## 
+  ## DEBUGING for Kaitlin
+  ##
+  #if ( $resultCode )
+  #{
+  #  my $lowerCode = ( $? & 255 );
+  #  print "ERROR returned from nhmmer invocation: 16bit code = $?, high 8bits = $resultCode, lower 8bits = $lowerCode,  error file = $errFile, output file = $outFile\n";
+  #}
+
   print $CLASS
       . "::search: "
       . $searchResultsCollection->size()

@@ -149,9 +149,11 @@ use constant AlignWithQuerySeq => 2;
 # the subj sequences all in the forward direction
 use constant AlignWithSubjSeq          => 3;
 use constant OutFileFormat             => 4;
-use constant CompressedAlignCSV        => 5;
+use constant CompressedAlignCSV        => 5; # Deprecated
+use constant CompressedAlignFormat     => 5; 
 use constant PSL                       => 6;
 use constant RangeHighlightedAlignment => 7;
+use constant CIGARFormat               => 8;
 
 # Names to specify query/subject inputs
 use constant Query   => 1;
@@ -1142,8 +1144,10 @@ sub getSeedPatternCount {
                      SearchResult::AlignWithQuerySeq
                      SearchResult::AlignWithSubjSeq
                      SearchResult::OutFileFormat
-                     SearchResult::CompressedAlignCSV
+                     SearchResult::CompressedAlignCSV #Deprecated
+                     SearchResult::CompressedAlignFormat
                      SearchResult::RangeHighlightedAlignment
+                     SearchResult::CIGARFormat
 
   Create an string representation of a single result.
 
@@ -1170,8 +1174,11 @@ sub toStringFormatted {
   elsif ( $format == SearchResult::OutFileFormat ) {
     return $obj->_toOUTFileFormat();
   }
-  elsif ( $format == SearchResult::CompressedAlignCSV ) {
-    return $obj->_toCSVFormat( $displayParams );
+  elsif ( $format == SearchResult::CompressedAlignFormat ) { 
+    return $obj->_toCAF( $displayParams );
+  }
+  elsif ( $format == SearchResult::CIGARFormat ) { 
+    return $obj->_toCIGAR( $displayParams );
   }
   else {
     croak $CLASS . "::toStringFormatted: Unknown format " . "( $format )\n";
@@ -1182,9 +1189,10 @@ sub toStringFormatted {
 
 =head2
 
-  Use: parseFromCSVFormat( $csvString );
+  Use: parseFromCSVFormat( $csvString );  
 
   Populate object with values stored in CSV format.
+  DEPRECATED use parseFromCAF( $cafString );
 
   NOTE: The supported CSV format doesn't include all member 
         values.
@@ -1192,6 +1200,25 @@ sub toStringFormatted {
 
 ##-------------------------------------------------------------------------##
 sub parseFromCSVFormat {
+  my $record = shift;
+
+  parseFromCAF( $record );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2
+
+  Use: parseFromCAF( $cafString );
+
+  Populate object with values stored in CAF format.
+
+  NOTE: The supported CAF format doesn't include all member 
+        values.
+=cut
+
+##-------------------------------------------------------------------------##
+sub parseFromCAF {
   my $record = shift;
 
   my $subroutine = ( caller( 0 ) )[ 0 ] . "::" . ( caller( 0 ) )[ 3 ];
@@ -1504,7 +1531,7 @@ sub calcKimuraDivergence {
                            normally.  In human transitions are
                            15x more likely in CpG sites in 
                            rodents they are less likely. 
-            scoredivCpGMod:   Only score transversions at CpG
+            scoreCpGMod:   Only score transversions at CpG
                            sites. Use the standard matrix
                            C->C and G->G scores in place
                            of transitions.
@@ -1922,19 +1949,53 @@ sub rescoreAlignment {
 ##-------------------------------------------------------------------------##
 ## Use: my $csvString = $obj->_toCSVFormat();
 ##
-##   TODO: Document
+##   The name for this format is deprecated. Please use
+##   _toCAF()
 ##
 ##-------------------------------------------------------------------------##
 sub _toCSVFormat {
   my $obj           = shift;
   my $displayParams = shift;
 
-  # AAGAA
-  #   |
-  # AACAA
-  #
-  # Encode as:  AAG/CAA
-  #
+  $obj->_toCAF( $displayParams );
+}
+ 
+##-------------------------------------------------------------------------##
+## Use: my $cafString = $obj->_toCAF();
+##
+##  Yet another Compressed Alignment Format (yaCAF or just CAF).  
+##  This format was developed for the use case where sequence databases
+##  may not be available for either the query or the subject of an 
+##  alignment and where it's still desirable to communicate the aligment
+##  in a semi-succinct fashion.
+##
+##  Three basic inline string operators are provided: "/" for substitutions,
+##  "+" for insertions (relative to the query) and "-" for deletions.
+##
+##  For example the exact alignment:
+##    Query: AATTGG
+##    Subj : AATTGG
+##  would not need any of these operators and would be encoded using
+##  the single string "AATTGG".
+##
+##  Substitutions are encocde as query_base/subj_base.  For example:
+##    Query: AAGAA
+##             |
+##    Subj : AACAA
+##  would be encoded as: "AAG/CAA"
+##
+##  Finally gaps are encoded by surrounding the deleted sequence or the 
+##  inserted sequence (relative to the query) by either "+" or "-".  For
+##  instance the following alignment:
+##    Query: AAGCTA--A
+##    Subj : AA--TAGGA
+##  would be encoded as: "AA-GC-TA+GG+A"
+##
+##-------------------------------------------------------------------------##
+sub _toCAF {
+  my $obj           = shift;
+  my $displayParams = shift;
+
   my $qryPos    = 0;
   my $sbjPos    = 0;
   my $insStart  = -1;
@@ -2019,6 +2080,98 @@ sub _toCSVFormat {
 
   return $cRec;
 }
+
+
+##-------------------------------------------------------------------------##
+## Use: my $cigarString = $obj->_toCIGAR();
+##
+##  Basic CIGAR (SAM variant) format.  Alignments are encoded using 
+##  three operators "M" for matches, "I" or insertions, and "D" for
+##  deletions.  The operators are *proceeded* by an integer indicating
+##  how many runs of the operator are to be performed.  This is a lossy
+##  encoding and requires the two original aligned strings to reproduce
+##  the alignment.
+##    
+##  ie. 
+##   Query:   AAGACTT---A
+##   Subj :   AAT--CTAATA
+##
+##   Encode as:  3M2D2M3I1M
+##
+##-------------------------------------------------------------------------##
+sub _toCIGAR {
+  my $obj           = shift;
+  my $displayParams = shift;
+
+  my $qrySeq = $obj->getQueryString();
+  my $sbjSeq = $obj->getSubjString();
+
+  my $outStr = "";
+  my $prevState = "";
+  my $count = 0;
+  my $state = "";
+  for ( my $i = 0; $i < length($qrySeq); $i++ )
+  {
+    my $qChar = substr($qrySeq,$i,1);
+    my $sChar = substr($sbjSeq,$i,1);
+    if ( $qChar ne "-" && $sChar ne "-" )
+    {
+      $state = "M";
+    }elsif ( $qChar eq "-" )
+    {
+      $state = "I";
+    }else
+    {
+      $state = "D";
+    }
+
+    if ( $state ne $prevState )
+    {
+      # emit
+      $outStr .= "$count$state";
+      $count = 0;
+    }
+    $prevState = $state;
+    $count++;
+  }
+  if ( $count )
+  {
+    $outStr .= "$count$state";
+  }
+
+  my $cRec =
+        $obj->getScore() . ","
+      . $obj->getPctDiverge() . ","
+      . $obj->getPctDelete() . ","
+      . $obj->getPctInsert() . ","
+      . $obj->getQueryName() . ","
+      . $obj->getQueryStart() . ","
+      . $obj->getQueryEnd() . ","
+      . $obj->getQueryRemaining() . ",";
+
+  if ( $obj->getSubjName() =~ /(\S+)\#(\S+)/ ) {
+    $cRec .= $1 . "," . $2 . ",";
+  }
+  else {
+    $cRec .= $obj->getSubjName() . "," . $obj->getSubjType() . ",";
+  }
+  $cRec .=
+        $obj->getSubjStart() . ","
+      . $obj->getSubjEnd() . ","
+      . $obj->getSubjRemaining() . ",";
+
+  if ( $obj->getOrientation =~ /C|c/ ) {
+    $cRec .= "1,";
+  }
+  else {
+    $cRec .= "0,";
+  }
+
+  $cRec .= $obj->getOverlap() . "," . $obj->getId() . "," . $outStr;
+
+  return $cRec;
+}
+
 
 ##-------------------------------------------------------------------------##
 ## Use: my $cmString = $obj->_toCrossMatchFormat( $alignmentMode,
