@@ -1,4 +1,4 @@
-#!/u1/local/bin/perl
+#!/usr/bin/perl
 ##---------------------------------------------------------------------------##
 ##  File:
 ##      @(#) RepeatMasker
@@ -486,11 +486,18 @@ elsif ( $engine eq "hmmer" ) {
                              pathToEngine => $RepeatMaskerConfig::NHMMSCAN_PRGM,
                              DEBUG        => $engineDEBUG );
 
-  if ( exists $options{'parallel'} && $options{'parallel'} > 1 ) {
-
+  # Used to allow a single instance to use all the cores ( ie. default nhmmer 
+  # prior to 3.2 ).  Now ( like nhmmer 3.2 ) we require the user to be explicit
+  # about how many parallel proceses to use.  
+  # BEFORE:
+  #if ( exists $options{'parallel'} && $options{'parallel'} > 1 ) {
     # Limit nhmmer cores to 2 per batch.
-    $searchEngine->setCores( 2 );
-  }
+    #$searchEngine->setCores( 2 );
+  #}
+  # NOW:
+  # For each parallel batch invoke nhmmer with 2 cores each.  I.e -pa 4 
+  # would run 4 nhmmer jobs each using 2 cores
+  $searchEngine->setCores( 2 );
 
   if ( not defined $searchEngine ) {
     die "Cannot execute $RepeatMaskerConfig::NHMMSCAN_PRGM (check  "

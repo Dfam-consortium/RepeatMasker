@@ -2,36 +2,54 @@
 Transposable element protein database
 =====================================
 
-The transposable element protein database now contains 5411 
-predicted proteins, with a combined length of 4.3 million amino acids. 
+The transposable element protein database now contains 18,011
+predicted proteins, with a combined length of 16.1 million amino acids. 
 
 A breakdown of the main classes is given in the following table:
 
-                   (sub)classes    proteins    AA (x 1000)
-DNA transposons        
-hAT                      14          361          244
-Tc1-Mariner              16          337          136
-MuDR                      1          258          150
-Maverick / Polinton       1          243          104
-En/Spm                    1          110           95
-Other                    21          475          280
-            
-LINEs            
-L1                        2          399          337
-L2                        2          248          177
-CR1                       1          180          130
-Other (incl. Penelope)   20          461          381
-            
-LTR elements        
-Gypsy                     1          994          968
-ERV                       7          638          444
-Copia                     1          401          513
-Other                     6          235          245
-              
-Rolling circles           1           66           85
+                   (sub)classes    proteins     AA (x 1000)
+LTR elements
+  Gypsy                   1           3530           3716
+  Copia                   1           2116           2847
+  ERV                     7            975            684
+  DIRS                    1            424            288
+  Ngaro                   1             86             42
+  Other                   4            654           1102
+
+DNA
+  TcMar                  17           1127            464
+  hAT                    15            824            565
+  MULE                    4            581            370
+  PIF                     4            421            168
+  CMC                     5            376            306
+  Maverick                1            349            152
+  PiggyBac                3            195            145
+  Crypton                 9            141             84
+  Sola                    3            133             97
+  Zisupton                1             85             75
+  Merlin                  1             80             22
+  Kolobok                 4             70             43
+  Academ                  3             44             48
+  Dada                    1             34             36
+  Ginger                  2             31             20
+  IS3EU                   1             23             13
+  Other                   5            128            107
+
+LINEs
+  L1                      4           1701           1461
+  L2                      1            695            498
+  CR1                     2            699            529
+  RTE                     4            219            211
+  Penelope                1            185            123
+  CRE                     3             65             67
+  Other                  16           1866           1645
+
+Rolling Circles           2            124            182
+
+Other                     6             30             22
 
 
-About 870 of these proteins are entries extracted from the nr
+About 1102 of these proteins are entries extracted from the nr
 GenBank databases. Most of the remaining peptides are translations of
 interspersed repeat consensus sequences. Many of the coding elements in
 repeat libraries contain frame shifts and stop codons reflecting errors
@@ -89,3 +107,4 @@ be aware that some genes may be (partially) masked.
 
 Developed by Arian Smit
 Institute for Systems Biology
+

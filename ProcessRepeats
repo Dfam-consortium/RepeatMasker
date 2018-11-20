@@ -1,4 +1,4 @@
-#!/u1/local/bin/perl
+#!/usr/bin/perl
 ##---------------------------------------------------------------------------##
 ##  File:
 ##      @(#) ProcessRepeats
@@ -2548,7 +2548,18 @@ CYCLE3:
         ##  NOTE: The use of a fixed matrix here is only used to
         ##        evaluate the scores of the refined hits.  It
         ##        is not saved to the result object and thus doesn't
-        ##        impact the final score printed to the *.out file.
+        ##        impact the final score printed to the *.out file. The
+        ##        matrix is also fixed to the average GC background rather
+        ##        than the actual GC bin used to identify the original alignment.
+        ##        Original alignment search parameters:
+        ##              180 cutoff, 
+        ##              7-11 minmatch,
+        ##              18p## matrix,
+        ##              -30 gap open,
+        ##              -6 ins ext,
+        ##              -5 del ext,
+        ##              40 bandwidth,
+        ##              raw score
         ##
         ## TODO: Consider changing this to a less extreme matrix.
         ##       I.e 18p41g or 18p43g
@@ -6089,8 +6100,11 @@ sub generateOutput {
     printf $OUT "  have been counted as one element\n";
     printf $OUT "%54s\n", $exclnote;
     printf $OUT "\n";
-    printf $OUT "The query species was assumed to be %-14s\n",
-        $options{'species'};
+    if ( $options{'species'} ) 
+    {
+      printf $OUT "The query species was assumed to be %-14s\n",
+          $options{'species'};
+    }
     printf $OUT "%-82s\n", substr( $versionmode, 0, 82 );
     printf $OUT "$engine\n";
     printf $OUT "$customLib\n" if ( $customLib ne "" );
