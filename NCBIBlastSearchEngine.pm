@@ -25,14 +25,7 @@
 ###############################################################################
 # ChangeLog
 #
-#     $Log: NCBIBlastSearchEngine.pm,v $
-#     Revision 1.48  2017/04/17 19:01:11  rhubley
-#       - Allow number of cores to be set with RMBlast
-#       - Deprecate -int and -low options
-#
-#     Revision 1.47  2017/02/01 21:01:54  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 # To Do:
@@ -476,8 +469,8 @@ sub getParameters {
   #       on?
   if ( defined( $value = $this->getCores() ) ) {
     $parameters .= " -num_threads $value ";
-  }else
-  {
+  }
+  else {
     $parameters .= " -num_threads 4 ";
   }
 
@@ -610,11 +603,12 @@ sub search {
   my $outFile = $outputDirName . "/ncResults-$currentTime-$$.out";
 
   # TODO DEBUGGING
-  if ( $this->getDEBUG )
-  {
-    system("cp " . $this->getQuery() . " $outputDirName" . "/before-$currentTime-$$.fa" );
+  if ( $this->getDEBUG ) {
+    system(   "cp "
+            . $this->getQuery()
+            . " $outputDirName"
+            . "/before-$currentTime-$$.fa" );
   }
-
 
   open OUT, ">$outFile";
   while ( <$POUTPUT> ) {

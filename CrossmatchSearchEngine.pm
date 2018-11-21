@@ -25,10 +25,7 @@
 ###############################################################################
 # ChangeLog
 #
-#     $Log: CrossmatchSearchEngine.pm,v $
-#     Revision 1.111  2017/02/01 21:01:53  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 # To Do:
@@ -278,7 +275,7 @@ sub setPathToEngine {
 
 ##-------------------------------------------------------------------------##
 sub getParameters {
-  my $this           = shift;
+  my $this = shift;
 
   # Test if engine is available
   my $engine = $this->getPathToEngine();
@@ -330,6 +327,7 @@ sub getParameters {
     $parameters .= " -masklevel $value" if ( $value > 0 );
   }
   if ( ( $value = $this->getMatrix() ) ) {
+
     # test if matrix exists
     if ( -f $value ) {
       $parameters .= " -matrix $value";
@@ -385,6 +383,7 @@ sub search {
   my %nameValuePairs = @_;
 
   if ( %nameValuePairs ) {
+
     # TODO: Consider deprecating this way of setting up the object
     while ( my ( $name, $value ) = each( %nameValuePairs ) ) {
       my $method = "set" . _ucFirst( $name );
@@ -401,6 +400,7 @@ sub search {
   # Get matrix name for post-processing results
   my @matrixName = ();
   if ( ( my $value = $this->getMatrix() ) ) {
+
     # test if matrix exists
     if ( -f $value ) {
       my @path = split( /[\\\/]/, $value );

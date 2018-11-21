@@ -50,10 +50,7 @@
 ###############################################################################
 # ChangeLog
 #
-#     $Log: SearchResult.pm,v $
-#     Revision 1.120  2017/02/01 21:01:55  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 # To Do:
@@ -149,8 +146,8 @@ use constant AlignWithQuerySeq => 2;
 # the subj sequences all in the forward direction
 use constant AlignWithSubjSeq          => 3;
 use constant OutFileFormat             => 4;
-use constant CompressedAlignCSV        => 5; # Deprecated
-use constant CompressedAlignFormat     => 5; 
+use constant CompressedAlignCSV        => 5;    # Deprecated
+use constant CompressedAlignFormat     => 5;
 use constant PSL                       => 6;
 use constant RangeHighlightedAlignment => 7;
 use constant CIGARFormat               => 8;
@@ -1174,10 +1171,10 @@ sub toStringFormatted {
   elsif ( $format == SearchResult::OutFileFormat ) {
     return $obj->_toOUTFileFormat();
   }
-  elsif ( $format == SearchResult::CompressedAlignFormat ) { 
+  elsif ( $format == SearchResult::CompressedAlignFormat ) {
     return $obj->_toCAF( $displayParams );
   }
-  elsif ( $format == SearchResult::CIGARFormat ) { 
+  elsif ( $format == SearchResult::CIGARFormat ) {
     return $obj->_toCIGAR( $displayParams );
   }
   else {
@@ -1959,13 +1956,13 @@ sub _toCSVFormat {
 
   $obj->_toCAF( $displayParams );
 }
- 
+
 ##-------------------------------------------------------------------------##
 ## Use: my $cafString = $obj->_toCAF();
 ##
-##  Yet another Compressed Alignment Format (yaCAF or just CAF).  
+##  Yet another Compressed Alignment Format (yaCAF or just CAF).
 ##  This format was developed for the use case where sequence databases
-##  may not be available for either the query or the subject of an 
+##  may not be available for either the query or the subject of an
 ##  alignment and where it's still desirable to communicate the aligment
 ##  in a semi-succinct fashion.
 ##
@@ -1984,7 +1981,7 @@ sub _toCSVFormat {
 ##    Subj : AACAA
 ##  would be encoded as: "AAG/CAA"
 ##
-##  Finally gaps are encoded by surrounding the deleted sequence or the 
+##  Finally gaps are encoded by surrounding the deleted sequence or the
 ##  inserted sequence (relative to the query) by either "+" or "-".  For
 ##  instance the following alignment:
 ##    Query: AAGCTA--A
@@ -2081,18 +2078,17 @@ sub _toCAF {
   return $cRec;
 }
 
-
 ##-------------------------------------------------------------------------##
 ## Use: my $cigarString = $obj->_toCIGAR();
 ##
-##  Basic CIGAR (SAM variant) format.  Alignments are encoded using 
+##  Basic CIGAR (SAM variant) format.  Alignments are encoded using
 ##  three operators "M" for matches, "I" or insertions, and "D" for
 ##  deletions.  The operators are *proceeded* by an integer indicating
 ##  how many runs of the operator are to be performed.  This is a lossy
 ##  encoding and requires the two original aligned strings to reproduce
 ##  the alignment.
-##    
-##  ie. 
+##
+##  ie.
 ##   Query:   AAGACTT---A
 ##   Subj :   AAT--CTAATA
 ##
@@ -2106,27 +2102,25 @@ sub _toCIGAR {
   my $qrySeq = $obj->getQueryString();
   my $sbjSeq = $obj->getSubjString();
 
-  my $outStr = "";
+  my $outStr    = "";
   my $prevState = "";
-  my $count = 0;
-  my $state = "";
-  for ( my $i = 0; $i < length($qrySeq); $i++ )
-  {
-    my $qChar = substr($qrySeq,$i,1);
-    my $sChar = substr($sbjSeq,$i,1);
-    if ( $qChar ne "-" && $sChar ne "-" )
-    {
+  my $count     = 0;
+  my $state     = "";
+  for ( my $i = 0 ; $i < length( $qrySeq ) ; $i++ ) {
+    my $qChar = substr( $qrySeq, $i, 1 );
+    my $sChar = substr( $sbjSeq, $i, 1 );
+    if ( $qChar ne "-" && $sChar ne "-" ) {
       $state = "M";
-    }elsif ( $qChar eq "-" )
-    {
+    }
+    elsif ( $qChar eq "-" ) {
       $state = "I";
-    }else
-    {
+    }
+    else {
       $state = "D";
     }
 
-    if ( $state ne $prevState )
-    {
+    if ( $state ne $prevState ) {
+
       # emit
       $outStr .= "$count$state";
       $count = 0;
@@ -2134,8 +2128,7 @@ sub _toCIGAR {
     $prevState = $state;
     $count++;
   }
-  if ( $count )
-  {
+  if ( $count ) {
     $outStr .= "$count$state";
   }
 
@@ -2171,7 +2164,6 @@ sub _toCIGAR {
 
   return $cRec;
 }
-
 
 ##-------------------------------------------------------------------------##
 ## Use: my $cmString = $obj->_toCrossMatchFormat( $alignmentMode,

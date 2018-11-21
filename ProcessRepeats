@@ -27,10 +27,7 @@
 ###############################################################################
 # ChangeLog
 #
-#   $Log: ProcessRepeats,v $
-#   Revision 1.279  2017/02/01 21:01:54  rhubley
-#   Cleanup before a distribution
-#
+#   $Log$
 #
 ###############################################################################
 #
@@ -2552,7 +2549,7 @@ CYCLE3:
         ##        matrix is also fixed to the average GC background rather
         ##        than the actual GC bin used to identify the original alignment.
         ##        Original alignment search parameters:
-        ##              180 cutoff, 
+        ##              180 cutoff,
         ##              7-11 minmatch,
         ##              18p## matrix,
         ##              -30 gap open,
@@ -6100,8 +6097,8 @@ sub generateOutput {
     printf $OUT "  have been counted as one element\n";
     printf $OUT "%54s\n", $exclnote;
     printf $OUT "\n";
-    if ( $options{'species'} ) 
-    {
+
+    if ( $options{'species'} ) {
       printf $OUT "The query species was assumed to be %-14s\n",
           $options{'species'};
     }
@@ -7647,8 +7644,7 @@ sub joinDNATransposonFragments {
     # Fake a range if hit name
     my @curRanges = ();
     if ( $curName eq $curHitName ) {
-      if ( $chainEndHash->{ $currentAnnot->getPRID() } )
-      {
+      if ( $chainEndHash->{ $currentAnnot->getPRID() } ) {
         push @curRanges,
             {
               'start'   => 1,

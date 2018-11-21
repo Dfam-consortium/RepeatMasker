@@ -25,10 +25,7 @@
 ###############################################################################
 # ChangeLog
 #
-#     $Log: HMMERSearchEngine.pm,v $
-#     Revision 1.40  2017/02/01 21:01:54  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 # To Do:
@@ -509,14 +506,14 @@ sub search {
   print "HMMER returned a the following result code >$resultCode<\n"
       if ( $this->getDEBUG() );
 
-  ## 
+  ##
   ## DEBUGING for Kaitlin
   ##
-  #if ( $resultCode )
-  #{
-  #  my $lowerCode = ( $? & 255 );
-  #  print "ERROR returned from nhmmer invocation: 16bit code = $?, high 8bits = $resultCode, lower 8bits = $lowerCode,  error file = $errFile, output file = $outFile\n";
-  #}
+#if ( $resultCode )
+#{
+#  my $lowerCode = ( $? & 255 );
+#  print "ERROR returned from nhmmer invocation: 16bit code = $?, high 8bits = $resultCode, lower 8bits = $lowerCode,  error file = $errFile, output file = $outFile\n";
+#}
 
   print $CLASS
       . "::search: "

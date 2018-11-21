@@ -24,10 +24,7 @@
 #
 # ChangeLog
 #
-#     $Log: buildSummary.pl,v $
-#     Revision 1.36  2017/02/01 21:01:56  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #

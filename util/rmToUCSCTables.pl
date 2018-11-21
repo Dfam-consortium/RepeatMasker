@@ -23,10 +23,7 @@
 #
 # ChangeLog
 #
-#     $Log: rmToUCSCTables.pl,v $
-#     Revision 1.24  2017/02/01 21:01:58  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #

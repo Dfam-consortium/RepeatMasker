@@ -26,10 +26,7 @@
 #
 # ChangeLog
 #
-#     $Log: wublastToCrossmatch.pl,v $
-#     Revision 1.9  2017/02/01 21:01:58  rhubley
-#     Cleanup before a distribution
-#
+#     $Log$
 #
 ###############################################################################
 #
