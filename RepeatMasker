@@ -7542,17 +7542,28 @@ sub initLibraries {
 
     # lookup species name in Taxonomy database
     if ( ( $species = $tax->isSpecies( $species ) ) eq "" ) {
-      my $dieMsg =
-            "RepeatMasker::initLibraries: Species \""
-          . $options{'species'}
-          . "\" is not known to RepeatMasker.\nHere are some similar "
-          . "sounding (using Soundex) valid species names:\n";
-      foreach
-          my $alts ( $tax->getSimilarSoundingSpecies( $options{'species'} ) )
-      {
-        $dieMsg .= "        -species \"$alts\"\n";
-      }
-      die $dieMsg;
+      #
+      # The taxonomy has grown to the point that this method
+      # of finding similar sounding names is way too slow.
+      # 
+      #my $dieMsg =
+      #      "RepeatMasker::initLibraries: Species \""
+      #    . $options{'species'}
+      #    . "\" is not known to RepeatMasker.\nHere are some similar "
+      #    . "sounding (using Soundex) valid species names:\n";
+      #foreach
+      #    my $alts ( $tax->getSimilarSoundingSpecies( $options{'species'} ) )
+      #{
+      #  $dieMsg .= "        -species \"$alts\"\n";
+      #}
+      #die $dieMsg;
+      die "\n\nSpecies \"" . $options{'species'} . "\" is not known to RepeatMasker.  There may\n"
+        . "not be any TE families defined in the libraries for this\n" 
+        . "species/clade or there may be an error in the spelling.\n"
+        . "Please check your entry against the NCBI Taxonomy database\n"
+        . "and/or try using a broader clade or related species instead.\n"
+        . "The full list of species/clades defined in the library may be\n"
+        . "obtained using the util/queryTaxonomyDatabase.pl script.\n\n";
     }
   }
 
