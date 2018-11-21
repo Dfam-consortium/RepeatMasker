@@ -732,7 +732,7 @@ sub popRMSpecies {
 =cut
 
 ##-------------------------------------------------------------------------##
-sub popRMSpecies {
+sub popThresh {
   my ( $self ) = @_;
   my $listRef = $self->getThreshRef();
   return pop @$listRef;
