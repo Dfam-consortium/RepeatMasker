@@ -76,7 +76,7 @@ use strict;
 use FindBin;
 use Data::Dumper;
 use FastaDB;
-use RmEMBL;
+use EMBL;
 use Text::Soundex;
 use Carp;
 
@@ -779,7 +779,7 @@ sub _buildFromNCBIDB {
 
   if ( defined $RMDatabase ) {
     my %RMSpecies = ();
-    my $db        = RmEMBL->new( fileName => $RMDatabase );
+    my $db        = EMBL->new( fileName => $RMDatabase );
     my $seqCount  = $db->getRecordCount();
     for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
       my $record = $db->getRecord( $i );

@@ -1,0 +1,432 @@
+CC ****************************************************************
+CC                                                                *
+CC   RepeatMasker Artefact DNA Sequence Database                  *
+CC   (C) 2019  Institute for Systems Biology                      *
+CC   All rights reserved                                          *
+CC                                                                *
+CC   Prepared by: Smit, A., Hubley, R.                            *
+CC   See accompanying README.html/README.txt for details.         *
+CC                                                                *
+CC   RELEASE 20190301;                                            *
+CC                                                                *
+CC   RepeatMasker software and database development and           *
+CC   maintenance are currently funded by an NIH/NHGRI             *
+CC   R01 grant HG02939-01 to Arian Smit.                          *
+CC                                                                *
+CC ****************************************************************
+XX
+ID   IS1     repeatmasker; DNA;  ???;  768 BP.
+CC   IS1 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+XX
+SQ   Sequence 768 BP; 178 A; 194 C; 215 G; 181 T; 0 other;
+     ggtgatgctg ccaacttact gatttagtgt atgatggtgt ttttgaggtg ctccagtggc   60
+     ttctgtttct atcagctgtc cctcctgttc agctactgac ggggtggtgc gtaacggcaa   120
+     aagcaccgcc ggacatcagc gctatctctg ctctcactgc cgtaaaacat ggcaactgca   180
+     gttcacttac accgcttctc aacccggtac gcaccagaaa atcattgata tggccatgaa   240
+     tggcgttgga tgccgggcaa cagcccgcat tatgggcgtt ggcctcaaca cgattttacg   300
+     tcacttaaaa aactcaggcc gcagtcggta acctcgcgca tacagccggg cagtgacgtc   360
+     atcgtctgcg cggaaatgga cgaacagtgg ggctatgtcg gggctaaatc gcgccagcgc   420
+     tggctgtttt acgcgtatga cagtctccgg aagacggttg ttgcgcacgt attcggtgaa   480
+     cgcactatgg cgacgctggg gcgtcttatg agcctgctgt caccctttga cgtggtgata   540
+     tggatgacgg atggctggcc gctgtatgaa tcccgcctga agggaaagct gcacgtaatc   600
+     agcaagcgat atacgcagcg aattgagcgg cataacctga atctgaggca gcacctggca   660
+     cggctgggac ggaagtcgct gtcgttctca aaatcggtgg agctgcatga caaagtcatc   720
+     gggcattatc tgaacataaa acactatcaa taagttggag tcattacc                768
+//
+ID   IS2     repeatmasker; DNA;  ???;  1331 BP.
+CC   IS2 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+CC        Description: reversed oct 13 2004      
+XX
+SQ   Sequence 1331 BP; 341 A; 317 C; 389 G; 284 T; 0 other;
+     tagactggcc ccctgaatct ccagacaacc aatatcactt aaataagtga tagtcttaat   60
+     actagttttt agactagtca ttggagaaca gatgattgat gtcttagggc cggagaaacg   120
+     cagacggcgt accacacagg aaaagatcgc aattgttcag cagagctttg aaccggggat   180
+     gacggtctcc ctcgttgccc ggcaacatgg tgtagcagcc agccagttat ttctctggcg   240
+     taagcaatac caggaaggaa gtcttactgc tgtcgccgcc ggagaacagg ttgttcctgc   300
+     ctctgaactt gctgccgcca tgaagcagat taaagaactc cagcgcctgc tcggcaagaa   360
+     aacgatggaa aatgaactcc tcaaagaagc cgttgaatat ggacgggcaa aaaagtggat   420
+     agcgcacgcg cccttattgc ccggggatgg ggagtaagct tagtcagccg ttgtctccgg   480
+     gtgtcgcgtg cgcagttgca cgtcattctc agacgaaccg atgactggat ggatggccgc   540
+     cgcagtcgtc acactgatga tacggatgtg cttctccgta tacaccatgt tatcggagag   600
+     ctgccaacgt atggttatcg tcgggtatgg gcgctgcttc gcagacaggc agaacttgat   660
+     ggtatgcctg cgatcaatgc caaacgtgtt taccggatca tgcgccagaa tgcgctgttg   720
+     cttgagcgaa aacctgctgt accgccatcg aaacgggcac atacaggcag agtggccgtg   780
+     aaagaaagca atcagcgatg gtgctctgac gggttcgagt tctgctgtga taacggagag   840
+     agactgcgtg tcacgttcgc gctggactgc tgtgatcgtg aggcactgca ctgggcggtc   900
+     actaccggcg gcttcaacag tgaaacagta caggacgtca tgctgggagc ggtggaacgc   960
+     cgcttcggca acgatcttcc gtcgtctcca gtggagtggc tgacggataa tggttcatgc   1020
+     taccgggcta atgaaacacg ccagttcgcc cggatgttgg gacttgaacc gaagaacacg   1080
+     gcggtgcgga gtccggagag taacggaata gcagagagct tcgtgaaaac gataaagcgt   1140
+     gactacatca gtatcatgcc caaaccagac gggttaacgg cagcaaagaa ccttgcagag   1200
+     gcgttcgagc attataacga atggcatccg catagtgcgc tgggttatcg ctcgccacgg   1260
+     gaatatctgc ggcagcgggc ttgtaatggg ttaagtgata acagatgtct ggaaatatag   1320
+     gggcaaatcc a                                                        1331
+//
+ID   IS3     repeatmasker; DNA;  ???;  1258 BP.
+CC   IS3 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+CC        Description: reversed oct 13 2004      
+XX
+SQ   Sequence 1258 BP; 320 A; 321 C; 353 G; 264 T; 0 other;
+     tgatcttacc cagcaatagt ggacacgcgg ctaagtgagt aaactctcag tcagaggtga   60
+     ctcacatgac aaaaacagta tcaaccagta aaaaaccccg taaacagcat tcgcctgaat   120
+     ttcgcagtga agccctgaag cttgctgaac gcatcggtgt tactgccgca gcccgtgaac   180
+     tcagcctgta tgaatcacaa ctctacaact ggcgcagtaa acagcaaaat cagcagacgt   240
+     cttctgaacg tgaactggag atgtctaccg agattgcacg tctcaaacgc cagctggcag   300
+     aacgggatga agagctggct atcctccaaa aggccgcgac atacttcgcg aagcgcctga   360
+     aatgaagtat gtctttattg aaaaacatca ggctgagttc agcatcaaag caatgtgccg   420
+     cgtgctccgg gtggcccgca gcggctggta tacgtggtgt cagcggcgga caaggataag   480
+     cacgcgtcag cagttccgcc aacactgcga cagcgttgtc ctcgcggctt ttacccggtc   540
+     aaaacagcgt tacggtgccc cacgcctgac ggatgaactg cgtgctcagg gttacccctt   600
+     taacgtaaaa accgtggcgg caagcctgcg ccgtcaggga ctgagggcaa aggcctcccg   660
+     gaagttcagc ccggtcagct accgcgcaca cggcctgcct gtgtcagaaa atctgttgga   720
+     gcaggatttt tacgccagtg gcccgaacca gaagtgggca ggagacatca cgtacttacg   780
+     tacagatgaa ggctggctgt atctggcagt ggtcattgac ctgtggtcac gtgccgttat   840
+     tggctggtca atgtcgccac gcatgacggc gcaactggcc tgcgatgccc tgcagatggc   900
+     gctgtggcgg cgtaagaggc cccggaacgt tatcgttcac acggaccgtg gaggccagta   960
+     ctgttcagca gattatcagg cgcaactgaa gcggcataat ctgcgtggaa gtatgagcgc   1020
+     aaaaggttgc tgctacgata atgcctgcgt ggaaagcttc tttcattcgc tgaaagtgga   1080
+     atgtatccat ggagaacact ttatcagccg ggaaataatg cgggcaacgg tgtttaatta   1140
+     tatcgaatgt gattacaatc ggtggcggcg gcacagttgg tgtggcggcc tcagtccgga   1200
+     acaatttgaa aacaagaacc tcgcttaggc ctgtgtccat attacgtggg taggatca     1258
+//
+ID   IS5     repeatmasker; DNA;  ???;  1195 BP.
+CC   IS5 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+XX
+SQ   Sequence 1195 BP; 329 A; 320 C; 316 G; 230 T; 0 other;
+     ggaaggtgcg aacaagtccc tgatatgaga tcatgtttgt catctggagc catagaacag   60
+     ggttcatcat gagtcatcaa cttaccttcg ccgacagtga attcagcagt aagcgccgtc   120
+     agaccagaaa agagattttc ttgtcccgca tggagcagat tctgccatgg caaaacatgg   180
+     tggaagtcat cgagccgttt taccccaagg ctggtaatgg ccggcgacct tatccgctgg   240
+     aaaccatgct acgcattcac tgcatgcagc attggtacaa cctgagcgat ggcgcgatgg   300
+     aagatgctct gtacgaaatc gcctccatgc gtctgtttgc ccggttatcc ctggatagcg   360
+     ccttgccgga ccgcaccacc atcatgaatt tccgccacct gctggagcag catcaactgg   420
+     cccgccaatt gttcaagacc atcaatcgct ggctggccga agcaggcgtc atgatgactc   480
+     aaggcacctt ggtcgatgcc accatcattg aggcacccag ctcgaccaag aacaaagagc   540
+     agcaacgcga tccggagatg catcagacca agaaaggcaa tcagtggcac tttggcatga   600
+     aggcccacat tggtgtcgat gccaagagtg gcctgaccca cagcctggtc accaccgcgg   660
+     ccaacgagca tgacctcaat cagctgggta atctgctgca tggagaggag caatttgtct   720
+     cagccgatgc cggctaccaa ggggcgccac agcgcgagga gctggccgag gtggatgtgg   780
+     actggctgat cgccgagcgc cccggcaagg taagaacctt gaaacagcat ccacgcaaga   840
+     acaaaacggc catcaacatc gaatacatga aagccagcat ccgggccagg gtggagcacc   900
+     catttcgcat catcaagcga cagttcggct tcgtgaaagc cagatacaag gggttgctga   960
+     aaaacgataa ccaactggcg atgttattca cgctggccaa cctgtttcgg gcggaccaaa   1020
+     tgatacgtca gtgggagaga tctcactaaa aactggggat aacgccttaa atggcgaaga   1080
+     aacggtctaa ataggctgat tcaaggcatt tacgggagaa aaaatcggct caaacatgaa   1140
+     gaaatgaaat gactgagtca gccgagaaga atttccccgc ttattcgcac cttcc        1195
+//
+ID   IS10     repeatmasker; DNA;  ???;  1329 BP.
+CC   IS10 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+XX
+SQ   Sequence 1329 BP; 403 A; 316 C; 269 G; 341 T; 0 other;
+     ctgatgaatc ccctaatgat tttggtaaaa atcattaagt taaggtggat acacatcttg   60
+     tcatatgatc aaatggtttc gcgaaaaatc aataatcaga caacaagatg tgcgaactcg   120
+     atattttaca cgactctctt taccaattct gccccgaatt acacttaaaa cgactcaaca   180
+     gcttaacgtt ggcttgccac gcattacttg actgtaaaac tctcactctt accgaacttg   240
+     gccgtaacct gccaaccaaa gcgagaacaa aacataacat caaacgaatc gaccgattgt   300
+     taggtaatcg tcacctccac aaagagcgac tcgctgtata ccgttggcat gctagcttta   360
+     tctgttcggg caatacgatg cccattgtac ttgttgactg gtctgatatt cgtgagcaaa   420
+     aacgacttat ggtattgcga gcttcagtcg cactacacgg tcgttctgtt actctttatg   480
+     agaaagcgtt cccgctttca gagcaatgtt caaagaaagc tcatgaccaa tttctagccg   540
+     accttgcgag cattctaccg agtaacacca caccgctcat tgtcagtgat gctggcttta   600
+     aagtgccatg gtataaatcc gttgagaagc tgggttggta ctggttaagt cgagtaagag   660
+     gaaaagtaca atatgcagac ctaggagcgg aaaactggaa acctatcagc aacttacatg   720
+     atatgtcatc tagtcactca aagactttag gctataagag gctgactaaa agcaatccaa   780
+     tctcatgcca aattctattg tataaatctc gctctaaagg ccgaaaaaat cagcgctcga   840
+     cacggactca ttgtcaccac ccgtcaccta aaatctactc agcgtcggca aaggagccat   900
+     gggttctagc aactaactta cctgttgaaa ttcgaacacc caaacaactt gttaatatct   960
+     attcgaagcg aatgcagatt gaagaaacct tccgagactt gaaaagtcct gcctacggac   1020
+     taggcctacg ccatagccga acgagcagct cagagcgttt tgatatcatg ctgctaatcg   1080
+     ccctgatgct tcaactaaca tgttggcttg cgggcgttca tgctcagaaa caaggttggg   1140
+     acaagcactt ccaggctaac acagtcagaa atcgaaacgt actctcaaca gttcgcttag   1200
+     gcatggaagt tttgcggcat tctggctaca caataacaag ggaagactta ctcgtggctg   1260
+     caaccctact agctcaaaat ttattcacac atggttacgc tttggggaaa ttatgagggg   1320
+     atctctcag                                                           1329
+//
+ID   IS30     repeatmasker; DNA;  ???;  1221 BP.
+CC   IS30 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+XX
+SQ   Sequence 1221 BP; 393 A; 268 C; 287 G; 273 T; 0 other;
+     tgtagattca attggtcaac gcaacagtta tgtgaaaaca tggggttgcg gaggtttttt   60
+     gaatgagacg aacatttaca gcagaggaaa aagcctctgt ttttgaacta tggaagaacg   120
+     gaacaggctt cagtgaaata gcgaatatcc tgggttcaaa acccggaacg atcttcacta   180
+     tgttaaggga tactggcggc ataaaacccc atgagcgtaa gcgggctgta gctcacctga   240
+     cactgtctga gcgcgaggag atacgagctg gtttgtcagc caaaatgagc attcgtgcga   300
+     tagctactgc gctgaatcgc agtccttcga cgatctcacg tgaagttcag cgtaatcggg   360
+     gcagacgcta ttacaaagct gttgatgcta ataaccgagc caacagaatg gcgaaaaggc   420
+     caaaaccgtg cttactggat caaaatttac cattgcgaaa gcttgttctg gaaaagctgg   480
+     agatgaaatg gtctccagag caaatatcag gatggttaag gcgaacaaaa ccacgtcaaa   540
+     aaacgctgcg aatatcacct gagacaattt ataaaacgct gtactttcgt agccgtgaag   600
+     cgctacacca cctgaatata cagcatctgc gacggtcgca tagccttcgc catggcaggc   660
+     gtcatacccg caaaggcgaa agaggtacga ttaacatagt gaacggaaca ccaattcacg   720
+     aacgttcccg aaatatcgat aacagacgct ctctagggca ttgggagggc gatttagtct   780
+     caggtacaaa aaactctcat atagccacac ttgtagaccg aaaatcacgt tatacgatca   840
+     tccttagact caggggcaaa gattctgtct cagtaaatca ggctcttacc gacaaattcc   900
+     tgagtttacc gtcagaactc agaaaatcac tgacatggga cagaggaatg gaactggcca   960
+     gacatctaga atttactgtc agcaccggcg ttaaagttta cttctgcgat cctcagagtc   1020
+     cttggcagcg gggaacaaat gagaacacaa atgggctaat tcggcagtac tttcctaaaa   1080
+     agacatgtct tgcccaatat actcaacatg aactagatct ggttgctgct cagctaaaca   1140
+     acagaccgag aaagacactg aagttcaaaa caccgaaaga gataattgaa aggggtgttg   1200
+     cattgacaga ttgaatctac a                                             1221
+//
+ID   IS150     repeatmasker; DNA;  ???;  1443 BP.
+CC   IS150 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+XX
+SQ   Sequence 1443 BP; 435 A; 294 C; 342 G; 372 T; 0 other;
+     tgtactgcac ccattttgtt ggacgatgaa atggaatagc ccctaatatg tcaaagccaa   60
+     aatacccttt tgaaaagcgc cttgaagtcg tgaatcacta cttcacaact gatgatggtt   120
+     acaggatcat ctcggcacgt tttggtgtcc cccgaaccca ggtcaggaca tgggttgccc   180
+     tctatgaaaa acatggagaa aaaggtttaa ttcccaaacc taaaggcgtt agtgctgatc   240
+     cagagttgcg tattaaggtc gtgaaagctg tgatcgagca gcacatgtcc cttaatcagg   300
+     ctgctgctca ctttatgctt gctggtagtg gttctgtagc caggtggctg aaggtctatg   360
+     aagagcgcgg agaagctggt ttacgcgcgc tcaagattgg caccaaaaga aacattgcaa   420
+     tatcagttga tccagaaaaa gcggcatcag cattggagct gtcaaaagac cgacgcattg   480
+     aggatcttga aaggcaagtt cgatttcttg aaacgcggct tatgtatcta aaaaagctga   540
+     aagccttagc tcatcccacg aaaaagtgaa agtactcaac gagctaaggc agttttatcc   600
+     tcttgatgag cttctcaggg ctgcggagat accgcgcagt acgttttatt atcatctaaa   660
+     ggctctcagc aagcctgaca agtatgcgga cgttaaaaag cgtattagtg agatttatca   720
+     cgagaataga ggccgatacg gataccgtag ggtaacgctg tctcttcatc gagaagggaa   780
+     acagattaac cataaagctg ttcagcgcct gatgggaacc ctctcactta aagcagcgat   840
+     taaggtcaag cgataccgct cttacagagg agaggtaggg caaaccgccc ctaatgttct   900
+     ccaaagagat ttcaaggcta cgcggccaaa cgagaagtgg gttaccgatg ttactgaatt   960
+     tgcagtcaat gggcgcaagc tgtatttgtc tccagtaata gatctcttca acaacgaagt   1020
+     tatttcttac agcctttcgg aaagaccagt gatgaacatg gttgagaata tgctcgatca   1080
+     ggcattcaaa aagcttaatc ctcacgagca tcctgttctg cactctgacc agggatggca   1140
+     gtatcgtatg agaagatatc aaaatatcct taaagaacat ggtattaaac aaagcatgtc   1200
+     agcaaaaggc aattgtctgg ataatgctgt ggtggagtgt ttctttggaa ccttaaagtc   1260
+     ggagtgtttt tatcttgatg agttcagtaa tataagcgaa ctgaaggatg ctgttacgga   1320
+     atatattgaa tactacaaca gcagaagaat tagcctgaaa ttaaaaggtc tgactccaat   1380
+     tgaatatcgg aatcagacct atatgcctcg tgtttaactg tccaactttt tggggtcagt   1440
+     aca                                                                 1443
+//
+ID   IS186     repeatmasker; DNA;  ???;  1338 BP.
+CC   IS186 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+XX
+SQ   Sequence 1338 BP; 336 A; 323 C; 362 G; 317 T; 0 other;
+     cataagcgct aacttaaggg ttgtggtatt acgcctgata tgatttaacg tgccgatgaa   60
+     ttactctcac gataactggt cagcaattct ggcccatatt ggtaagcccg aagaactgga   120
+     tacttcggca cgtaatgccg gggctctaac ccgccgccgc gaaattcgtg atgctgcaac   180
+     tctgctacgt ctggggctgg cttacggccc cggggggatg tcattacgtg aagtcactgc   240
+     atgggctcag ctccatgacg ttgcaacatt atctgacgtg gctctcctga agcggctgcg   300
+     gaatgccgcc gactggtttg gcatacttgc cgcacaaaca cttgctgtac gcgccgcagt   360
+     tacgggttgt acaagcggaa agagattgcg tcttgtcgat ggaacagcaa tcagtgcgcc   420
+     cgggggcggc agcgctgaat ggcgactaca tatgggatat gatcctcata cctgtcagtt   480
+     cactgatttt gagctaaccg acagcagaga cgctgaacgg ctggaccgat ttgcgcaaac   540
+     ggcagacgag atacgcattg ctgaccgggg attcggttcg cgtcccgaat gtatccgctc   600
+     acttgctttt ggagaagctg attatatcgt ccgggttcac tggcgaggat tgcgctggtt   660
+     aactgcagaa ggaatgcgct ttgacatgat gggttttctg cgcgggctgg attgcggtaa   720
+     gaacggtgaa accactgtaa tgataggcaa ttcaggtaat aaaaaagccg gagctccctt   780
+     tccggcacgt ctcattgccg tatcacttcc tcccgaaaaa gcattaatca gtaaaacccg   840
+     actgctcagc gagaatcgtc gaaaaggacg agtagttcag gcggaaacgc tggaagcagc   900
+     gggccatgtg ctattgctaa catcattacc ggaagatgaa tattcagcag agcaagtggc   960
+     tgattgttac cgtctgcgat ggcaaattga actggctttt aagcggctca aaagtttgct   1020
+     gcacctggat gctttgcgtg caaaggaacc tgaactcgcg aaagcgtgga tatttgctaa   1080
+     tctactcgcc gcatttttaa ttgacgacat aatcagccat cgctggattt cccccccaga   1140
+     agtgccggat ccgaaaagaa gaactaactc gttgtggaga ataacaaaaa tggtcatctg   1200
+     gagcttacag gtggccattc gtgggacagt atccctgaca gcctacaaaa cgcaattgaa   1260
+     gaacgcgagg catcgtctta acgaggcacc gaggcgtcgc attcttcaga tggttcaacc   1320
+     cttaagttag cgcttatg                                                 1338
+//
+ID   Tn1000     repeatmasker; DNA;  ???;  5981 BP.
+CC   Tn1000 DNA
+XX
+KW   ARTEFACT/.
+XX
+CC   consensus - See RepBase for additional annotations.
+XX
+CC   RepeatMasker Annotations:
+CC        Type: ARTEFACT
+CC        SubType: 
+CC        Species: root
+CC        SearchStages: 10
+CC        BufferStages:
+XX
+SQ   Sequence 5981 BP; 1618 A; 1277 C; 1265 G; 1821 T; 0 other;
+     ggggtttgag ggccaatgga acgaaaacgt acgtttatgg tataacttat tgattataat   60
+     acagtataca aaggtccctt ttcagggacc ctttcgtatg ttgtagctga ttttattttc   120
+     ttcttttctt ttgggtgctt ttaatagcca tatatgatgt ttcatataaa gttaaaagtt   180
+     tccccatctg tctatctata gcgtcatgtt tttcaggatt tcttaatttc tgcagcagtt   240
+     tagatatata tttcgcaggt aactttatta ttaatgaatt atgggattga tacatttcct   300
+     ttgtccaatc taaatctttt cctgatttca atacctcact ctcatctcta ttaattataa   360
+     aaccgagctt tccatacgga cctgttaaat atgattgtaa ttgtctatac tcagatggac   420
+     ctaattcttc aaaattttta gcatcaaaaa caacttgtct tgttttatag tcctccaata   480
+     ctcgtttcca aaaatcagat ttgccaccat tggtgcctat aatatctcgt ctctgaactg   540
+     cgttaccatt tggatgggac ttgatgtctg ttaggtggga tgcaaatact attcttagtg   600
+     cgtctaaaca ccattgttca aattcagtgg caccttcatt tcctatcggt atctgatcta   660
+     gatgagtagt tatttgacct attgttttat ttctaatggc tgaattatct gaaataatat   720
+     taatatcata ttcgtcattt atctcctctg cttcctctgg agcaagtgca ttacgattta   780
+     gattcaaacc aagccagtaa catggatgaa ttaataattt ctcattactt tcaaaacctt   840
+     tatctggagt tcgcccgtca tggcaaaatg aataggatga ggtgttttta tcacgaatac   900
+     caacaaatcc tacactatac aaactttgga gaattccact tgcctttaac aactgtattt   960
+     cagacgttat tttaggatct ccattttctt cgattaattc gaaagatgct tctatttttt   1020
+     ttaagcacgt ataaactgtt aattcaggtt caatgctacg aaatgcacta gttataacct   1080
+     gtattgaagg aaagatcttc tgatactctt tccagagatc ttcaagtctg gccatggaaa   1140
+     ttgacttggc tgcatattct aggtcagtgt ttatgatagt ttctctattc tctctgaatg   1200
+     cggaaaaaaa agcttcattc aacaatgata gtaaatccct gggccggtaa agggtaaatt   1260
+     gcaaacatcg cttaaaacca ttcctccctt taagatcatc cgctgtgcat ctatcccaaa   1320
+     ctcgttgatc tttctcaata tctagcttaa atgctacttt cattctttta gctgacagca   1380
+     ttaggagttg tgcccagtcc caatgcaacc ttatgacttg accctctata tttctcgagt   1440
+     aatcaggatc ttcctttgat agcgacctaa atatattatc ccttaaaaaa attattggac   1500
+     gaatgcattt tgctttttga tttaattcaa tagatgcata tgctagacct gcaatgattc   1560
+     caattcctat attatccggt tcatacgcct catctagctt atccattaat atgacaactt   1620
+     tcctgtctga gcgttcaaga agtgatacta tattattttc tatttctgag atattcaaat   1680
+     tgaattgaag atcaccaatt gattcttctg ggttattttc atctaaatac tcctttgcga   1740
+     caagcctaca ctttcttaaa atgtcacctt gtgcagaatt ccattttttc aaatgttcat   1800
+     tcaacaatgt ttctgatgat atttgagatg acaatttgta atgagatgat atatatgatg   1860
+     ctatctccat tagcatagcg tatcgccata atagtcttgt tgctgccctt gctaaattaa   1920
+     atgatcctgt aaatggtttc aacattgatc tgaaaccaat aatttgagaa tcgtctggtg   1980
+     agaaactcag gattaatatt tttttgtctt tcttccaatg ctcatttagc tgaataaata   2040
+     aagcactttt acctgtccct cgtctaccaa caacaatggt cctgtcatca gtttcaatta   2100
+     gagtcctaaa gtcagcagtt tcaatgaaag cattactcaa catcttttta tcattttctg   2160
+     ctgtcgtatc accaaacgga ttagactttg aagtaatatt caattccata ttcaaccttt   2220
+     tatgttagtt gctttcattt attactttat atactgttga acgagcaata ttcattgttt   2280
+     ttgatatatg tgaggcacct aacccctgtt gccacatatt taatactgca tctctatcta   2340
+     tttttctttt tctaccaaaa acaactcctt ttgccattgc ctcttggcga ccttcattgg   2400
+     tacgctctag tattctctgt cgttctgcct gggccactgc agatagaata gtgacaacca   2460
+     ttttacccat ctccccatcg gtactgattc cgtcatcaat aaaccgaatg gatacacctt   2520
+     gggcgtcaaa ctcttttatt aactggatca tgtcagcagt atcgcgccca aggcggtcaa   2580
+     gtttcttcac caagatgacg tcaccttcct ccaccttcat cctcagcaag tccagccctt   2640
+     tccgatcgct tgaactgccc gatgccttgt cagtaaagat gcgatttgct ttcacgcctg   2700
+     cgtctttgag tgcccgaacc tgaatatcga gagattgctg gctggttgat acccgtgcgt   2760
+     aaccaaaaag tcgcataaaa atgtatccta aatcaaatat cggacaagca gtgtctgtta   2820
+     taacaaaaaa tcgatttaat agacacatta acagcactgt ttttatgtgt gcgataattt   2880
+     ataatatttc ggacggttgc aaaattgtta atgaataact gtcaggtagg gagcctgata   2940
+     tgcctgtcga ctttctaacc tctgaccaaa aacagaatta cggttgttat gctgcagaac   3000
+     ctaatgacgt gcaactggcg cgctattttc atcttgatga acgggatctg gccttcatta   3060
+     accaacgacg gggcaaacat aataggctgg gcattgcgct tcagctcacc acagcccgtt   3120
+     ttctgggaac atttctgacg gatttaactc aggttctgcc tggtgttcaa cattttgtcg   3180
+     cggtacagct taatatccac cgtccagaag ttctctcccg ctatgctgaa cgggacacta   3240
+     cccttagaga acatactgca ttaattaagg aatattacgg ctatcatgaa tttggtgatt   3300
+     ttccatggtc tttccgcctg aagcgtctgc tatatacccg ggcgtggctc agtaatgagc   3360
+     gaccgggtct gatgtttgat tttgccactg catggttgct tcaaaataag gtattactgc   3420
+     ccggagcaac cacactagta cgtctcatca gtgaaattcg tgaaagggca aatcagcggc   3480
+     tgtggaaaaa gctggccgca ctgccgaaca aatggcaggc agctcaagtg atggagcttc   3540
+     tggtcattcc ggaaggtcag cgtgtatcag cactggaaca gttgaaaaaa ggccctgtta   3600
+     cagtcagtgg acctgcgttt aatgaagcgc tggaacgata tatccgatta cgaagtcttg   3660
+     agttttcccg actgaacttt tccggtctgc ctgccattca actgcgtaat ctggctcgtt   3720
+     atgctggcat ggcgtcggta aaatatatcg ctcgaatgcc acagcagaga aagcttgctg   3780
+     tacttactgc attcgttaaa gcacaggaaa taacggcatt agacgatgcc gttgatgtgc   3840
+     ttgatatgct aattctggac attatccgcg aagcaaagaa aaccgggcaa aaaaaaagac   3900
+     tcaggacact gaaagatctt gatcaggccg cattgttact ggcgcgggca tgtgcattgt   3960
+     tgctggatga taatacagat gtcccagatc tcaggcaggt tatcttcaag tgcgtaccca   4020
+     aaaacagact ggcagaatct gtaagcaagg ttaatgaact tgctcgtcca cagaacaata   4080
+     atttccatga cgaaatggtt gagcagtacg gtcgggttaa acgttttctt ccggcggtgt   4140
+     tgcgggacct gcatttccgt gcggcaccgg caggtgaaca tgtactggct gcgattcatt   4200
+     atctggcaga actgaatggt tcgaaaaagc gcatccttga tgatgcgcct gaacatatta   4260
+     tcaccggtcc ctggaaacgc ctcgtatacg atgcggaggg acggatacag cgtgcaggtt   4320
+     attcactatg tttgctggaa cgccttcagg atgcactgcg ccgccgggac atctggcttg   4380
+     aaaacagtga tcgctgggga gatcctcgcg agaagttgtt gcaaggtgaa gagtggcaga   4440
+     ctcagcgtat tcctgtctgt cgggcactgg gacatcctgt cgatggacgt aaaggtgtgc   4500
+     aacaactggc tattcagctg gatgagacct ggaaagccgt ggcatcacga tttgaaaaga   4560
+     atgcggaagt tcatatctgt aatgaaggta aatatccatc cctgactatc agttgtctgg   4620
+     agaaacagga agagccacca tcattgcttc gtctaaataa tcggatcaaa cagctactcc   4680
+     caccggtaga tttaacggaa ctgttacttg agatagatgc ccagacagga tttacacatg   4740
+     agtttgcgca tgtcagtgaa tctggtgctc gagcgcaaga tttgcacatc agtttatgtg   4800
+     cggtattgat ggctgaagcc tgtaatatcg gactggaacc gctgataaag cacaatatac   4860
+     cagcactgac ccgccatcgg ctcagttggg tgaaacagaa ttaccttcgt gcagaaacgc   4920
+     tggtcagcgc caatgcccgc ctggttgatt ttcagtccac actggagctt gctggtcgtt   4980
+     ggggaggtgg agaagtggca tcagctgacg gcatgcgctt tgtcacacca gtgaagacca   5040
+     tcaactcagg atctaacaga aaatattttg gttctggacg aggcatcacc tggtataact   5100
+     tcgtatctga tcagtactct gggttccatg gcattgtggt acccggtaca ttacgggatt   5160
+     cgatttttgt actggaagga cttcttgagc agcagacagg gctgaatcca gttgaaatca   5220
+     tgacagacac tgcgggtagc agcgatatta ttttcggtct gttctggcta ctggggtatc   5280
+     agttttcccc ccggcttgcc gatgcaggtg aggcggtgtt ctggcgggtg aataaatcgg   5340
+     caaactacgg agtactggat aagttggccc gaggatatgc agatctgtca aaagcggaga   5400
+     gtcagtggga tgagatgatg cgaaccgctg gttcgctgaa gttgggtaca attcatgcgt   5460
+     cagaactcat tcgctcttta ctgaaaagct cgcgcccatc aggactggca caggcaatta   5520
+     tggaagtagg gcgtgtaaac aaaacgctat atctcctcaa ttatattgat gatgaagatt   5580
+     atcgtcggcg gatcctgacg cagcttaatc gaggagaagg ccgccacgct gtggctcgtg   5640
+     cgatttgtta cggacaacgc ggagagatca gaaagcgtta tcgtgaaggg caggaagatc   5700
+     aactgggggc gctgggcctg gttactaatg cagtggttct gtggaacacg ctctatatgg   5760
+     aggaagcgtt gagctggatg cgccgtaatg gcgaagaaat tatagatgaa gatatcgctc   5820
+     ggctatctcc cctgatgcac gggcatatca atatgttggg ccattataca ttcacgttgc   5880
+     cagaggatat tttaaaaggg gaactgagag ctctaaattt aaatataaac aacgaattat   5940
+     ctccttaacg tacgttttcg ttccattggc cctcaaaccc c                       5981
+//

@@ -177,6 +177,54 @@ sub getId {
 
 ##-------------------------------------------------------------------------##
 
+=head2 getName()
+
+  Use: my $value = getName();
+
+  Get the value of Name.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getName {
+  my ( $self ) = @_;
+  $self->{_name};
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 getTopology()
+
+  Use: my $value = getTopology();
+
+  Get the value of Topology.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getTopology {
+  my ( $self ) = @_;
+  $self->{_topology};
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 getSeqVersion()
+
+  Use: my $value = getSeqVersion();
+
+  Get the value of SeqVersion.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getSeqVersion {
+  my ( $self ) = @_;
+  $self->{_seqversion};
+}
+
+##-------------------------------------------------------------------------##
+
 =head2 getDataclass()
 
   Use: my $value = getDataclass();
@@ -946,6 +994,54 @@ sub getReferencesRef {
 sub clearId {
   my ( $self ) = @_;
   my $v = $self->setId( undef );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 clearName()
+
+  Use: clearName();
+
+  Clear the contents of Name.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub clearName {
+  my ( $self ) = @_;
+  my $v = $self->setName( undef );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 clearTopology()
+
+  Use: clearTopology();
+
+  Clear the contents of Topology.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub clearTopology {
+  my ( $self ) = @_;
+  my $v = $self->setTopology( undef );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 clearSeqVersion()
+
+  Use: clearSeqVersion();
+
+  Clear the contents of SeqVersion.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub clearSeqVersion {
+  my ( $self ) = @_;
+  my $v = $self->setSeqVersion( undef );
 }
 
 ##-------------------------------------------------------------------------##
@@ -1848,6 +1944,54 @@ sub pushReferences {
 sub setId {
   my ( $self, $value ) = @_;
   $self->{_id} = $value;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 setName()
+
+  Use: my $value = setName( $value );
+
+  Set the value of Name.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub setName {
+  my ( $self, $value ) = @_;
+  $self->{_name} = $value;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 setTopology()
+
+  Use: my $value = setTopology( $value );
+
+  Set the value of Topology.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub setTopology {
+  my ( $self, $value ) = @_;
+  $self->{_topology} = $value;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 setSeqVersion()
+
+  Use: my $value = setSeqVersion( $value );
+
+  Set the value of SeqVersion.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub setSeqVersion {
+  my ( $self, $value ) = @_;
+  $self->{_seqversion} = $value;
 }
 
 ##-------------------------------------------------------------------------##

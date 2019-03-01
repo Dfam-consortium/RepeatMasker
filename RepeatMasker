@@ -302,7 +302,7 @@ use Data::Dumper;
 use Cwd;
 
 # RepeatMasker Libraries
-use RmEMBL;
+use EMBL;
 use DFAM;
 use RepeatMaskerConfig;
 use SearchResult;
@@ -6955,7 +6955,7 @@ sub getDBStats {
 ##                                $stageNum, $tax);
 ##
 ##         \%options     :  RepeatMasker options hash
-##         $db           :  A FastaDB or RmEMBL object open to
+##         $db           :  A FastaDB or EMBL object open to
 ##                          the repeat datbase.
 ##         $libName      :  The name of the library to create.
 ##         $specPattern  :  The name of the species to include seqs for.
@@ -7076,6 +7076,10 @@ sub createLib {
     if ( $match > 0 || @buffers ) {
       $librarySize++;
       $id   = $record->getId();
+      if ( $id =~ /DF\d+/ && defined $record->getName() ) 
+      {
+        $id = $record->getName();
+      }
       $type = "#" . $record->getRMType();
       if ( $record->getRMSubType() ne "" ) {
         $type .= "/" . $record->getRMSubType();
@@ -7419,7 +7423,7 @@ sub buildRefineableHash {
 
   my %refineableHash = ();
 
-  if ( $db->isa( "RmEMBL" ) || $db->isa( "DFAM" ) ) {
+  if ( $db->isa( "EMBL" ) || $db->isa( "DFAM" ) ) {
     my $seqCount = $db->getRecordCount();
 
     # For each sequence in the master library
@@ -7558,7 +7562,7 @@ sub initLibraries {
       #}
       #die $dieMsg;
       die "\n\nSpecies \"" . $options{'species'} . "\" is not known to RepeatMasker.  There may\n"
-        . "not be any TE families defined in the libraries for this\n" 
+        . "not be any TE families defined in the libraries for this\n"
         . "species/clade or there may be an error in the spelling.\n"
         . "Please check your entry against the NCBI Taxonomy database\n"
         . "and/or try using a broader clade or related species instead.\n"
@@ -7656,7 +7660,7 @@ sub initLibraries {
       $db = DFAM->new( fileName => "$rmLibDir/Dfam.hmm" );
     }
     else {
-      $db = RmEMBL->new( fileName => "$rmLibDir/RepeatMaskerLib.embl" );
+      $db = EMBL->new( fileName => "$rmLibDir/RepeatMaskerLib.embl" );
     }
 
     #

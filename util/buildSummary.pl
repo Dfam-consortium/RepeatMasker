@@ -99,7 +99,7 @@ use lib "$FindBin::Bin/..";
 use Getopt::Long;
 use Data::Dumper;
 use Taxonomy;
-use RmEMBL;
+use EMBL;
 
 #
 # Version
@@ -171,7 +171,7 @@ if ( defined $options{'species'} ) {
       Taxonomy->new(
                 taxonomyDataFile => "$FindBin::Bin/../Libraries/taxonomy.dat" );
   $repDB =
-      RmEMBL->new(
+      EMBL->new(
                 fileName => "$FindBin::Bin/../Libraries/RepeatMaskerLib.embl" );
 }
 

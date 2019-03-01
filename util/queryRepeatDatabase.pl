@@ -151,7 +151,7 @@ use lib "$FindBin::Bin/../";
 use Getopt::Long;
 use Data::Dumper;
 use FastaDB;
-use RmEMBL;
+use EMBL;
 use DFAM;
 use Taxonomy;
 use File::Basename;
@@ -247,7 +247,7 @@ my $taxDB = "$FindBin::Bin/../Libraries/taxonomy.dat";
 my $tax   = Taxonomy->new( taxonomyDataFile => $taxDB );
 
 if ( $options{'tree'} ) {
-  my $db = RmEMBL->new( fileName => $RMLib );
+  my $db = EMBL->new( fileName => $RMLib );
   &_displayLibraryTaxonomy( library_ref => $db, taxonomy_ref => $tax );
   exit;
 }
@@ -290,7 +290,7 @@ if ( $fileFormat eq "fasta" ) {
   @ids      = $db->getIDs();
 }
 elsif ( $fileFormat eq "embl" ) {
-  $db = RmEMBL->new( fileName => $RMLib );
+  $db = EMBL->new( fileName => $RMLib );
   $seqCount = $db->getRecordCount();
 }
 elsif ( $fileFormat eq "dfam" ) {
@@ -366,6 +366,7 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
 
       }
     }
+    # Not an fasta database
     else {
       my $record = $db->getRecord( $i );
       foreach my $name ( $record->getRMSpeciesArray() ) {
@@ -437,7 +438,8 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
     }
     else {
       my $record = $db->getRecord( $i );
-      if ( $record->getId() =~ /$idPattern/i ) {
+      if ( $record->getId() =~ /$idPattern/i ||
+           $record->getName() =~ /$idPattern/i ) {
         $match = 1;
       }
     }
@@ -497,11 +499,16 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
     my $seq    = $record->getSequence();
     if ( defined $options{'stat'} ) {
       my $seqLen = length( $seq );
-      print ">"
-          . $record->getId() . "#"
+      my $id = $record->getId();
+      my $accession = "";
+      if ( $id =~ /DF\d+/ && defined $record->getName() ) {
+        $accession = $id;
+        $id = $record->getName();
+      }
+      print ">$id#"
           . $record->getRMType() . "/"
           . $record->getRMSubType()
-          . "  Length = "
+          . " $accession Length = "
           . "$seqLen bp";
 
       foreach my $name ( $record->getRMSpeciesArray() ) {
@@ -594,7 +601,7 @@ if ( defined $options{'stat'} ) {
 ## Use: my _displayLibraryTaxonomy( library_ref => value,
 ##                                  taxonomy_ref => value );
 ##
-##      library_ref       : A reference to a RmEMBL object
+##      library_ref       : A reference to a EMBL object
 ##      taxonomy_ref      : A reference to a Taxonomy object
 ##
 ##  Returns

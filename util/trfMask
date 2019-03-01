@@ -105,7 +105,7 @@ $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
 #   -t=s: String parameters
 #   -t=i: Number paramters
 #
-my @opts = qw( help xsmall dfam_mask );
+my @opts = qw( help xsmall dfam_mask ucsc_mask bed );
 
 #
 # Get the supplied command line options, and set flags
@@ -131,6 +131,10 @@ if ( $options{'help'} || !$#ARGV < 1 )
 
 my $dfamMask = 0;
 $dfamMask = 1 if ( $options{'dfam_mask'} );
+my $ucscMask = 0;
+$ucscMask = 1 if ( $options{'ucsc_mask'} );
+my $useBED = 0;
+$useBED = 1 if ( $options{'bed'} );
 my $fastaFile = "";
 my $fileDir   = "";
 my $matrix;
@@ -179,16 +183,21 @@ if ( $dfamMask )
 {
   $trf->setMinScore( 70 );
   $trf->setMaxPeriod( 5 );
+}elsif ( $ucscMask )
+{
+  # The ucsc <assembly>.trf.bed file is a full TRF run filtered for repeats
+  # with <= 12 pattern length.  This accomplishes the same thing
+  $trf->setMinScore( 50 );
+  $trf->setMaxPeriod( 12 );
 } else
 {
-
   # RepeatMasker style search
   $trf->setMinScore( 50 );
   $trf->setMaxPeriod( 10 );
 }
 
 my $minCopyNumber = 4;
-$minCopyNumber = 0 if ( $dfamMask );
+$minCopyNumber = 0 if ( $dfamMask || $ucscMask );
 
 my $lambda = 0.41;
 my @mu     = ( 8.51, 1.04, 6.26, 8.65, 10.36, 7.19, 8.81, 10.84, 12.97, 15.07 );
@@ -224,7 +233,7 @@ for ( my $i = $trfResults->size() - 1 ; $i >= 0 ; $i-- )
 print "   - TRF Young ( >$minCopyNumber copies )  : "
     . $trfResults->size() . "\n";
 $src->addAll( $trfResults );
-unless ( $dfamMask )
+if ( ! ( $dfamMask || $ucscMask ) )
 {
   maskSequence( "N", $wrkFastaFile, $trfResults, $wrkFastaFile . "-stage1" );
   system( "mv $wrkFastaFile-stage1 $wrkFastaFile" );
@@ -326,18 +335,49 @@ unless ( $dfamMask )
 #
 # Save results
 #
-print "Writing *.out file...\n";
-open OUT, ">$fastaFile.out"
-    or die "Could not open $fastaFile.out for writing\n";
-for ( my $k = 0 ; $k < $src->size() ; $k++ )
+if ( $useBED )
 {
-  my $result = $src->get( $k );
-  print OUT "" . $result->toStringFormatted( SearchResult::OutFileFormat );
-
+  print "Writing *.trf.bed file...\n";
+  open OUT, ">$fastaFile.trf.bed"
+      or die "Could not open $fastaFile.trf.bed for writing\n";
+  for ( my $k = 0 ; $k < $src->size() ; $k++ )
+  {
+    my $result = $src->get( $k );
+    my $str  = 
+        $result->getSeqID() 
+      . "\t" . $result->getStart()
+      . "\t" . $result->getEnd()
+      . "\ttrf"
+      . "\t" . $result->getPeriod()
+      . "\t" . $result->getCopyNumber()
+      . "\t" . $result->getConsSize()
+      . "\t" . $result->getPercMatches()
+      . "\t" . $result->getPercIndels()
+      . "\t" . $result->getScore()
+      . "\t" . $result->getPercA()
+      . "\t" . $result->getPercC()
+      . "\t" . $result->getPercG()
+      . "\t" . $result->getPercT()
+      . "\t" . $result->getEntropy()
+      . "\t" . $result->getConsensus()
+      . $result->getSubjSeq() . "\n";
+    print OUT "$str";
+  }
+  close OUT;
+}else {
+  print "Writing *.out file...\n";
+  open OUT, ">$fastaFile.out"
+      or die "Could not open $fastaFile.out for writing\n";
+  for ( my $k = 0 ; $k < $src->size() ; $k++ )
+  {
+    my $result = $src->get( $k );
+    print OUT "" . $result->toStringFormatted( SearchResult::OutFileFormat );
+  
+  }
+  close OUT;
 }
-close OUT;
 
-unless ( $dfamMask )
+if ( ! ( $dfamMask || $ucscMask ) )
 {
   print "Writing *.align file...\n";
   open OUT, ">$fastaFile.align"

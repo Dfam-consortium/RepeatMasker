@@ -62,7 +62,7 @@ use strict;
 use FindBin;
 use lib $FindBin::Bin;
 use lib "$FindBin::Bin/..";
-use RepbaseEMBL;
+use EMBL;
 
 #
 # Version
@@ -85,7 +85,7 @@ else {
 ##
 my $EMBLFile = "RepeatMaskerLib.embl";
 print STDERR "Reading the RepeatMasker EMBL file: $inFile\n";
-my $db = RepbaseEMBL->new( fileName => $inFile );
+my $db = EMBL->new( fileName => $inFile );
 
 my $seqCount = $db->getRecordCount();
 
