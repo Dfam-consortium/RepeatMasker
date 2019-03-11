@@ -552,8 +552,8 @@ my ( $combLib, $rmLibraryVersion, $dbversion ) =
 # Some warnings for Dfam & species choice
 if ( $engine eq "hmmer" ) {
   if ( $rmLibraryVersion eq "Dfam_2.0" ) {
-    if ( defined $options{'species'}
-      && $options{'species'} !~
+    if ( $options{'species'} == "" || 
+         $options{'species'} !~
 /human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i
         )
     {
@@ -575,6 +575,17 @@ if ( $engine eq "hmmer" ) {
           . "with other species will only search for ancestral repeats shared\n"
           . "with human and your species ( if any exist ).\n\n";
     }
+  }
+}else {
+  my $spec = $options{'species'};
+  if ( $rmLibraryVersion =~ /rb\d/ && 
+       $rmLibraryVersion =~ /Dfam_3/ &&
+       ( $spec eq "" || 
+       $spec =~ /human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i ) ) {
+    print  "\n\n" 
+         . "INFO: For this species, RepeatMasker is using the new Dfam\n"
+         . "      consensus sequences. These are based on the Dfam seed\n"
+         . "      alignments and may differ from the ones in RepBase.\n\n";
   }
 }
 

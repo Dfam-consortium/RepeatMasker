@@ -345,11 +345,9 @@ sub validateLibraries {
       }
       else {
         print
-            "\n\nNo repeat libraries found!  At a minimum the Dfam_consensus\n"
-            . "is required to run.  Please download and install the latest \n"
-            . "Dfam_consensus.  It is highly recommended that you also install the\n"
-            . "latest RepBase RepeatMasker Edition library obtainable from GIRI.\n"
-            . "General instructions can be found here: http://www.repeatmasker.org\n\n";
+            "\n\nNo repeat libraries found!  At a minimum Dfam.embl, Dfam.hmm\n"
+            . "or RepBase RepeatMasker Edition is required to run.  Please download\n"
+            . " and install the latest Dfam libraries.\n\n";
         die;
       }
     }
