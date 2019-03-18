@@ -133,7 +133,7 @@ contained in the RepeatMasker repeat database.  Some examples are:
 Other commonly used species:
 
 mammal, carnivore, rodentia, rat, cow, pig, cat, dog, chicken, 
-fugu, danio, "ciona intestinalis" drosophila, anopheles, elegans, 
+fugu, danio, "ciona intestinalis" drosophila, anopheles, worm, 
 diatoaea, artiodactyl, arabidopsis, rice, wheat, and maize 
 
 =back
@@ -551,7 +551,11 @@ my ( $combLib, $rmLibraryVersion, $dbversion ) =
 
 # Some warnings for Dfam & species choice
 if ( $engine eq "hmmer" ) {
-  if ( $rmLibraryVersion eq "Dfam_2.0" ) {
+  my $version;
+  if ( $rmLibraryVersion =~ /Dfam_([\d\.]+)/ ) {
+    $version = $1;
+  }
+  if ( $version == 2.0 ) {
     if ( $options{'species'} == "" || 
          $options{'species'} !~
 /human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i
@@ -566,7 +570,7 @@ if ( $engine eq "hmmer" ) {
           . "         species-specific cutoffs.\n\n";
     }
   }
-  else {
+  elsif ( $version < 2.0 ) {
     if ( defined $options{'species'}
          && $options{'species'} !~ /human|homo[ \_]sapiens|homo/i )
     {

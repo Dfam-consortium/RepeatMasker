@@ -5172,6 +5172,7 @@ sub generateOutput {
                          'DNAH'    => { 'RE' => 'Harbing|Tourist' },
                          'DNAP'    => { 'RE' => '\/P$|\/Mirage|\/Transib' },
                          'OTHER'   => { 'RE' => '^Unknown|^Composite|^Other' },
+                         'RC'      => { 'RE' => '^RC\/' },
                          'RNA'     => { 'RE' => 'RNA$' },
                          'SATEL'   => { 'RE' => 'Satel' },
                          'SIMPLE'  => { 'RE' => 'Simple' },
@@ -6064,8 +6065,8 @@ sub generateOutput {
     printf $OUT "    P-element, Transib)\n";
     printf $OUT "\n";
     printf $OUT "Rolling-circles     %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"RC/Helicop"}, $totlength{"RC/Helicop"},
-        $totlength{"RC/Helicop"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{"RC"}->{'count'}, $aggregateStats{"RC"}->{'length'},
+        $aggregateStats{"RC"}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "Unclassified:       %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'OTHER'}->{'count'},

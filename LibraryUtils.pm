@@ -197,7 +197,7 @@ sub validateLibraries {
   if ( $libType eq "HMM" ) {
     if ( -s "$libDir/$dfamHMMLibrary" ) {
       my $dfamVersion = getLibraryVersionStr( "$libDir/$dfamHMMLibrary" );
-      $rmLibraryVersionKey  = $dfamVersion;
+      $rmLibraryVersionKey  = "HMM-$dfamVersion";
       $rmLibraryDescription = "Dfam database version $dfamVersion";
     }
     else {
@@ -278,7 +278,7 @@ sub validateLibraries {
         
         delete $libSources->{'Artefacts'};
 
-        $rmLibraryVersionKey = join( "-",
+        $rmLibraryVersionKey = "CONS-" . join( "-",
                                      map { $dbAlias{$_} . $libSources->{$_} }
                                          sort keys( %{$libSources} ) );
         $rmLibraryDescription = "RepeatMasker Combined Database: "
@@ -318,7 +318,7 @@ sub validateLibraries {
           die "Legacy file format for $libDir/$mainLibrary yet\n"
               . "version ( $rmlibVersion ) is not valid.";
         }
-        $rmLibraryVersionKey  = $rmlibVersion;
+        $rmLibraryVersionKey  = "CONS-" . $rmlibVersion;
         $rmLibraryDescription =
             "RepBase/RepeatMasker database version $rmlibVersion";
         $rmLibraryDescription .= "-min" if ( $isMinimum );
@@ -334,7 +334,7 @@ sub validateLibraries {
         rebuildMainLibrary( $libDir );
         my $libSources = getCombinedLibrarySources( "$libDir/$mainLibrary" );
         delete $libSources->{'Artefacts'};
-        $rmLibraryVersionKey = join( "-",
+        $rmLibraryVersionKey = "CONS-" . join( "-",
                                      map { $dbAlias{$_} . $libSources->{$_} }
                                          sort keys( %{$libSources} ) );
         $rmLibraryDescription = "RepeatMasker Combined Database: "
