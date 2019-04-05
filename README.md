@@ -1,9 +1,20 @@
----
+
+```
 RepeatMasker
 Developed by Arian Smit and Robert Hubley
 Please refer to: Smit, AFA, Hubley, R. & Green, P "RepeatMasker" at
 http://www.repeatmasker.org
----
+
+NOTE: GitHub 'master' branch is a development branch and not a release.  
+      please download an official release from:
+
+        https://github.com/rmhubley/RepeatMasker/releases
+      or
+        http://www.repeatmasker.org/RMDownload.html
+```
+
+RepeatMasker
+------------
 
 RepeatMasker is a program that screens DNA sequences for interspersed
 repeats and low complexity DNA sequences. The output of the program is
