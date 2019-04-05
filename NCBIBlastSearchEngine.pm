@@ -439,6 +439,8 @@ sub getParameters {
     ## In some cases we want to generate a pseudo
     ## global alignment.  I.e when refining a previously
     ## aligned region with new consensi.
+    ## Currently this special case is only used by 
+    ## the "rbn" utility.
     if ( defined( $value = $this->getBandwidth() )
          && $value < 0 )
     {
@@ -446,11 +448,17 @@ sub getParameters {
             " -xdrop_ungap "
           . ( $minScore * 2 )
           . " -xdrop_gap_final "
-          . ( $minScore * 4 )
+          #. ( $minScore * 4 )
+          . ( (abs($value)*abs($this->getInsGapExt()))+abs($this->getGapInit()) )
           . " -xdrop_gap "
           . int( $minScore / 2 ) . " ";
     }
     else {
+      # These are inherited from MaskerAid.  It's a strange choice as 
+      # it creates a side effect on indel size.  Lower minscores 
+      # reduce the allowable indel length whereas higher minscores 
+      # allow really large indel sizes ( assuming they also reach
+      # the score threshold ).
       $parameters .=
             " -xdrop_ungap "
           . ( $minScore * 2 )

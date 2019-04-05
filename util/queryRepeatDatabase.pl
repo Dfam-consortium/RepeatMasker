@@ -37,6 +37,7 @@ queryRepeatDatabase.pl - Query the RepeatMasker repeat database.
                                      -stage <stage num> |
                                      -class <class> |
                                      -id <id>]
+                                    [-hmm]
                                     [-stat]
                                     [-tree]
                                     [-clade]
@@ -172,7 +173,7 @@ my $DEBUG   = 0;
 #
 my @getopt_args = (
                     '-version',     # print out the version and exit
-                    '-dfam',
+                    '-hmm',
                     '-embl',
                     '-fasta',
                     '-species=s',
@@ -205,11 +206,11 @@ if ( $options{'version'} ) {
 my $fileFormat = "Unknown";
 my $RMLib;
 my $libVersion;
-if ( exists $options{'dfam'} ) {
+if ( exists $options{'hmm'} ) {
 
   # Dfam file format
   $RMLib      = "$FindBin::Bin/../Libraries/Dfam.hmm";
-  $fileFormat = "dfam";
+  $fileFormat = "hmm";
   my @values =
       LibraryUtils::validateLibraries( "$FindBin::Bin/../Libraries", "HMM" );
   $libVersion = $values[ 2 ];
@@ -239,7 +240,7 @@ unless ( $options{'quiet'} ) {
   print STDERR "queryRepeatDatabase\n";
   print STDERR "===================\n";
   print STDERR "RepeatMasker Database: " . basename( $RMLib ) . "\n";
-  print STDERR "Version: $libVersion\n";
+  print STDERR "$libVersion\n";
 }
 
 # Open up the taxonomy database
@@ -293,7 +294,7 @@ elsif ( $fileFormat eq "embl" ) {
   $db = EMBL->new( fileName => $RMLib );
   $seqCount = $db->getRecordCount();
 }
-elsif ( $fileFormat eq "dfam" ) {
+elsif ( $fileFormat eq "hmm" ) {
   $db = DFAM->new( fileName => $RMLib );
   $seqCount = $db->getRecordCount();
 }
@@ -438,8 +439,16 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
     }
     else {
       my $record = $db->getRecord( $i );
-      if ( $record->getId() =~ /$idPattern/i ||
-           $record->getName() =~ /$idPattern/i ) {
+      my $id = $record->getId();
+      my $name;
+      if ( $fileFormat eq "hmm" ) {
+        $name = $id;
+        $id = $record->getAcc();  
+      }else {
+        $name = $record->getName();
+      }
+      if ( $id =~ /$idPattern/i ||
+           $name =~ /$idPattern/i ) {
         $match = 1;
       }
     }
@@ -497,15 +506,15 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
   elsif ( $fileFormat eq "embl" ) {
     my $record = $db->getRecord( $i );
     my $seq    = $record->getSequence();
+    my $seqLen = length( $seq );
+    my $id = $record->getId();
+    my $accession = "";
+    if ( $id =~ /DF\d+/ && defined $record->getName() ) {
+      $accession = $id;
+      $id = $record->getName();
+    }
     if ( defined $options{'stat'} ) {
-      my $seqLen = length( $seq );
-      my $id = $record->getId();
-      my $accession = "";
-      if ( $id =~ /DF\d+/ && defined $record->getName() ) {
-        $accession = $id;
-        $id = $record->getName();
-      }
-      print ">$id#"
+     print ">$id#"
           . $record->getRMType() . "/"
           . $record->getRMSubType()
           . " $accession Length = "
@@ -531,11 +540,11 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
       ++$totalNumber;
     }
     else {
-      print ">" . $record->getId() . "#" . $record->getRMType();
+      print ">$id" . "#" . $record->getRMType();
       if ( $record->getRMSubType() ne "" ) {
         print "/" . $record->getRMSubType();
       }
-      print " ";
+      print " $accession ";
       print $record->getDescription();
       print "\n";
       $seq =~ s/(\S{50})/$1\n/g;
@@ -544,7 +553,7 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
       print $seq;
     }
   }
-  elsif ( $fileFormat eq "dfam" ) {
+  elsif ( $fileFormat eq "hmm" ) {
     my $record = $db->getRecord( $i );
     if ( defined $options{'stat'} ) {
       my $seqLen = 0;

@@ -136,12 +136,14 @@ $ucscMask = 1 if ( $options{'ucsc_mask'} );
 my $useBED = 0;
 $useBED = 1 if ( $options{'bed'} );
 my $fastaFile = "";
+my $fileName  = "";
 my $fileDir   = "";
 my $matrix;
 if ( -s $ARGV[ 0 ] )
 {
   $fastaFile = $ARGV[ 0 ];
   $fileDir   = ( File::Spec->splitpath( $fastaFile ) )[ 1 ];
+  $fileName  = ( File::Spec->splitpath( $fastaFile ) )[ 2 ];
 } else
 {
   die $CLASS . ": Missing fasta file parameter!\n";
@@ -161,8 +163,7 @@ my $date = localtime( time() );
 $date =~ s/[ ,\t,\n:]//g;
 my $scratchDir = cwd . "/" . tempdir( "TRF_$$.$date-XXXXXX", CLEANUP => 1 );
 die "Could not create tempdir!\n" if ( !-d $scratchDir );
-print "Working directory: $scratchDir\n";
-my $wrkFastaFile = "$scratchDir/$fastaFile.tmpmasked";
+my $wrkFastaFile = "$scratchDir/$fileName.tmpmasked";
 system( "cp $fastaFile $wrkFastaFile" );
 
 my $trf = TRF->new( pathToEngine => $RepeatMaskerConfig::TRF_PRGM,
@@ -211,8 +212,12 @@ if ( $dfamMask )
 }
 print "  TRF CMD:  " . $trf->getParameters() . "\n";
 
-my ( $retCode, $trfResults ) = $trf->search( sequenceFile => $wrkFastaFile,
-                                             workDir      => $scratchDir );
+
+my ( $retCode, $trfResults, $outFile, $errFile  ) = $trf->search( sequenceFile => $wrkFastaFile,
+                                                                  workDir      => $scratchDir );
+if ( defined $errFile && $errFile ne "" ) {
+  die "TRF returned with a bad status code: $retCode\n";
+}
 
 my $cnt = 1;
 for ( my $i = $trfResults->size() - 1 ; $i >= 0 ; $i-- )
@@ -258,8 +263,11 @@ if ( ! ( $dfamMask || $ucscMask ) )
   print "Masking Old Tandem Repeats...\n";
   print "  TRF CMD:  " . $trf->getParameters() . "\n";
 
-  ( $retCode, $trfResults ) = $trf->search( sequenceFile => $wrkFastaFile,
-                                            workDir      => $scratchDir );
+  ( $retCode, $trfResults, $outFile, $errFile ) = $trf->search( sequenceFile => $wrkFastaFile,
+                                                                workDir      => $scratchDir );
+  if ( defined $errFile && $errFile ne "" ) {
+    die "TRF returned with a bad status code: $retCode\n";
+  }
   $cnt = 1;
   for ( my $i = $trfResults->size() - 1 ; $i >= 0 ; $i-- )
   {

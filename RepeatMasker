@@ -67,9 +67,12 @@ primate sequence.
 
 =over 4
 
-=item -e(ngine) [crossmatch|wublast|abblast|ncbi|hmmer|decypher]
+=item -e(ngine) [crossmatch|wublast|abblast|ncbi|rmblast|hmmer]
 
-Use an alternate search engine to the default.
+Use an alternate search engine to the default.  Note: 'ncbi' and 'rmblast' 
+are both aliases for the rmblastn search engine engine.  The generic NCBI 
+blastn program is not sensitive enough for use with RepeatMasker at this 
+time.
 
 =item -pa(rallel) [number]   
 
@@ -170,8 +173,7 @@ RepeatMasker calculates the GC content even for batch files/small seqs
 
 =item -frag [number] 
 
-Maximum sequence length masked without fragmenting (default 60000,
-300000 for DeCypher)
+Maximum sequence length masked without fragmenting (default 60000)
 
 =item -nocut         
 
@@ -312,7 +314,6 @@ use CrossmatchSearchEngine;
 use WUBlastSearchEngine;
 use HMMERSearchEngine;
 use NCBIBlastSearchEngine;
-use DeCypherSearchEngine;
 use SimpleBatcher;
 use FastaDB;
 use TRF;
@@ -364,12 +365,12 @@ my $cmdLine = $0 . join( ' ', @ARGV );
 #   -t=s: String parameters
 #   -t=i: Number paramters
 #
-my @opts = qw( a|alignments ace alu cutoff=s decypher|d dir=s
+my @opts = qw( a|alignments ace alu cutoff=s dir=s
     div=s excln frag=s gc=s gccalc gff
     help int noint inv is_clip is_only lib=s
     low nolow lcambig no_id no_is nocut
     noisy norna parallel=i poly q qq
-    s small species|sp=s u  fptest
+    s small species|sp=s u fptest rbrm_only
     x xm xsmall nopost engine|e=s source html debug=s );
 
 #
@@ -428,14 +429,14 @@ my $searchEngine;
 my $engine = $RepeatMaskerConfig::DEFAULT_SEARCH_ENGINE;
 if ( defined $options{'engine'} ) {
   if ( $options{'engine'} =~
-       /ncbi|rmblast|wublast|abblast|crossmatch|hmmer|nhmmer|decypher/i )
+       /ncbi|rmblast|wublast|abblast|crossmatch|hmmer|nhmmer/i )
   {
     $engine = lc( $options{'engine'} );
     $engine = "wublast" if ( $engine eq "abblast" );
   }
   else {
     die "I have never heard of the search engine $options{'engine'}.  Please\n"
-        . "use ncbi/abblast/wublast/hmmer/decypher or crossmatch.\n";
+        . "use rmblast/abblast/hmmer or crossmatch.\n";
   }
 }
 else {
@@ -511,18 +512,6 @@ elsif ( $engine eq "crossmatch" ) {
   }
   print "Search Engine: Crossmatch [ " . $searchEngine->getVersion() . " ]\n";
 }
-elsif ( $engine eq "decypher" ) {
-  print "Search Engine: Decypher\n";
-
-  # Set up search engine for DeCypher
-  $searchEngine =
-      DeCypherSearchEngine->new(
-                                pathToEngine => $RepeatMaskerConfig::DECYPHER );
-  if ( not defined $searchEngine ) {
-    die "Cannot execute $RepeatMaskerConfig::DECYPHER ( check "
-        . " the RepeatMaskerConfig.pm file in RepeatMasker directory )\n";
-  }
-}
 elsif ( $engine eq "ncbi" || $engine eq "rmblast" ) {
   $searchEngine = NCBIBlastSearchEngine->new(
                              pathToEngine => $RepeatMaskerConfig::RMBLASTN_PRGM,
@@ -544,10 +533,16 @@ else {
 my $libType = "CONSENSUS";
 $libType = "HMM" if ( $engine eq "hmmer" );
 
-my ( $combLib, $rmLibraryVersion, $dbversion ) =
+my ( $combLib, $rmLibraryVersion, $dbversion, $rbrmVersion ) =
     LibraryUtils::validateLibraries(
                               "$RepeatMaskerConfig::REPEATMASKER_DIR/Libraries",
                               $libType );
+
+if ( $options{'rbrm_only'} ) {
+  $combLib = 0;
+  $rmLibraryVersion = $rbrmVersion;
+}
+
 
 # Some warnings for Dfam & species choice
 if ( $engine eq "hmmer" ) {
@@ -597,9 +592,6 @@ if ( $engine eq "hmmer" ) {
 # RepeatMasker Batching Parameters
 #
 my $fragmentSize = 60000;
-
-# Decypher is even more capable
-$fragmentSize = 300000 if ( $engine eq "decypher" );
 
 #
 # Selection of a batch overlap length can have large impacts on the program.
@@ -674,11 +666,12 @@ if ( !$options{"lib"} ) {
   $refineableHashRef = retrieve( "$generalLibDir/refineableHash.dat" );
 }
 
-#my ( $sinecutlib, $shortcutlib, $cutlib, $shortlib, $longlib, $retrolib ) = (
-#                                  "$tempdir/sinecutlib", "$tempdir/shortcutlib",
-#                                  "$tempdir/cutlib",     "$tempdir/shortlib",
-#                                  "$tempdir/longlib",    "$tempdir/retrolib"
-#);
+# Functions saveOldFiles and cleanUp expect the -dir directory to
+# already exist.
+if ( $options{'dir'} && ! -d $options{'dir'} ) {
+  mkdir($options{'dir'},0777) or die "Output directory ( -dir " . $options{'dir'} . 
+                                     " ) doesn't exist and could not be created.\n";
+}
 
 #
 # Main loop
@@ -1036,7 +1029,7 @@ JOBLOOP:
         }
 
         # Check for E coli insertion elements
-        unless ( $options{'no_is'} || $options{'fptest'} ) {
+        unless ( $options{'no_is'} || $options{'fptest'} || ! -s "$generalLibDir/is.lib" ) {
           my $sequenceArrayRef;
           my $seqWithNameHashRef;
           &locateISElements(
@@ -1930,9 +1923,6 @@ sub search {
   {
     $matrixPrefix = "ncbi/nt";
   }
-  elsif ( $searchEngine->isa( "DeCypherSearchEngine" ) ) {
-    $matrixPrefix = "terablast";
-  }
 
   if (    $searchEngine->isa( "WUBlastSearchEngine" )
        && $options{'s'}
@@ -2006,16 +1996,7 @@ sub search {
     );
 
     if ( $status ) {
-      if ( $searchEngine->isa( "DeCypherSearchEngine" ) ) {
-        if ( $retry++ < 4 ) {
-          print STDERR "DeCypher communications failure, retrying\n";
-        }
-        else {
-          print STDERR "DeCypher failure, contact TimeLogic support\n";
-          exit( -1 );
-        }
-      }
-      elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+      if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
 
         # HMMER Errors
         print "WARNING: The search engine returned an error ("
@@ -2669,8 +2650,22 @@ sub runTRFStage {
     @mu            = ( 0.79, 1.00, 4.78, 6.94, 8.68, 9.84, 11.94 );
   }
 
-  my ( $retCode, $trfResults ) = $trf->search( sequenceFile => $maskfile,
+  my ( $retCode, $trfResults, $trfOutFile, $trfErrFile ) = $trf->search( sequenceFile => $maskfile,
                                                workDir      => $workingDir );
+
+  if ( defined $trfErrFile && $trfErrFile ne "" )
+  {
+    # TRF Errors
+    print "WARNING: TRF returned an error ("
+            . "Return code = $retCode )\n"
+            . "TRF parameters: "
+            . $trf->getParameters() . "\n"
+            . "A search phase could not complete on this batch.\n"
+            . "The batch file will be re-run and if possible the\n"
+            . "program will resume.\n";
+        exit( -1 );
+  }
+
   my $matrix =
       Matrix->new(
                   fileName => "$DIRECTORY/Matrices/crossmatch/simple1.matrix" );
@@ -6871,6 +6866,8 @@ FORK:
 ##                    $fileend, $file, $originaldir, $compressed );
 ##
 ##  Returns
+##       -- 
+##       Expects $options{'dir'} ( if set ) to already exist.
 ##
 ##  Globals Used: None
 ##-------------------------------------------------------------------------##·
@@ -6894,7 +6891,9 @@ sub cleanUp {
 
   # default is writing output to query directory
   my $targetdir = $originaldir;
-  $targetdir = $options{'dir'} if $options{'dir'};
+  if ( $options{'dir'} ) {
+    $targetdir = $options{'dir'};
+  }
   if ( open TEMP2, ">$targetdir\/temp.$runnumber" ) {
     unlink "$targetdir\/temp.$runnumber";
     close TEMP2;
@@ -7137,8 +7136,7 @@ sub createLib {
         else {
           $desc = $record->getDescription();
           $seq  = $record->getSequence();
-          if (    $searchEngine->isa( "WUBlastSearchEngine" )
-               || $searchEngine->isa( "DeCypherSearchEngine" ) )
+          if ( $searchEngine->isa( "WUBlastSearchEngine" ) )
           {
             my $rseq = uc( $seq );
             $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
@@ -7147,7 +7145,7 @@ sub createLib {
             die "Repeat consensus ( $id ) contains the "
                 . "word \"anti\" in it's name.  This will cause "
                 . "incorrect orientation calls in the output when "
-                . "running with wublast/decypher."
+                . "running with wublast."
                 if ( $id =~ /anti/ );
 
             print OUT ">$id" . $type;
@@ -7184,8 +7182,7 @@ sub createLib {
               $seq = substr( $seq, $1 - 1, $2 - $1 + 1 );
               $type = "_$1" . "_$2#buffer";
             }
-            if (    $searchEngine->isa( "WUBlastSearchEngine" )
-                 || $searchEngine->isa( "DeCypherSearchEngine" ) )
+            if (    $searchEngine->isa( "WUBlastSearchEngine" ) )
             {
               my $rseq = uc( $seq );
               $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
@@ -7194,7 +7191,7 @@ sub createLib {
               die "Repeat consensus ( $id ) contains the "
                   . "word \"anti\" in it's name.  This will cause "
                   . "incorrect orientation calls in the output when "
-                  . "running with wublast/decypher."
+                  . "running with wublast."
                   if ( $id =~ /anti/ );
 
               print OUT ">" . $id . "$type";
@@ -7235,13 +7232,6 @@ sub createLib {
       move( "$outFile.ahd", "$libName.ahd" );
       move( "$outFile.atb", "$libName.atb" );
       move( "$outFile.bsq", "$libName.bsq" );
-    }
-    elsif ( $searchEngine->isa( "DeCypherSearchEngine" ) ) {
-      $outFile =~ s/\/cygdrive\/(\w)/$1:/;    # handle cygwin drive
-      $outFile =~ /.*\/(.*)$/;
-
-      # TODO: NO Globals!  This should be a parameter
-      system "$RepeatMaskerConfig::DEMAKE -source \"$outFile\" -targ $1";
     }
     elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
       system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype nucl "
@@ -7350,8 +7340,7 @@ sub processCustomLib {
 
   # TODO: Check name syntax
 
-  if (    $searchEngine->isa( "WUBlastSearchEngine" )
-       || $searchEngine->isa( "DeCypherSearchEngine" ) )
+  if (    $searchEngine->isa( "WUBlastSearchEngine" ) )
   {
 
     my $libDB = FastaDB->new(
@@ -7491,8 +7480,7 @@ sub initLibraries {
 
   # If the user specified a library and it is already frozen we
   # should check to see if the names are right???
-  # NOTE: check not needed here for decypher
-  if ( $options{'lib'} && !$searchEngine->isa( "DeCypherSearchEngine" ) ) {
+  if ( $options{'lib'} ) {
     if ( -s $options{'lib'} ) {
       if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
         if (    -s "$options{'lib'}.bsq"
@@ -7631,7 +7619,7 @@ sub initLibraries {
                  && ( my @pathFiles = glob( "$path/$dbversion/general/*.nhr" ) )
                  && ( -s "$path/$dbversion/general/refineableHash.dat" ) )
              || (    $searchEngine->isa( "CrossmatchSearchEngine" )
-                  && -s "$path/$dbversion/general/at.lib"
+                  && -s "$path/$dbversion/general/l1.lib"
                   && -s "$path/$dbversion/general/refineableHash.dat" )
              || (   $searchEngine->isa( "HMMERSearchEngine" )
                  && ( my @pathFiles = glob( "$path/$dbversion/general/*.hmm" ) )
@@ -7647,7 +7635,10 @@ sub initLibraries {
   if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
     print "Master RepeatMasker Database: $rmLibDir/Dfam.hmm ";
   }
-  else {
+  elsif ( $options{'rbrm_only'} )
+  {
+    print "Master RepeatMasker Database: $rmLibDir/RMRB.embl ";
+  }else {
     print "Master RepeatMasker Database: $rmLibDir/RepeatMaskerLib.embl ";
   }
   if ( $dbversion =~ /-min/ ) {
@@ -7673,6 +7664,10 @@ sub initLibraries {
     my $db;
     if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
       $db = DFAM->new( fileName => "$rmLibDir/Dfam.hmm" );
+    }
+    elsif ( $options{'rbrm_only'} )
+    {
+      $db = EMBL->new( fileName => "$rmLibDir/RMRB.embl" );
     }
     else {
       $db = EMBL->new( fileName => "$rmLibDir/RepeatMaskerLib.embl" );
@@ -7733,8 +7728,8 @@ sub initLibraries {
       nstore $refineableHashRef,
           "$writableCacheDir/$dbversion/general/refineableHash.dat";
 
-      createLib( \%options, $db, "$writableCacheDir/$dbversion/general/at.lib",
-                 "root", "30", $tax, $searchEngine );
+      #createLib( \%options, $db, "$writableCacheDir/$dbversion/general/at.lib",
+      #           "root", "30", $tax, $searchEngine );
       unless ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
         createLib( \%options, $db,
                    "$writableCacheDir/$dbversion/general/simple.lib",

@@ -354,9 +354,6 @@ available with the script DateRepeats (4.3).
                  **DEPRECATED** Use -engine [crossmatch|wublast|decypher] now.
 -frag [number] Maximum sequence length masked without fragmenting 
                  (default 40000).
--maxsize [nr]  Maximum length for which IS- or repeat clipped sequences 
-                  can be produced (default 4000000). Memory requirements go 
-                  up with higher maxsize.
 -gc [number]   Use matrices calculated for 'number' percentage background 
                   GC level.
 -gccalc        Program calculates the GC content even for batch files/small 
@@ -466,22 +463,6 @@ Fragmentation also can improve repeat detection when a genomic
 sequence contains large regions of DNA with significantly different GC
 levels (isochores), since sets of scoring matrices are chosen based on
 the GC level of a fragment.
-
-Since April 2002 the maximum fragment size is hardwired to be half of
-"maxsize" (see below).
-
-
--maxsize
-To limit the memory requirements of the script an upper boundary to
-the amount of sequence stored in a single array in the script is set
-to 4 million bp. This parameter can be reduced with the -maxsize
-option to a minimum of 500000, for severely memory-impaired computers.
-
-The size of maxsize further determines the largest length single
-sequence from which E. coli insertion sequences and full-length
-repeats can be clipped. Increase the size of maxsize to allow removal
-of IS elements from larger sequences, like: RepeatMasker -is_clip
--maxsize 9999999999 muntjakchromosome1
 
 
 -gc
@@ -1519,10 +1500,6 @@ flanking repeats is clipped out to restore the pre-cloning artifact
 situation before comparison with the repeat databases. The original
 query FASTA file will remain unchanged. An insertion-sequence-clipped,
 but otherwise unmasked query sequence is printed to <file>.withoutIS.
-
-For single sequences larger than 4 Mbp, the -maxsize option needs to
-be set to a number larger than the sequence length to retrieve this
-file.
 
 With either of these options, a properly adjusted quality string is
 printed to a file with the suffix .qual.withoutIS when a corresponding

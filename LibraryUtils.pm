@@ -177,13 +177,15 @@ sub validateLibraries {
   #         RMRBMeta.embl            : The RepeatMasker Metadata for Repbase.
   #         RMRBSeqs.embl            : RepBase Library ( RepeatMasker Edition ) obtainable 
   #                                    from GIRI with a paid license.
+  #         RMRB.embl                : Combined RepBase RepeatMasker Edition file
   #                      
   my $mainLibrary          = "RepeatMaskerLib.embl";
   my $artefactsLibrary     = "Artefacts.embl";
   my $dfamCONLibrary       = "Dfam.embl";
   my $dfamHMMLibrary       = "Dfam.hmm";
-  my $RBRMSeqLibrary       = "RMRBSeqs.embl";
-  my $RBRMMetaLibrary      = "RMRBMeta.embl";
+  my $RMRBSeqLibrary       = "RMRBSeqs.embl";
+  my $RMRBMetaLibrary      = "RMRBMeta.embl";
+  my $RMRBLibrary          = "RMRB.embl";
 
   my %dbAlias = (
                   'Dfam'           => '',
@@ -193,6 +195,7 @@ sub validateLibraries {
   my $rmLibraryVersionKey  = "";
   my $isLibraryCombined    = 0;
   my $rmLibraryDescription = "";
+  my $rmrbVersion = "";
 
   if ( $libType eq "HMM" ) {
     if ( -s "$libDir/$dfamHMMLibrary" ) {
@@ -222,24 +225,24 @@ sub validateLibraries {
 
         # Validate RepBase RepeatMasker Edition
         my $mustRebuild = 0;
-        if ( -s "$libDir/$RBRMSeqLibrary" ) {
+        if ( -s "$libDir/$RMRBSeqLibrary" ) {
 
           # Validate that we have included RepBase
-          my $rbSeqVersion = getLibraryVersionStr( "$libDir/$RBRMSeqLibrary" );
+          my $rbSeqVersion = getLibraryVersionStr( "$libDir/$RMRBSeqLibrary" );
           if ( $rbSeqVersion ne $libSources->{'RepBase'} ) {
 
             #
             my $rmRbMetaVersion;
-            if ( -s "$libDir/$RBRMMetaLibrary" ) {
+            if ( -s "$libDir/$RMRBMetaLibrary" ) {
               $rmRbMetaVersion =
-                  getLibraryVersionStr( "$libDir/$RBRMMetaLibrary" );
+                  getLibraryVersionStr( "$libDir/$RMRBMetaLibrary" );
               $rmRbMetaVersion = undef if ( $rmRbMetaVersion ne $rbSeqVersion );
             }
             if ( !$rmRbMetaVersion ) {
               print
                   "\n\nThe Repbase RepeatMasker Edition database has changed\n"
                   . "( RELEASE = $rbSeqVersion ), however the corresponding\n"
-                  . "metadata library file ( $libDir/$RBRMMetaLibrary ) is missing or\n"
+                  . "metadata library file ( $libDir/$RMRBMetaLibrary ) is missing or\n"
                   . "out of date.  Please obtain the metadata library from:\n"
                   . "http:/www.repeatmasker.org/libraries/RepeatMaskerMetaData-$rbSeqVersion.tar.gz\n"
                   . "Once this file is in placed in $libDir rerun RepeatMasker to continue.\n\n";
@@ -249,7 +252,7 @@ sub validateLibraries {
 "RepBase RepeatMasker Edition database changed ( RELEASE = $rbSeqVersion ).\n";
             $mustRebuild = 1;
           }
-        }
+       }
 
         # Validate Artefacts.embl
         if ( -s "$libDir/$artefactsLibrary" ) {
@@ -275,16 +278,37 @@ sub validateLibraries {
           rebuildMainLibrary( $libDir );
           $libSources = getCombinedLibrarySources( "$libDir/$mainLibrary" );
         }
+
+        # Get the version from the RMRB Library
+        if ( -s "$libDir/$RMRBLibrary" ) {
+          $rmrbVersion = getLibraryVersionStr( "$libDir/$RMRBLibrary" );
+          if ( $rmrbVersion ne "" ) {
+            $rmrbVersion = "CONS-rb".$rmrbVersion;
+          }
+        }
         
         delete $libSources->{'Artefacts'};
 
-        $rmLibraryVersionKey = "CONS-" . join( "-",
+       $rmLibraryVersionKey = "CONS-" . join( "-",
                                      map { $dbAlias{$_} . $libSources->{$_} }
                                          sort keys( %{$libSources} ) );
-        $rmLibraryDescription = "RepeatMasker Combined Database: "
-            . join( ", ",
-                    map { $_ . "-" . $libSources->{$_} }
-                        sort keys( %{$libSources} ) );
+
+        $rmLibraryDescription = "RepeatMasker Combined Database:";
+        my $first = 1;
+        foreach my $source ( sort keys(%{$libSources}) ) {
+          if ( $first ) {
+            $first = 0;
+          }else {
+            $rmLibraryDescription .= ",";
+          }
+          if ( $source eq "Dfam" ) {
+            # Don't be repetitive...
+            $rmLibraryDescription .= " ";
+          }else {
+            $rmLibraryDescription .= " $source-";
+          }
+          $rmLibraryDescription .= $libSources->{$source}; 
+        }
       }
       else {
         # LEGACY SUPPORT
@@ -303,7 +327,7 @@ sub validateLibraries {
           my @extraLibs;
           push @extraLibs, $dfamCONLibrary
               if ( -s "$libDir/$dfamCONLibrary" );
-          push @extraLibs, $RBRMSeqLibrary if ( -s "$libDir/$RBRMSeqLibrary" );
+          push @extraLibs, $RMRBSeqLibrary if ( -s "$libDir/$RMRBSeqLibrary" );
           if ( @extraLibs ) {
             print "\n\nNewer libraries exist in $libDir: "
                 . join( ", ", @extraLibs ) . "\n"
@@ -328,7 +352,7 @@ sub validateLibraries {
     }
     else {
       # We don't have a main library file
-      if ( -s "$libDir/$dfamCONLibrary" || -s "$libDir/$RBRMSeqLibrary" )
+      if ( -s "$libDir/$dfamCONLibrary" || -s "$libDir/$RMRBSeqLibrary" )
       {
         $isLibraryCombined = 1;
         rebuildMainLibrary( $libDir );
@@ -352,7 +376,7 @@ sub validateLibraries {
       }
     }
   }
-  return ( $isLibraryCombined, $rmLibraryVersionKey, $rmLibraryDescription );
+  return ( $isLibraryCombined, $rmLibraryVersionKey, $rmLibraryDescription, $rmrbVersion );
 }
 
 sub rebuildMainLibrary {
@@ -361,10 +385,11 @@ sub rebuildMainLibrary {
   my $mainLibrary          = "RepeatMaskerLib.embl";
   my $dfamCONLibrary       = "Dfam.embl";
   my $artefactsLibrary     = "Artefacts.embl";
-  my $RBRMSeqLibrary       = "RMRBSeqs.embl";
-  my $RBRMMetaLibrary      = "RMRBMeta.embl";
+  my $RMRBSeqLibrary       = "RMRBSeqs.embl";
+  my $RMRBMetaLibrary      = "RMRBMeta.embl";
+  my $RMRBLibrary          = "RMRB.embl";
 
-  print "Rebuilding $mainLibrary library\n";
+  print "Rebuilding $mainLibrary master library\n";
 
   # Backup old library ( only one backup kept )
   unlink( "$libDir/$mainLibrary.old" )
@@ -375,6 +400,7 @@ sub rebuildMainLibrary {
   my $headerSources = "";
 
   my $combinedDb = new EMBL();
+  my $RMRBDb = new EMBL();
 
   if ( -s "$libDir/$artefactsLibrary" ) {
     my $savBuf = $|;
@@ -417,37 +443,29 @@ sub rebuildMainLibrary {
     $headerSources .= "CC    Dfam RELEASE $libVersion;                                      *\n";
   }
 
-  if ( -s "$libDir/$RBRMSeqLibrary" ) {
-    my $savBuf = $|;
-    $| = 1;
+  if ( -s "$libDir/$RMRBSeqLibrary" ) {
+    my $savBuf = $|; $| = 1;
     print "    Reading RepBase RepeatMasker Edition database...";
     $| = $savBuf;
-    my $seqs = EMBL->new( fileName => "$libDir/$RBRMSeqLibrary" );
+    my $seqs = EMBL->new( fileName => "$libDir/$RMRBSeqLibrary" );
     my %seqId = ();
     for ( my $i = 0 ; $i < $seqs->size() ; $i++ ) {
       my $rec = $seqs->get( $i );
-      # Do not include families already provided by Dfam.
-      # NOTE: We may want to make a way to search either or both
-      #       at some point in the future.
-      if ( ! exists $dfam2xNames{ $rec->getId() } ) 
-      {
-        $seqId{ $rec->getId() } = $rec;
-      }
+      $seqId{ $rec->getId() } = $rec;
     }
     print "\r  - Read in "
         . $seqs->size()
-        . " sequences ( kept " . scalar(keys %seqId) . " ) from $libDir/$RBRMSeqLibrary\n";
+        . " sequences from $libDir/$RMRBSeqLibrary\n";
     undef $seqs;
 
-    my $libVersion = getLibraryVersionStr( "$libDir/$RBRMSeqLibrary" );
+    my $libVersion = getLibraryVersionStr( "$libDir/$RMRBSeqLibrary" );
     $headerSources .=
 "CC    RepBase RELEASE $libVersion;                                   *";
 
-    my $savBuf = $|;
-    $| = 1;
+    my $savBuf = $|; $| = 1;
     print "    Reading metadata database...";
     $| = $savBuf;
-    my $meta = EMBL->new( fileName => "$libDir/$RBRMMetaLibrary" );
+    my $meta = EMBL->new( fileName => "$libDir/$RMRBMetaLibrary" );
     my $numMerged = 0;
     for ( my $i = 0 ; $i < $meta->size() ; $i++ ) {
       my $mRec = $meta->get( $i );
@@ -462,20 +480,38 @@ sub rebuildMainLibrary {
         $mRec->setComposition( 'other',
                                $sRec->getCompositionElement( 'other' ) );
         $mRec->pushComments( "Source: RepBase RepeatMasker Edition\n" );
-        $combinedDb->add( $mRec );
-        $numMerged++;
-      }
-      elsif ( exists $dfam2xNames{ $mRec->getId() } ) {
-        # As expected.
+        # Do not include families already provided by Dfam.
+        if ( ! exists $dfam2xNames{ $mRec->getId() } ) 
+        {
+          $combinedDb->add( $mRec );
+          $numMerged++;
+        }
+        # Save combined RMRB.embl file
+        $RMRBDb->add( $mRec );
       }
       else {
         print "Error! Could not find " . $mRec->getId() . "\n";
       }
     }
+    # Save out complete RepBase RepeatMasker Edition
+    my $headerStr =
+"CC ****************************************************************
+CC                                                                *
+CC   RepBase RepeatMasker Edition                                 *
+CC    Please refer to GIRI (https://www.girinst.org/) for         *
+CC    detailed copyright and licensing restrictions.              *
+CC                                                                *
+CC    RELEASE $libVersion;                                   *
+CC
+CC   RepeatMasker software, and maintenance are currently         *
+CC   funded by an NIH/NHGRI R01 grant HG02939-01 to Arian Smit.   *
+CC                                                                *
+CC ****************************************************************";
+  $RMRBDb->writeEMBLFile( "$libDir/$RMRBLibrary", $headerStr );
+
     print "\r  - Read in "
         . $meta->size()
-        . " annotations ( merged $numMerged ) from $libDir/$RBRMMetaLibrary\n";
-    #$combinedDb->addAll( $meta );
+        . " annotations ( kept $numMerged ) from $libDir/$RMRBMetaLibrary\n";
   }
 
   my $savBuf = $|;
@@ -506,6 +542,9 @@ CC ****************************************************************";
 
   $combinedDb->writeEMBLFile( "$libDir/$mainLibrary", $headerStr );
   print "\r$mainLibrary: " . $combinedDb->size() . " total sequences.\n";
+
+  print "Building FASTA version...";
+  system("$FindBin::Bin/util/buildRMLibFromEMBL.pl $libDir/RepeatMaskerLib.embl > $libDir/RepeatMasker.lib 2>/dev/null");
 
 }
 

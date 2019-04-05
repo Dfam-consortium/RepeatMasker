@@ -1017,5 +1017,37 @@ sub setRecordLines {
   my ( $self, $value ) = @_;
   $self->{_recordLines} = $value;
 }
+
+##-------------------------------------------------------------------------##
+
+=head2 get_setAcc()
+
+  Use: my $value    = getAcc();
+  Use: my $oldValue = setAcc( $value );
+
+  Get/Set the accession.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getAcc {
+  my $obj = shift;
+
+  my $value = $obj->{'Acc'};
+
+  return $value;
+}
+
+sub setAcc {
+  my $obj      = shift;
+  my $value    = shift;
+  my $oldValue = undef;
+
+  $oldValue = $obj->{'Acc'};
+  $obj->{'Acc'} = $value;
+
+  return $oldValue;
+}
+
 1;
 

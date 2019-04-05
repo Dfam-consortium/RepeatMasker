@@ -179,6 +179,7 @@ sub _parseFromFile {
   my $recordRef                = DFAMRecord->new();
   my $recordLines              = "";
   my $id                       = "";
+  my $acc                      = "";
   while ( <IN> ) {
     ## Get file release if it exists
     if ( /^#\s+Release:\s+(\S+)/ ) {
@@ -190,6 +191,12 @@ sub _parseFromFile {
     if ( /^NAME\s+(\S+)/ ) {
       $id = $1;
     }
+
+    # Accession
+    if ( /^ACC\s+(\S+)/ ) {
+      $acc = $1;
+    }
+
 
     #
     if ( /^HMMER(\d+).*/ ) {
@@ -244,6 +251,7 @@ sub _parseFromFile {
       # Save record!
       $recordRef->setRecordLines( $recordLines );
       $recordRef->setId( $id );
+      $recordRef->setAcc( $acc );
       push @{ $this->{'records'} }, $recordRef;
       $recordRef = DFAMRecord->new();
       next;
