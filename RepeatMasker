@@ -330,13 +330,13 @@ if ( $] && $] >= 5.008003 ) {
 #
 my $GitHash = '$Id$';
 my $version;
-if ( $GitHash =~ /\$\s*Id:\s*open-(\S+)\s*\$/ ) {
+if ( $GitHash =~ /open-(\S+)/ ) {
   $version = $1;
   $version =~ s/-/./g;
   $version = "open-$version";
 }
 else {
-  $version = "Development version $GitHash";
+  $version = "***Development-only*** $GitHash";
 }
 print "RepeatMasker version $version\n";
 
