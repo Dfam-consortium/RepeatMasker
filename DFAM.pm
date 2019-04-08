@@ -197,7 +197,6 @@ sub _parseFromFile {
       $acc = $1;
     }
 
-
     #
     if ( /^HMMER(\d+).*/ ) {
       if ( $1 != 3 ) {

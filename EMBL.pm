@@ -193,7 +193,8 @@ sub new {
     my %validKeys = ( fileName => 1 );
     while ( my ( $name, $value ) = each( %nameValuePairs ) ) {
       unless ( exists $validKeys{$name} ) {
-        croak "$CLASS"."::new: Error $name is not a valid "
+        croak "$CLASS"
+            . "::new: Error $name is not a valid "
             . "parameter to the constructor!\n\n"
             . "Usage: \$DB = $CLASS->new();\n"
             . "       \$DB = $CLASS->new( fileName=>\"humrep.ref\" );\n";
@@ -232,7 +233,8 @@ sub writeEMBLFile {
   my $headerStr = shift;
 
   open OUT, ">$fileName"
-      or die "$CLASS"."::writeEMBLFile() Unable to open "
+      or die "$CLASS"
+      . "::writeEMBLFile() Unable to open "
       . "file $fileName for writing: $!\n";
 
   if ( $headerStr && $headerStr ne "" ) {
@@ -287,10 +289,11 @@ sub toEMBLHeader {
 
   my $tmpStr = "";
   my $outStr = "";
+
   #   ID   DF0000001; SV 4; linear; DNA; STD; UNC; 262 BP.
   $outStr = "ID   "
-      . $recRef->getId() . "; "
-      . "SV " . $recRef->getSeqVersion() . "; "
+      . $recRef->getId() . "; " . "SV "
+      . $recRef->getSeqVersion() . "; "
       . $recRef->getTopology() . "; "
       . $recRef->getMolecule() . "; "
       . $recRef->getDataclass() . "; "
@@ -298,10 +301,9 @@ sub toEMBLHeader {
       . $recRef->getLength()
       . " BP.\n";
   $outStr .= "XX\n";
-    
+
   my $tmpVal = $recRef->getName();
-  if ( defined $tmpVal && $tmpVal ne "" )
-  {
+  if ( defined $tmpVal && $tmpVal ne "" ) {
     $outStr .= "NM   $tmpVal\n";
     $outStr .= "XX\n";
   }
@@ -488,7 +490,8 @@ sub _parseFromFile {
   my $filename = shift;
 
   open IN, "<$filename"
-      or die "$CLASS"."::_parseFromFile() Unable to open "
+      or die "$CLASS"
+      . "::_parseFromFile() Unable to open "
       . "RepeatMasker/EMBL file $filename: $!\n";
 
   my $prevTag          = "";
@@ -524,6 +527,7 @@ sub _parseFromFile {
     ## Capture the tag!
     if ( /^(;?)(\S\S)(?:\s\s\s(.*))?/ ) {
       if ( $1 eq ";" ) {
+
         # Another Repbase error.  Special case to trap it.
         warn
 "WARNING: Found error in EMBL file.  Invalid tag in line $_.  Recovering...\n";
@@ -603,77 +607,87 @@ sub _parseTagData {
   return if ( $tag ne "ID" && !defined $recRef->getId() );
   if ( $tag eq "ID" ) {
 
-    # IDentification line
-    #
-    # From ftp://ftp.ebi.ac.uk/pub/databases/embl/doc/usrman.txt
-    #
-    #   3.4.1  The ID Line
-    #   The ID (IDentification) line is always the first line of an entry. The
-    #   format of the ID line is:
-    #   ID   <1>; SV <2>; <3>; <4>; <5>; <6>; <7> BP.
-    #   The tokens represent:
-    #      1. Primary accession number
-    #      2. Sequence version number
-    #      3. Topology: 'circular' or 'linear'
-    #      4. Molecule type (see note 1 below)
-    #      5. Data class (see section 3.1)
-    #      6. Taxonomic division (see section 3.2)
-    #      7. Sequence length (see note 2 below)
-    #   
-    #   Note 1 - Molecule type: this represents the type of molecule as stored and can
-    #   be any value from the list of current values for the mandatory mol_type source
-    #   qualifier. This item should be the same as the value in the mol_type
-    #   qualifier(s) in a given entry.
-    #   Note 2 - Sequence length: The last item on the ID line is the length of the
-    #   sequence (the total number of bases in the sequence). This number includes 
-    #   base positions reported as present but undetermined (coded as "N").
-    #   An example of a complete identification line is shown below:
-    #   ID   CD789012; SV 4; linear; genomic DNA; HTG; MAM; 500 BP.
-    #
-    # Caveats:
-    #   - RepBase breaks the EMBL standard by adding "repbase" after the ID.
-    #   - RepBase does not provide the Sequence Version (#2), the
-    #     Topology (#3), or the data class (#5) tokens. 
-    #   - Dfam/RepBase use "DNA" as the molecule type.
-    #   - Dfam uses "STD" it's data class.
-    #   - Dfam uses "UNC" as it's taxonomic division and relies on the OS/OC 
-    #     tags to give the correct level of detail.
-    #   - Dfam includes a header in the file before the first record.
-    #     This is non-spec but we do use the valid "CC" tag to prefix each of these lines.
+# IDentification line
+#
+# From ftp://ftp.ebi.ac.uk/pub/databases/embl/doc/usrman.txt
+#
+#   3.4.1  The ID Line
+#   The ID (IDentification) line is always the first line of an entry. The
+#   format of the ID line is:
+#   ID   <1>; SV <2>; <3>; <4>; <5>; <6>; <7> BP.
+#   The tokens represent:
+#      1. Primary accession number
+#      2. Sequence version number
+#      3. Topology: 'circular' or 'linear'
+#      4. Molecule type (see note 1 below)
+#      5. Data class (see section 3.1)
+#      6. Taxonomic division (see section 3.2)
+#      7. Sequence length (see note 2 below)
+#
+#   Note 1 - Molecule type: this represents the type of molecule as stored and can
+#   be any value from the list of current values for the mandatory mol_type source
+#   qualifier. This item should be the same as the value in the mol_type
+#   qualifier(s) in a given entry.
+#   Note 2 - Sequence length: The last item on the ID line is the length of the
+#   sequence (the total number of bases in the sequence). This number includes
+#   base positions reported as present but undetermined (coded as "N").
+#   An example of a complete identification line is shown below:
+#   ID   CD789012; SV 4; linear; genomic DNA; HTG; MAM; 500 BP.
+#
+# Caveats:
+#   - RepBase breaks the EMBL standard by adding "repbase" after the ID.
+#   - RepBase does not provide the Sequence Version (#2), the
+#     Topology (#3), or the data class (#5) tokens.
+#   - Dfam/RepBase use "DNA" as the molecule type.
+#   - Dfam uses "STD" it's data class.
+#   - Dfam uses "UNC" as it's taxonomic division and relies on the OS/OC
+#     tags to give the correct level of detail.
+#   - Dfam includes a header in the file before the first record.
+#     This is non-spec but we do use the valid "CC" tag to prefix each of these lines.
 
     # Dfam.embl Example:
     #   ID   DF0000001; SV 4; linear; DNA; STD; UNC; 262 BP.
-    if ( $data =~ /(DF\d+)\s*\;\s+SV\s+(\d+)\s*\;\s+linear\s*\;\s+DNA\s*\;\s+STD\s*\;\s+UNC\s*\;\s+(\d+)\s+BP.*/ ) {
+    if ( $data =~
+/(DF\d+)\s*\;\s+SV\s+(\d+)\s*\;\s+linear\s*\;\s+DNA\s*\;\s+STD\s*\;\s+UNC\s*\;\s+(\d+)\s+BP.*/
+        )
+    {
       $recRef->setId( $1 );
       $recRef->setSeqVersion( $2 );
       $recRef->setTopology( "linear" );
       $recRef->setMolecule( "DNA" );
       $recRef->setDataclass( "STD" );
       $recRef->pushDivisions( "UNC" );
-    } 
+    }
+
     # Generic Reformatted example
     #   ID   ACROBAT1; SV 0; linear; DNA; STD; ???; 262 BP.
-    elsif ( $data =~ /(\S+)\s*\;\s+SV\s+(\d+)\s*\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\d+)\s+BP.*/ ) {
+    elsif ( $data =~
+/(\S+)\s*\;\s+SV\s+(\d+)\s*\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\d+)\s+BP.*/
+        )
+    {
       $recRef->setId( $1 );
       $recRef->setSeqVersion( $2 );
       $recRef->setTopology( $3 );
       $recRef->setMolecule( $4 );
       $recRef->setDataclass( $5 );
       $recRef->pushDivisions( $6 );
-    } 
+    }
+
     #
     # Legacy DfamConsensus.embl example:
     #   ID   IS1     repeatmasker; DNA;  ???;  768 BP.
     # RepBase Example
     #   ID   MER57F      repbase;    DNA;    HUM; 435 BP.
-    elsif ( $data =~ /(\S+)\s+\S+\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\d+)\s+BP.*/ ) {
+    elsif ( $data =~ /(\S+)\s+\S+\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\d+)\s+BP.*/ )
+    {
       $recRef->setId( $1 );
       $recRef->setSeqVersion( 0 );
       $recRef->setTopology( "linear" );
       $recRef->setMolecule( $2 );
       $recRef->setDataclass( "STD" );
       $recRef->pushDivisions( $3 );
-    } 
+    }
+
     # RepBase Error:
     #   foo bar; DNA; ???; HUM BP.
     # Deprecated - they fixed the issue
@@ -766,9 +780,8 @@ sub _parseTagData {
 /(\d+)[-\.](\w+)(-\d+)?\s+\(Rel. (\d+(\.\d+)*), Last updated, Version (\-?\d+)\)/
           )
       {
-        if ( /Version\s+(\-?\d+)/ )
-        {
-          $recRef->setSeqVersion( abs($1) );
+        if ( /Version\s+(\-?\d+)/ ) {
+          $recRef->setSeqVersion( abs( $1 ) );
         }
         if ( /Version \-1/ ) {
           s/Version \-1/Version 1/g;
@@ -893,13 +906,16 @@ sub _parseTagData {
   elsif ( $tag eq "DR" ) {
     $recRef->setXref( $data );
   }
+
   # SQ   Sequence 2781 BP; 892 A; 479 C; 522 G; 885 T; 3 other;
   # SQ   Sequence 262 BP; 70 A; 54 C; 62 G; 76 T; 0 other;
   elsif ( $tag eq "SQ" ) {
     my $seq = "";
     while ( $data =~ /^(.*)$/gm ) {
       $_ = $1;
-      if ( /Sequence\s+(\d+)\s+BP;(?:\s+(\d+)\s+A;\s+(\d+)\s+C;\s+(\d+)\s+G;\s+(\d+)\s+T;\s+(\d+)\s+other;?)?/)
+      if (
+/Sequence\s+(\d+)\s+BP;(?:\s+(\d+)\s+A;\s+(\d+)\s+C;\s+(\d+)\s+G;\s+(\d+)\s+T;\s+(\d+)\s+other;?)?/
+          )
       {
         $recRef->setLength( $1 );
         $recRef->setComposition( 'A',     $2 );
@@ -914,6 +930,7 @@ sub _parseTagData {
         $seq .= $seqLine;
       }
       elsif ( /^\s+con([acgtbdhvrykmswnxACGTBDHVRYKMSWNX\s]+)\d+$/ ) {
+
         # Special case: Fix a bug in GIRIs pipeline.  They
         # sometimes leave the prefix "con" at the start of their
         # consensus sequences.  Remove, warn, and move on.
@@ -925,6 +942,7 @@ sub _parseTagData {
         $seq .= $seqLine;
       }
       elsif ( /^\s+([acgtbdhvrykmswnxACGTBDHVRYKMSWNX\s\*lqu]+)\d+$/ ) {
+
         # Special case: Fix a bug in GIRIs pipeline.  They
         # sometimes have placed "*","l","q" or "u" in the sequence.  Remove,
         # warn, and move on.
@@ -934,6 +952,7 @@ sub _parseTagData {
         my $seqLine .= $1;
         $seqLine =~ s/[\s\*lqu]//g;
         $seq .= $seqLine;
+
        # TODO: Probably not sane to just assume these were insertions.  It could
        # be that the overwrote some of the consensus.  Is it still the right
        # length?
@@ -946,7 +965,7 @@ sub _parseTagData {
   }
   elsif ( $tag eq "FT" ) {
     my $FTLines = $recRef->getFTLines();
-    $FTLines = "" if ( ! defined $FTLines );
+    $FTLines = "" if ( !defined $FTLines );
     $recRef->setFTLines( $FTLines . $data );
   }
   elsif ( $tag eq "RG" ) {
@@ -958,8 +977,7 @@ sub _parseTagData {
     # Do nothing for now
   }
   elsif ( $tag eq "NM" ) {
-    if ( $data =~ /(\S+)/ )
-    {
+    if ( $data =~ /(\S+)/ ) {
       $recRef->setName( $1 );
     }
   }

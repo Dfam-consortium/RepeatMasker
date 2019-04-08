@@ -527,10 +527,9 @@ my ( $combLib, $rmLibraryVersion, $dbversion, $rbrmVersion ) =
                               $libType );
 
 if ( $options{'rbrm_only'} ) {
-  $combLib = 0;
+  $combLib          = 0;
   $rmLibraryVersion = $rbrmVersion;
 }
-
 
 # Some warnings for Dfam & species choice
 if ( $engine eq "hmmer" ) {
@@ -539,8 +538,8 @@ if ( $engine eq "hmmer" ) {
     $version = $1;
   }
   if ( $version == 2.0 ) {
-    if ( $options{'species'} == "" || 
-         $options{'species'} !~
+    if ( $options{'species'} == ""
+      || $options{'species'} !~
 /human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i
         )
     {
@@ -563,16 +562,22 @@ if ( $engine eq "hmmer" ) {
           . "with human and your species ( if any exist ).\n\n";
     }
   }
-}else {
+}
+else {
   my $spec = $options{'species'};
-  if ( $rmLibraryVersion =~ /rb\d/ && 
-       $rmLibraryVersion =~ /Dfam_3/ &&
-       ( $spec eq "" || 
-       $spec =~ /human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i ) ) {
-    print  "\n\n" 
-         . "INFO: For this species, RepeatMasker is using the new Dfam\n"
-         . "      consensus sequences. These are based on the Dfam seed\n"
-         . "      alignments and may differ from the ones in RepBase.\n\n";
+  if (
+       $rmLibraryVersion =~ /rb\d/
+    && $rmLibraryVersion =~ /Dfam_3/
+    && ( $spec eq ""
+      || $spec =~
+/human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i
+    )
+      )
+  {
+    print "\n\n"
+        . "INFO: For this species, RepeatMasker is using the new Dfam\n"
+        . "      consensus sequences. These are based on the Dfam seed\n"
+        . "      alignments and may differ from the ones in RepBase.\n\n";
   }
 }
 
@@ -656,9 +661,11 @@ if ( !$options{"lib"} ) {
 
 # Functions saveOldFiles and cleanUp expect the -dir directory to
 # already exist.
-if ( $options{'dir'} && ! -d $options{'dir'} ) {
-  mkdir($options{'dir'},0777) or die "Output directory ( -dir " . $options{'dir'} . 
-                                     " ) doesn't exist and could not be created.\n";
+if ( $options{'dir'} && !-d $options{'dir'} ) {
+  mkdir( $options{'dir'}, 0777 )
+      or die "Output directory ( -dir "
+      . $options{'dir'}
+      . " ) doesn't exist and could not be created.\n";
 }
 
 #
@@ -1017,7 +1024,10 @@ JOBLOOP:
         }
 
         # Check for E coli insertion elements
-        unless ( $options{'no_is'} || $options{'fptest'} || ! -s "$generalLibDir/is.lib" ) {
+        unless (    $options{'no_is'}
+                 || $options{'fptest'}
+                 || !-s "$generalLibDir/is.lib" )
+        {
           my $sequenceArrayRef;
           my $seqWithNameHashRef;
           &locateISElements(
@@ -2638,20 +2648,21 @@ sub runTRFStage {
     @mu            = ( 0.79, 1.00, 4.78, 6.94, 8.68, 9.84, 11.94 );
   }
 
-  my ( $retCode, $trfResults, $trfOutFile, $trfErrFile ) = $trf->search( sequenceFile => $maskfile,
-                                               workDir      => $workingDir );
+  my ( $retCode, $trfResults, $trfOutFile, $trfErrFile ) = $trf->search(
+                                                      sequenceFile => $maskfile,
+                                                      workDir => $workingDir );
 
-  if ( defined $trfErrFile && $trfErrFile ne "" )
-  {
+  if ( defined $trfErrFile && $trfErrFile ne "" ) {
+
     # TRF Errors
     print "WARNING: TRF returned an error ("
-            . "Return code = $retCode )\n"
-            . "TRF parameters: "
-            . $trf->getParameters() . "\n"
-            . "A search phase could not complete on this batch.\n"
-            . "The batch file will be re-run and if possible the\n"
-            . "program will resume.\n";
-        exit( -1 );
+        . "Return code = $retCode )\n"
+        . "TRF parameters: "
+        . $trf->getParameters() . "\n"
+        . "A search phase could not complete on this batch.\n"
+        . "The batch file will be re-run and if possible the\n"
+        . "program will resume.\n";
+    exit( -1 );
   }
 
   my $matrix =
@@ -6854,7 +6865,7 @@ FORK:
 ##                    $fileend, $file, $originaldir, $compressed );
 ##
 ##  Returns
-##       -- 
+##       --
 ##       Expects $options{'dir'} ( if set ) to already exist.
 ##
 ##  Globals Used: None
@@ -7077,9 +7088,8 @@ sub createLib {
 
     if ( $match > 0 || @buffers ) {
       $librarySize++;
-      $id   = $record->getId();
-      if ( $id =~ /DF\d+/ && defined $record->getName() ) 
-      {
+      $id = $record->getId();
+      if ( $id =~ /DF\d+/ && defined $record->getName() ) {
         $id = $record->getName();
       }
       $type = "#" . $record->getRMType();
@@ -7124,8 +7134,7 @@ sub createLib {
         else {
           $desc = $record->getDescription();
           $seq  = $record->getSequence();
-          if ( $searchEngine->isa( "WUBlastSearchEngine" ) )
-          {
+          if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
             my $rseq = uc( $seq );
             $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
             $rseq = reverse $rseq;
@@ -7170,8 +7179,7 @@ sub createLib {
               $seq = substr( $seq, $1 - 1, $2 - $1 + 1 );
               $type = "_$1" . "_$2#buffer";
             }
-            if (    $searchEngine->isa( "WUBlastSearchEngine" ) )
-            {
+            if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
               my $rseq = uc( $seq );
               $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
               $rseq = reverse $rseq;
@@ -7328,8 +7336,7 @@ sub processCustomLib {
 
   # TODO: Check name syntax
 
-  if (    $searchEngine->isa( "WUBlastSearchEngine" ) )
-  {
+  if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
 
     my $libDB = FastaDB->new(
                               fileName    => $options{'lib'},
@@ -7537,10 +7544,11 @@ sub initLibraries {
 
     # lookup species name in Taxonomy database
     if ( ( $species = $tax->isSpecies( $species ) ) eq "" ) {
+
       #
       # The taxonomy has grown to the point that this method
       # of finding similar sounding names is way too slow.
-      # 
+      #
       #my $dieMsg =
       #      "RepeatMasker::initLibraries: Species \""
       #    . $options{'species'}
@@ -7552,13 +7560,15 @@ sub initLibraries {
       #  $dieMsg .= "        -species \"$alts\"\n";
       #}
       #die $dieMsg;
-      die "\n\nSpecies \"" . $options{'species'} . "\" is not known to RepeatMasker.  There may\n"
-        . "not be any TE families defined in the libraries for this\n"
-        . "species/clade or there may be an error in the spelling.\n"
-        . "Please check your entry against the NCBI Taxonomy database\n"
-        . "and/or try using a broader clade or related species instead.\n"
-        . "The full list of species/clades defined in the library may be\n"
-        . "obtained using the util/queryTaxonomyDatabase.pl script.\n\n";
+      die "\n\nSpecies \""
+          . $options{'species'}
+          . "\" is not known to RepeatMasker.  There may\n"
+          . "not be any TE families defined in the libraries for this\n"
+          . "species/clade or there may be an error in the spelling.\n"
+          . "Please check your entry against the NCBI Taxonomy database\n"
+          . "and/or try using a broader clade or related species instead.\n"
+          . "The full list of species/clades defined in the library may be\n"
+          . "obtained using the util/queryTaxonomyDatabase.pl script.\n\n";
     }
   }
 
@@ -7623,10 +7633,10 @@ sub initLibraries {
   if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
     print "Master RepeatMasker Database: $rmLibDir/Dfam.hmm ";
   }
-  elsif ( $options{'rbrm_only'} )
-  {
+  elsif ( $options{'rbrm_only'} ) {
     print "Master RepeatMasker Database: $rmLibDir/RMRB.embl ";
-  }else {
+  }
+  else {
     print "Master RepeatMasker Database: $rmLibDir/RepeatMaskerLib.embl ";
   }
   if ( $dbversion =~ /-min/ ) {
@@ -7653,8 +7663,7 @@ sub initLibraries {
     if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
       $db = DFAM->new( fileName => "$rmLibDir/Dfam.hmm" );
     }
-    elsif ( $options{'rbrm_only'} )
-    {
+    elsif ( $options{'rbrm_only'} ) {
       $db = EMBL->new( fileName => "$rmLibDir/RMRB.embl" );
     }
     else {

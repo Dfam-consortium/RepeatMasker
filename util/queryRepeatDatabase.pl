@@ -367,6 +367,7 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
 
       }
     }
+
     # Not an fasta database
     else {
       my $record = $db->getRecord( $i );
@@ -439,16 +440,18 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
     }
     else {
       my $record = $db->getRecord( $i );
-      my $id = $record->getId();
+      my $id     = $record->getId();
       my $name;
       if ( $fileFormat eq "hmm" ) {
         $name = $id;
-        $id = $record->getAcc();  
-      }else {
+        $id   = $record->getAcc();
+      }
+      else {
         $name = $record->getName();
       }
-      if ( $id =~ /$idPattern/i ||
-           $name =~ /$idPattern/i ) {
+      if (    $id =~ /$idPattern/i
+           || $name =~ /$idPattern/i )
+      {
         $match = 1;
       }
     }
@@ -504,17 +507,17 @@ for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
     }
   }
   elsif ( $fileFormat eq "embl" ) {
-    my $record = $db->getRecord( $i );
-    my $seq    = $record->getSequence();
-    my $seqLen = length( $seq );
-    my $id = $record->getId();
+    my $record    = $db->getRecord( $i );
+    my $seq       = $record->getSequence();
+    my $seqLen    = length( $seq );
+    my $id        = $record->getId();
     my $accession = "";
     if ( $id =~ /DF\d+/ && defined $record->getName() ) {
       $accession = $id;
-      $id = $record->getName();
+      $id        = $record->getName();
     }
     if ( defined $options{'stat'} ) {
-     print ">$id#"
+      print ">$id#"
           . $record->getRMType() . "/"
           . $record->getRMSubType()
           . " $accession Length = "

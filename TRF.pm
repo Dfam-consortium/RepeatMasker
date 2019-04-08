@@ -810,7 +810,6 @@ sub search {
     );
   }
 
-
   # 256 is a normal return code
   unless ( $resultCode != 256 || $DEBUG ) {
     unlink $errFile;
@@ -818,6 +817,7 @@ sub search {
     return ( $resultCode, $searchResultColl );
   }
   else {
+
     # Let's improve the debugging for users
     return ( $resultCode, $searchResultColl, $outFile, $errFile );
   }
