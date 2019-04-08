@@ -336,7 +336,7 @@ if ( $GitHash =~ /\$\s*Id:\s*open-(\S+)\s*\$/ ) {
   $version = "open-$version";
 }
 else {
-  $version = $GitHash;
+  $version = "Development version $GitHash";
 }
 print "RepeatMasker version $version\n";
 
