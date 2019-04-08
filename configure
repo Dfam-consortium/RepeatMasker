@@ -327,7 +327,7 @@ if ( $options{'trfbin'} )
     $goodParam = 1;
     my $prompt =
 "**TRF PROGRAM**\n\n  This is the full path to the TRF program.\n This is now used by RepeatMasker to mask simple repeats.\n";
-    $trfProgram = &promptScreen( $prompt, "Enter path", $trfProgram );
+    $trfProgram = &promptScreen( $prompt, "Enter path ", $trfProgram );
     if ( $trfProgram ne "" )
     {
       if ( -d "$trfProgram" )
@@ -658,7 +658,7 @@ sub configCrossMatch
       $goodParam = 1;
       $cmLocation = &promptScreen(
 "**CROSS_MATCH INSTALLATION PATH**\n\n  This is the path to the location where\n  the cross_match program has been installed.\n",
-        "Enter path",
+        "Enter path ",
         $existingSettings{'CROSSMATCH_DIR'}
       );
       if ( $cmLocation ne "" )
@@ -751,7 +751,7 @@ sub configRMBlast
       $goodParam = 1;
       $pgLocation = &promptScreen(
 "**RMBlast (rmblastn) INSTALLATION PATH**\n\n  This is the path to the location where\n  the rmblastn and makeblastdb programs can be found.\n",
-        "Enter path",
+        "Enter path ",
         $existingSettings{'RMBLAST_DIR'}
       );
       if ( $pgLocation ne "" )
@@ -871,7 +871,7 @@ sub configWUBlast
       $goodParam = 1;
       $wuLocation = &promptScreen(
 "**ABBlast/WUBlast BLASTP INSTALLATION PATH**\n\n  This is the path to the location where\n  the ABblast/WUblast blastp and setdb programs can be found.\n",
-        "Enter path",
+        "Enter path ",
         $existingSettings{'WUBLAST_DIR'}
       );
       if ( $wuLocation ne "" )
@@ -976,7 +976,7 @@ sub configHMMER
                      "**HMMER INSTALLATION PATH**\n\n  This is the path "
                          . "to the location where\n  the nhmmer program can be "
                          . "found.\n",
-                     "Enter path",
+                     "Enter path ",
                      $existingSettings{'HMMER_DIR'}
     );
     if ( $location ne "" )
