@@ -2736,7 +2736,7 @@ CYCLE3:
               {
 
                 # Name after LTR
-                if ( $newLTRName !~ /-I|-int/ ) {
+                if ( $newLTRIntName !~ /[_-](I|int)/ ) {
                   $nextInChain->setHitName( $newLTRName . "-int" );
                 }
                 else {
@@ -2746,7 +2746,7 @@ CYCLE3:
               elsif ( $newLTRIntName ) {
 
                 # Name after highest scoring internal
-                if ( $newLTRIntName !~ /-I|-int/ ) {
+                if ( $newLTRIntName !~ /[_-](I|int)/ ) {
                   $nextInChain->setHitName( $newLTRIntName . "-int" );
                 }
                 else {
