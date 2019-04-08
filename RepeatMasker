@@ -328,27 +328,15 @@ if ( $] && $] >= 5.008003 ) {
 #
 # Version
 #
-#  This is a neat trick.  CVS allows you to tag
-#  files in a repository ( i.e. cvs tag "2003/12/03" ).
-#  If you check out that release into a new
-#  directory with "cvs co -r "2003/12/03" it will
-#  place this string into the $Name:  $ space below
-#  automatically.  This will help us keep track
-#  of which release we are using.  If we simply
-#  check out the code as "cvs co RepeatMasker" the
-#  $Name:  $ macro will be blank and thus we use
-#  this as the development version.
-#
-my $CVSTag = '$Name:  $';
+my $GitHash = '$Id$';
 my $version;
-if ( $CVSTag =~ /\$\s*Name:\s*open-(\S+)\s*\$/ ) {
+if ( $GitHash =~ /\$\s*Id:\s*open-(\S+)\s*\$/ ) {
   $version = $1;
   $version =~ s/-/./g;
   $version = "open-$version";
 }
 else {
-  $version =
-      'development-$Id: RepeatMasker,v 1.332 2017/04/17 19:01:11 rhubley Exp $';
+  $version = $GitHash;
 }
 print "RepeatMasker version $version\n";
 
