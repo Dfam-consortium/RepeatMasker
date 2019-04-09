@@ -319,7 +319,7 @@ while ( <IN> ) {
       $subType =~ s/\?//g;
     }
 
-#print "Class = $class Type = $type ( $typeConf ), SubType = $subType ( $subTypeConf )\n" if ( $DEBUG );
+    #print "Class = $class Type = $type ( $typeConf ), SubType = $subType ( $subTypeConf )\n" if ( $DEBUG );
 
     my $strand   = $fields[ 8 ];
     my $seqBegin = $fields[ 5 ];
@@ -332,13 +332,13 @@ while ( <IN> ) {
       $eleStats{$ele}->{'subTypeConf'} = $subTypeConf;
     }
 
-# Talk to Arian about this.  What if an overlap exists between
-# two different classes.  Which one should get the larger overlap bp masked?
-# also what happens when a repeat is overlapped by another repeat.  Does it get counted?
+    # Overlap resolution rules:
+    #     1. Contained repeats do not contribute to bpMasked.
+    #     2. The first annotation wins the overlap'd sequence.
+    #     3. All repeats ( even if contained ) are counted as an instance.
     my $bpMasked = $seqEnd - $seqBegin + 1;
     if ( $seqBegin <= $lastSeqEnd ) {
       if ( $seqEnd <= $lastSeqEnd ) {
-
         # Contained inside another repeat
         warn "Fully Contained Repeat: $class =  $lastSeqBeg-$lastSeqEnd "
             . "$seqBegin-$seqEnd $seqName\n"
@@ -369,7 +369,6 @@ while ( <IN> ) {
       || ( $id < $lastID - 50 && $id < 3 )
         )
     {
-
       # Concatenated *.out files...break up
       if ( $DEBUG ) {
         warn "WARNING: Detected concatenated out files...resetting id values\n";
@@ -384,7 +383,6 @@ while ( <IN> ) {
     if ( !defined $idsSeen{$id}
          || ( $idsSeen{$id} && $idsSeen{$id}->{'ele'} ne $ele ) )
     {
-
       # This occurs when two fragments have the same id field but
       #   have different repeat names.  Often occurs with LTR names.
       #   The current setup will record each name with it's own count
