@@ -5197,13 +5197,23 @@ sub generateOutput {
 
     # Define length of coverage based on possibly overlapping
     # fragments.
-    my $length = $currentAnnot->getQueryEnd - $currentAnnot->getQueryStart + 1;
+    my $length = 0;
+    my $contained = 0;
     if (    $pastAnnot
          && $currentAnnot->getQueryName eq $pastAnnot->getQueryName()
-         && $currentAnnot->getQueryStart <= $pastAnnot->getQueryEnd
-         && $currentAnnot->getQueryEnd > $pastAnnot->getQueryEnd )
+         && $currentAnnot->getQueryStart <= $pastAnnot->getQueryEnd )
     {
-      $length -= ( $pastAnnot->getQueryEnd - $currentAnnot->getQueryStart + 1 );
+      if ( $currentAnnot->getQueryEnd > $pastAnnot->getQueryEnd )
+      {
+        $length = $currentAnnot->getQueryEnd - $currentAnnot->getQueryStart + 1 
+                 - ( $pastAnnot->getQueryEnd - $currentAnnot->getQueryStart + 1 );
+      }else {
+        # Contained!  Allow it to contribute to annotation count but don't count
+        # it's bases
+        $contained = 1;
+      }
+    }else {
+      $length = $currentAnnot->getQueryEnd - $currentAnnot->getQueryStart + 1;
     }
 
     # Determine if this is fragment of a previously counted element
@@ -5236,7 +5246,9 @@ sub generateOutput {
 
     $checked{ $currentAnnot->getPRID() }++;
 
-    $pastAnnot = $currentAnnot;
+    if ( ! $contained ) {
+      $pastAnnot = $currentAnnot;
+    }
   }
 
   #
@@ -9218,6 +9230,7 @@ sub maskSequence {
          && $prevResult->getQueryName() eq $result->getQueryName()
          && $prevResult->getQueryEnd() >= $start )
     {
+      # Check for containment
       next if ( $prevResult->getQueryEnd() >= $end );
       $start = $prevResult->getQueryEnd() + 1;
     }

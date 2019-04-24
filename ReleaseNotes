@@ -1,0 +1,22 @@
+
+4.0.9-p1 : Tue Apr 16 08:51:22 PDT 2019
+  - Input files containing multiple FASTA sequences
+    caused RepeatMasker to error out with a message
+    like:
+
+      "WARNING: TRF returned an error (Return code = ### )
+       TRF parameters: 2.7.7.80.10.50.10
+       A search phase could not complete on this batch.
+       The batch file will be re-run and if possible the
+       program will resume.
+       WARNING: Retrying batch ( 1 ) [ 255,, 195]..."
+
+    This bug was introduced in an attempt to improve TRF
+    error catching.  Unfortunatly the return codes are
+    not documented for TRF and the assumption that 256
+    is the only successful return code is wrong.  The
+    "success" code appears to change depending on the
+    number of sequences in the file.  The workaround is
+    to fail only if there is a message in the error output
+    file.
+

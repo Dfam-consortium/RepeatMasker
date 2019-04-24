@@ -2652,7 +2652,7 @@ sub runTRFStage {
                                                       sequenceFile => $maskfile,
                                                       workDir => $workingDir );
 
-  if ( defined $trfErrFile && $trfErrFile ne "" ) {
+  if ( defined $trfErrFile && $trfErrFile ne "" && -s $trfErrFile ) {
 
     # TRF Errors
     print "WARNING: TRF returned an error ("
