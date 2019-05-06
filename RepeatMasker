@@ -2652,11 +2652,12 @@ sub runTRFStage {
                                                       sequenceFile => $maskfile,
                                                       workDir => $workingDir );
 
-  if ( defined $trfErrFile && $trfErrFile ne "" && -s $trfErrFile ) {
-
+  if ( defined $trfErrFile && $trfErrFile ne "" ) {
     # TRF Errors
+    my $signal = $retCode & 127;
+    my $prgcode = $retCode >> 8;
     print "WARNING: TRF returned an error ("
-        . "Return code = $retCode )\n"
+        . "Return code = $prgcode, signal = $signal)\n"
         . "TRF parameters: "
         . $trf->getParameters() . "\n"
         . "A search phase could not complete on this batch.\n"

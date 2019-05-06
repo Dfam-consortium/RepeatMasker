@@ -799,7 +799,6 @@ sub search {
   if ( defined $searchResultColl
        && $searchResultColl->size() > 0 )
   {
-
     # The final result collection should be sorted by
     #  queryname and secondarily by query start position.
     $searchResultColl->sort(
@@ -810,16 +809,13 @@ sub search {
     );
   }
 
-  # 256 is a normal return code
-  unless ( $resultCode != 256 || $DEBUG ) {
+  ## Detect signal failures only
+  if ( ($resultCode & 127) || ($resultCode == -1) ) {
+    return ( $resultCode, $searchResultColl, $outFile, $errFile );
+  }else { 
     unlink $errFile;
     unlink $outFile;
     return ( $resultCode, $searchResultColl );
-  }
-  else {
-
-    # Let's improve the debugging for users
-    return ( $resultCode, $searchResultColl, $outFile, $errFile );
   }
 
 }
