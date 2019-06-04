@@ -677,12 +677,12 @@ sub search {
   my $POUTPUT = new FileHandle;
   my $errFile;
   do {
-    $errFile = $workDir . "/trfResults-" . time() . "-$$.err";
-  } while ( -f $errFile );
+    $errFile = "trfResults-" . time() . "-$$.err";
+  } while ( -f $workDir . "/$errFile" );
   my $pid;
 
   print $CLASS
-      . "::search() Invoking search engine as: $cmdLine "
+      . "::search() Invoking search engine as: cd $workDir; $cmdLine "
       . " 2>$errFile |\n"
       if ( $DEBUG );
 
@@ -811,10 +811,10 @@ sub search {
 
   ## Detect signal failures only
   if ( ($resultCode & 127) || ($resultCode == -1) ) {
-    return ( $resultCode, $searchResultColl, $outFile, $errFile );
+    return ( $resultCode, $searchResultColl, $outFile, "$workDir/$errFile" );
   }else { 
-    unlink $errFile;
-    unlink $outFile;
+    unlink "$workDir/$errFile" if ( -f "$workDir/$errFile" );
+    unlink $outFile if ( -f $outFile );
     return ( $resultCode, $searchResultColl );
   }
 

@@ -336,7 +336,7 @@ if ( $GitHash =~ /open-(\S+)/ ) {
   $version = "open-$version";
 }
 else {
-  $version = "***Development-only*** $GitHash";
+  $version = "***Development-only*** $GitHash\nDownload offical releases from http://www.repeatmasker.org";
 }
 print "RepeatMasker version $version\n";
 

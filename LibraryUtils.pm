@@ -505,7 +505,10 @@ sub rebuildMainLibrary {
         $mRec->pushComments( "Source: RepBase RepeatMasker Edition\n" );
 
         # Do not include families already provided by Dfam.
-        if ( !exists $dfam2xNames{ $mRec->getId() } ) {
+        #  NOTE: RBRM uses trailing "_"s to indicate variation
+        #        on a consensus.  In Dfam it's "_v".
+        if ( !exists $dfam2xNames{ $mRec->getId() } &&
+             !exists $dfam2xNames{ $mRec->getId() . "v" } ){
           $combinedDb->add( $mRec );
           $numMerged++;
         }
