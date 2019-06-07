@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 ##---------------------------------------------------------------------------##
 ##  File:
 ##      @(#) getRepeatMaskerBatch.pl
