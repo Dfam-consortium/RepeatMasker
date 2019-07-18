@@ -444,9 +444,14 @@ sub getParameters {
     if ( defined( $value = $this->getBandwidth() )
          && $value < 0 )
     {
+      # Document diff between xdrops for NCBI Blast
+      # xdrop_ungap: 
+      # xdrop_gap:
+      # xdrop_gap_final:
       $parameters .= " -xdrop_ungap " . ( $minScore * 2 ) . " -xdrop_gap_final "
-
-          #. ( $minScore * 4 )
+          # Ins/Del extension penalties are the same for RMBlast ( only cm differentiates )
+          # The tolerated gapped xdrop should tolerate a gap of bandwidth #.  So 
+          # Gap init penalty + (extension penalty * bandwidth )
           . ( ( abs( $value ) * abs( $this->getInsGapExt() ) ) +
               abs( $this->getGapInit() ) )
           . " -xdrop_gap "

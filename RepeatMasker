@@ -74,10 +74,29 @@ are both aliases for the rmblastn search engine engine.  The generic NCBI
 blastn program is not sensitive enough for use with RepeatMasker at this 
 time.
 
+=item -libdir [path_to_library_directory]
+
+Use an alternate library directory to for the primary repeat libraries.
+These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
+distribution files. Normally these are stored/updated in the "Libraries/" 
+subdirectory of the main program which RepeatMasker will use by default.  
+This parameter should only be used when it's not possible to keep the 
+libraries in the same place as the program. 
+
 =item -pa(rallel) [number]   
 
-The number of processors to use in parallel (only works for batch 
-files or sequences over 50 kb)
+The number of sequence batch jobs [50kb minimum] to run in parallel.  
+RepeatMasker will fork off this number of parallel jobs, each running 
+the search engine specified. For each search engine invocation 
+( where applicable ) a fixed the number of cores/threads is used:
+
+  RMBlast     4 cores
+  nhmmer      2 cores
+  crossmatch  1 core
+
+To estimate the number of cores a RepeatMasker run will use simply 
+multiply the -pa value by the number of cores the particular search
+engine will use.
 
 =item -s             
 
@@ -356,7 +375,7 @@ my $cmdLine = $0 . join( ' ', @ARGV );
 my @opts = qw( a|alignments ace alu cutoff=s dir=s
     div=s excln frag=s gc=s gccalc gff
     help int noint inv is_clip is_only lib=s
-    low nolow lcambig no_id no_is nocut
+    low nolow lcambig libdir=s no_id no_is nocut
     noisy norna parallel=i poly q qq
     s small species|sp=s u fptest rbrm_only
     x xm xsmall nopost engine|e=s source html debug=s );
@@ -382,20 +401,42 @@ if ( $#ARGV == -1 && !$options{'help'} ) {
   die;
 }
 
+# Determine the installation directory using 
+# location of the program that was invoked.
+my $REPEATMASKER_DIR = $FindBin::RealBin;
+
 # Print out the big help file if requested
 my $PAGER = $ENV{PAGER};
 $PAGER = "more" if !defined $PAGER;
-system( "$PAGER $RepeatMaskerConfig::REPEATMASKER_DIR/repeatmasker.help\n" ),
+system( "$PAGER $REPEATMASKER_DIR/repeatmasker.help\n" ),
     exit( 0 )
     if $options{'help'};
 
-die "The RepeatMasker installation directory "
-    . "(\$RepeatMaskerConfig::REPEATMASKER_DIR) is "
-    . "incorrectly set in the RepeatMaskerConfig.pm file.  Please open the "
-    . "RepeatMaskerConfig.pm file  and edit the "
-    . "\$RepeatMaskerConfig::REPEATMASKER_DIR line.\n"
-    unless (    -d "$RepeatMaskerConfig::REPEATMASKER_DIR/Libraries"
-             && -d "$RepeatMaskerConfig::REPEATMASKER_DIR/Matrices" );
+my $LIBDIR = "$REPEATMASKER_DIR/Libraries";
+my $MATDIR = "$REPEATMASKER_DIR/Matrices";
+
+die "The assumed RepeatMasker installation directory\n" .
+    "    $REPEATMASKER_DIR\n" . 
+    "does not appear to be correct.  E.g it does not\n" .
+    "contain a 'Libraries' or 'Matrices' subdirectory.\n" .
+    "This can occur if hard links are used to invoke\n" .
+    "this script.\n"
+    unless ( -d $LIBDIR && -d $MATDIR );
+
+# Allow the user to override the default library directory ( currently only by the command line )
+if ( $options{'libdir'} ) {
+  $LIBDIR = $options{'libdir'};
+  if ( ! -d $LIBDIR ) {
+    die "The specified library directory $options{'libdir'} does not exist!\n";
+  }
+}
+
+# Allow the user to override paths to external programs using environment variables
+RepeatMaskerConfig::apply_config_override(\$RepeatMaskerConfig::HMMER_DIR, env => "HMMER_DIR");
+RepeatMaskerConfig::apply_config_override(\$RepeatMaskerConfig::CROSSMATCH_DIR, env => "CROSSMATCH_DIR");
+RepeatMaskerConfig::apply_config_override(\$RepeatMaskerConfig::RMBLAST_DIR, env => "RMBLAST_DIR");
+RepeatMaskerConfig::apply_config_override(\$RepeatMaskerConfig::WUBLAST_DIR, env => "WUBLAST_DIR");
+RepeatMaskerConfig::apply_config_override(\$RepeatMaskerConfig::TRF_PRGM, env => "TRF_PRGM");
 
 #
 # Get the date
@@ -428,7 +469,6 @@ if ( defined $options{'engine'} ) {
   }
 }
 else {
-
   # Save the default in options even though it wasn't explicitly set
   $options{'engine'} = $engine;
 }
@@ -452,11 +492,11 @@ $engineDEBUG = 1 if ( exists $options{'debug'}
                       && $options{'debug'} & 2 );
 if ( $engine eq "wublast" ) {
   $searchEngine = WUBlastSearchEngine->new(
-                             pathToEngine => $RepeatMaskerConfig::WUBLASTP_PRGM,
+                             pathToEngine => "$RepeatMaskerConfig::WUBLAST_DIR/blastp",
                              DEBUG        => $engineDEBUG );
 
   if ( not defined $searchEngine ) {
-    die "Cannot execute $RepeatMaskerConfig::WUBLASTP_PRGM (check  "
+    die "Cannot execute $RepeatMaskerConfig::WUBLAST_DIR/blastp (check  "
         . " the RepeatMaskerConfig.pm file in the RepeatMasker directory )\n";
   }
   print "Search Engine: ABBlast/WUBlast [ "
@@ -464,7 +504,7 @@ if ( $engine eq "wublast" ) {
 }
 elsif ( $engine eq "hmmer" ) {
   $searchEngine = HMMERSearchEngine->new(
-                             pathToEngine => $RepeatMaskerConfig::NHMMSCAN_PRGM,
+                             pathToEngine => "$RepeatMaskerConfig::NHMMER_DIR/nhmmscan",
                              DEBUG        => $engineDEBUG );
 
   # Used to allow a single instance to use all the cores ( ie. default nhmmer
@@ -481,7 +521,7 @@ elsif ( $engine eq "hmmer" ) {
   $searchEngine->setCores( 2 );
 
   if ( not defined $searchEngine ) {
-    die "Cannot execute $RepeatMaskerConfig::NHMMSCAN_PRGM (check  "
+    die "Cannot execute $RepeatMaskerConfig::NHMMSCAN_DIR/nhmmscan (check  "
         . " the RepeatMaskerConfig.pm file in the RepeatMasker directory )\n";
   }
   print "Search Engine: HMMER [ " . $searchEngine->getVersion() . " ]\n";
@@ -492,17 +532,17 @@ elsif ( $engine eq "hmmer" ) {
 }
 elsif ( $engine eq "crossmatch" ) {
   $searchEngine = CrossmatchSearchEngine->new(
-                           pathToEngine => $RepeatMaskerConfig::CROSSMATCH_PRGM,
+                           pathToEngine => "$RepeatMaskerConfig::CROSSMATCH_DIR/cross_match",
                            DEBUG        => $engineDEBUG );
   if ( not defined $searchEngine ) {
-    die "Cannot execute $RepeatMaskerConfig::CROSSMATCH_PRGM (check "
+    die "Cannot execute $RepeatMaskerConfig::CROSSMATCH_DIR/cross_match (check "
         . " the RepeatMaskerConfig.pm file in the RepeatMasker directory )\n";
   }
   print "Search Engine: Crossmatch [ " . $searchEngine->getVersion() . " ]\n";
 }
 elsif ( $engine eq "ncbi" || $engine eq "rmblast" ) {
   $searchEngine = NCBIBlastSearchEngine->new(
-                             pathToEngine => $RepeatMaskerConfig::RMBLASTN_PRGM,
+                             pathToEngine => "$RepeatMaskerConfig::RMBLAST_DIR/rmblastn",
                              DEBUG        => $engineDEBUG );
   if ( not defined $searchEngine ) {
     die "Cannot execute rmblastn";
@@ -523,7 +563,7 @@ $libType = "HMM" if ( $engine eq "hmmer" );
 
 my ( $combLib, $rmLibraryVersion, $dbversion, $rbrmVersion ) =
     LibraryUtils::validateLibraries(
-                              "$RepeatMaskerConfig::REPEATMASKER_DIR/Libraries",
+                              $LIBDIR,
                               $libType );
 
 if ( $options{'rbrm_only'} ) {
@@ -629,25 +669,32 @@ foreach my $file ( @ARGV ) {
 # to a temporary directory:
 my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 
-# Add tempdir to the end of the library search path
-push @RepeatMaskerConfig::LIBPATH, $tempdir;
-
 #
 # Species & Library Setup
 #
 my $tax =
     Taxonomy->new( taxonomyDataFile =>
-               "$RepeatMaskerConfig::REPEATMASKER_DIR/Libraries/taxonomy.dat" );
+               "$LIBDIR/taxonomy.dat" );
+
+#
+# The search path for finding a place to store the cache
+#
+my @LIBPATH = ( $LIBDIR,
+                $ENV{'HOME'} . "/.RepeatMaskerCache" );
+
+# Add tempdir to the end of the library search path
+push @RepeatMaskerConfig::LIBPATH, $tempdir;
+
 my $generalLibDir;
 my $speciesLibDir;
 my $customLibDir;
 ( $options{"species"}, $generalLibDir, $speciesLibDir, $customLibDir ) =
     &initLibraries(
                     \%options,
-                    "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR",
+                    $LIBDIR,
                     $tax,
                     $tempdir,
-                    \@RepeatMaskerConfig::LIBPATH,
+                    \@LIBPATH,
                     $searchEngine,
                     $rmLibraryVersion
     );
@@ -1036,7 +1083,7 @@ JOBLOOP:
                              $batchNums[ $k ],
                              $batchMaskFile,
                              $qualFile,
-                             $RepeatMaskerConfig::REPEATMASKER_DIR,
+                             $REPEATMASKER_DIR,
                              $searchEngine,
                              $file,
                              $generalLibDir
@@ -1052,7 +1099,7 @@ JOBLOOP:
 
           if ( $options{'fptest'} ) {
             &runLowComplexTests(
-                      \%options,          $RepeatMaskerConfig::REPEATMASKER_DIR,
+                      \%options,          $REPEATMASKER_DIR,
                       $GC_frac,           $batchSeqFile,
                       $batchMaskFile,     $generalLibDir,
                       $speciesLibDir,     $batchCount,
@@ -1066,7 +1113,7 @@ JOBLOOP:
           else {
             if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
               &runHMMERSearchStages(
-                      \%options,          $RepeatMaskerConfig::REPEATMASKER_DIR,
+                      \%options,          $REPEATMASKER_DIR,
                       $GC_frac,           $batchSeqFile,
                       $batchMaskFile,     $generalLibDir,
                       $speciesLibDir,     $batchCount,
@@ -1079,7 +1126,7 @@ JOBLOOP:
             }
             else {
               &runSearchStages(
-                      \%options,          $RepeatMaskerConfig::REPEATMASKER_DIR,
+                      \%options,          $REPEATMASKER_DIR,
                       $GC_frac,           $batchSeqFile,
                       $batchMaskFile,     $generalLibDir,
                       $speciesLibDir,     $batchCount,
@@ -1284,7 +1331,7 @@ JOBLOOP:
     # Run processrepeats
     #
     &systemint(
-        "$RepeatMaskerConfig::REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
+        "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
         unless $options{'is_only'};
     if ( $options{'is_clip'} && -s "$file.withoutIS.masked" ) {
       rename( "$maskSourceFile.masked", "$file.masked" );
@@ -1421,7 +1468,7 @@ sub adjustFragmentPositions {
 ##-------------------------------------------------------------------------##
 ## Use:  my &locateISElements( \%options, $batcher,
 ##                             $batchNum, $file, $qualFile,
-##                             $RepeatMaskerConfig::REPEATMASKER_DIR,
+##                             $REPEATMASKER_DIR,
 ##                             $searchEngine,
 ##                             $outFilesPrefix, $generalLibDir );
 ##
@@ -2915,7 +2962,7 @@ sub runStage {
 
 ##-------------------------------------------------------------------------##
 ## Use:  &runLowComplexTests (
-##           \%options, $RepeatMaskerConfig::REPEATMASKER_DIR, $GC,
+##           \%options, $REPEATMASKER_DIR, $GC,
 ##           $file, $maskfile,
 ##           $generalLibDir,
 ##           $speciesLibDir, $fragCnt,
@@ -3396,7 +3443,7 @@ sub runLowComplexTests {
 }
 ##-------------------------------------------------------------------------##
 ## Use:  &runHMMERSearchStages (
-##           \%options, $RepeatMaskerConfig::REPEATMASKER_DIR, $GC,
+##           \%options, $REPEATMASKER_DIR, $GC,
 ##           $file, $maskfile,
 ##           $generalLibDir,
 ##           $speciesLibDir, $fragCnt,
@@ -3952,7 +3999,7 @@ sub runHMMERSearchStages {
 
 ##-------------------------------------------------------------------------##
 ## Use:  &runSearchStages (
-##           \%options, $RepeatMaskerConfig::REPEATMASKER_DIR, $GC,
+##           \%options, $REPEATMASKER_DIR, $GC,
 ##           $file, $maskfile,
 ##           $generalLibDir,
 ##           $speciesLibDir, $fragCnt,
@@ -4714,7 +4761,7 @@ sub chooseMatrices {
 
   my $matrix = "";
 
-  if ( $GC_frac < 36 ) {
+  if ( $GC_frac <= 36 ) {
     $matrix = "35g";
   }
   elsif ( $GC_frac <= 38 ) {
@@ -4723,7 +4770,7 @@ sub chooseMatrices {
   elsif ( $GC_frac <= 40 ) {
     $matrix = "39g";
   }
-  elsif ( $GC_frac < 42 ) {
+  elsif ( $GC_frac <= 42 ) {
     $matrix = "41g";
   }
   elsif ( $GC_frac <= 44 ) {
@@ -4735,7 +4782,7 @@ sub chooseMatrices {
   elsif ( $GC_frac <= 48 ) {
     $matrix = "47g";
   }
-  elsif ( $GC_frac < 50 ) {
+  elsif ( $GC_frac <= 50 ) {
     $matrix = "49g";
   }
   elsif ( $GC_frac <= 52 ) {
@@ -7220,28 +7267,28 @@ sub createLib {
     $outFileDir = "." if ( $outFileDir eq "" );
 
     if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-      system(   "$RepeatMaskerConfig::SETDB_PRGM $outFile > "
+      system(   "$RepeatMaskerConfig::WUBLAST_DIR/setdb $outFile > "
               . "$outFileDir/setdb.log 2>&1" ) == 0
           or die "RepeatMasker::createLib(): Error invoking setdb on file "
           . "$outFile.  We tried using the setdb program ( "
-          . $RepeatMaskerConfig::SETDB_PRGM . " ).\n";
+          . "$RepeatMaskerConfig::WUBLAST_DIR/setdb ).\n";
       unlink( $outFile ) unless ( $DEBUG );
       move( "$outFile.ahd", "$libName.ahd" );
       move( "$outFile.atb", "$libName.atb" );
       move( "$outFile.bsq", "$libName.bsq" );
     }
     elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-      system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype nucl "
+      system(   "$RepeatMaskerConfig::RMBLAST_DIR/makeblastdb -dbtype nucl "
               . "-in $outFile > $outFileDir/rmblastdb.log 2>&1" ) == 0
           or die "RepeatMasker::createLib(): Error invoking "
-          . $RepeatMaskerConfig::RMBLASTDB_PRGM
+          . "$RepeatMaskerConfig::RMBLAST_DIR/makeblastdb"
           . " on file $outFile.\n";
     }
     elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-      system(   "$RepeatMaskerConfig::HMMPRESS_PRGM "
+      system(   "$RepeatMaskerConfig::HMMER_DIR/hmmpress"
               . " $outFile > $outFileDir/hmmPress.log 2>&1" ) == 0
           or die "RepeatMasker::createLib(): Error invoking "
-          . "$RepeatMaskerConfig::HMMPRESS_PRGM on file "
+          . "$RepeatMaskerConfig::HMMER_DIR/hmmpress on file "
           . "$outFile.\n";
     }
   }
@@ -7379,12 +7426,12 @@ sub processCustomLib {
       chdir( $tempdir )
           or die "RepeatMasker::processCustomLib(): "
           . "Cannot change directory to $tempdir";
-      system(   "$RepeatMaskerConfig::SETDB_PRGM -o $custLibFile "
+      system(   "$RepeatMaskerConfig::WUBLAST_DIR/setdb -o $custLibFile "
               . "$tempdir/$custLibFile.anti "
               . " > setdb.log 2>&1" ) == 0
           or die "RepeatMasker::processCustomLib(): Error invoking setdb "
           . "on file $tempdir/$custLibFile.anti.  We tried using "
-          . "the setdb program ( $RepeatMaskerConfig::SETDB_PRGM ).\n";
+          . "the setdb program ( $RepeatMaskerConfig::WUBLAST_DIR/setdb ).\n";
       chdir( $currdir )
           or die "RepeatMasker::processCustomLib(): "
           . "Cannot change directory to $currdir";
@@ -7393,16 +7440,16 @@ sub processCustomLib {
 
   }
   elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-    system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -out $tempdir/$custLibFile "
+    system(   "$RepeatMaskerConfig::RMBLAST_DIR/makeblastdb -out $tempdir/$custLibFile "
             . "-dbtype nucl -in $options{'lib'} > "
             . "$tempdir/makeblastdb.log 2>&1" );
   }
   elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
     system( "cp $options{'lib'} $tempdir/$custLibFile" );
-    system(   "$RepeatMaskerConfig::HMMPRESS_PRGM "
+    system(   "$RepeatMaskerConfig::HMMER_DIR/hmmpress "
             . " $tempdir/$custLibFile > $tempdir/hmmPress.log 2>&1" ) == 0
         or die "RepeatMasker::createLib(): Error invoking "
-        . "$RepeatMaskerConfig::HMMPRESS_PRGM on file "
+        . "$RepeatMaskerConfig::HMMER_DIR/hmmpress on file "
         . "$tempdir/$custLibFile.\n";
   }
 }

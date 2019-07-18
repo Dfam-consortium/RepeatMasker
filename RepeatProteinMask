@@ -203,7 +203,6 @@ The effective length of the query to use in statistical calculations.
 The maximum distance to consider two blastx hits as the same
 (and thus contributing to Sum P scores).  Default is 333.
 
-
 =item -noLowSimple
 
 Turns off masking/annotating of low complexity and simple repeats
@@ -211,7 +210,14 @@ in the final output.  Low complexity and simple repeat analysis
 will still occur prior to looking for matches to the RepeatPep
 database.
 
-Detailed help
+=item -libdir [path_to_library_directory]
+
+Use an alternate library directory to for the primary repeat libraries.
+These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
+distribution files. Normally these are stored/updated in the "Libraries/" 
+subdirectory of the main program which RepeatMasker will use by default.  
+This parameter should only be used when it's not possible to keep the 
+libraries in the same place as the program. 
 
 =back
 
@@ -269,7 +275,7 @@ $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
 #   -t=i: Number paramters
 #
 my @opts =
-    qw( help consensi=s wordsize=s pvalue=s maxaadist=s nolowsimple minscore=s querystatlen=s engine=s );
+    qw( help consensi=s wordsize=s pvalue=s maxaadist=s nolowsimple minscore=s querystatlen=s engine=s libdir=s );
 
 ## Pvalue default used to be 0.0001 now it doesn't filter by default
 
@@ -293,6 +299,11 @@ if ( $options{'help'} || !$#ARGV < 1 )
   # details.
   exec "pod2text $0";
   die;
+}
+
+my $LIBDIR = "$FindBin::RealBin/Libraries";
+if ( $options{'libdir'} ) {
+  $LIBDIR = $options{'libdir'};
 }
 
 # This will miss alot. But in GC rich DNA a lower score
@@ -369,7 +380,7 @@ my $scratchDir = "/tmp";
 # RepeatMasker
 #
 system( "cp $fastaFile $fastaFile.rmsimple" );
-`$RepeatMaskerConfig::REPEATMASKER_DIR/RepeatMasker -qq -noint -no_is $fastaFile.rmsimple > /dev/null 2>&1`;
+`$FindBin::RealBin/RepeatMasker -qq -noint -no_is $fastaFile.rmsimple > /dev/null 2>&1`;
 my $RMResults;
 if ( -e "$fastaFile.rmsimple.out" && -e "$fastaFile.rmsimple.masked" )
 {
@@ -424,12 +435,12 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
 {
   $searchEngineX =
       NCBIBlastXSearchEngine->new(
-                         pathToEngine => "$RepeatMaskerConfig::RMBLASTX_PRGM" );
+                         pathToEngine => "$RepeatMaskerConfig::RMBLAST_DIR/blastx" );
 
-  if ( !-s "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib.psq" )
+  if ( !-s "$LIBDIR/RepeatPeps.lib.psq" )
   {
-    system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype prot -in "
-            . "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib "
+    system(   "$RepeatMaskerConfig::RMBLAST_DIR/makeblastdb -dbtype prot -in "
+            . "$LIBDIR/RepeatPeps.lib "
             . "> /dev/null 2>&1" );
   }
 
@@ -444,11 +455,9 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
       WUBlastXSearchEngine->new(
                     pathToEngine => "$RepeatMaskerConfig::WUBLAST_DIR/blastx" );
 
-  if ( !-s "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib.xps" )
+  if ( !-s "$LIBDIR/RepeatPeps.lib.xps" )
   {
-    system(
-"$RepeatMaskerConfig::XDFORMAT_PRGM -p $RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib"
-    );
+    system( "$RepeatMaskerConfig::WUBLAST_DIR/xdformat -p $LIBDIR/RepeatPeps.lib" );
   }
 
   my $additionalParams =
@@ -457,8 +466,7 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
 }
 
 $searchEngineX->setQuery( "$fastaFile.rmsimple" );
-$searchEngineX->setSubject(
-                   "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib" );
+$searchEngineX->setSubject( "$LIBDIR/RepeatPeps.lib" );
 $searchEngineX->setFilterWords( 1 );
 if ( defined $options{'pvalue'} )
 {

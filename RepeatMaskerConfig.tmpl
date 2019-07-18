@@ -24,12 +24,8 @@
 package RepeatMaskerConfig;
 use FindBin;
 require Exporter;
-@EXPORT_OK = qw( $REPEATMASKER_DIR $REPEATMASKER_MATRICES_DIR
-    $REPEATMASKER_LIB_DIR $WUBLAST_DIR $WUBLASTN_PRGM
-    $WUBLASTP_PRGM $WUBLASTX_PRGM $SETDB_PRGM $XDFORMAT_PRGM 
-    $DEMAKE $DECYPHER $LIBPATH $TRF_PRGM $DEBUGALL $VALID_SEARCH_ENGINES
-    $DEFAULT_SEARCH_ENGINES $RMBLAST_DIR $RMBLASTN_PRGM $RMBLASTDB_PRGM );
-
+@EXPORT_OK = qw( $WUBLAST_DIR $HMMER_DIR $CROSSMATCH_DIR $RMBLAST_DIR $TRF_PRGM 
+                 $DEBUGALL $DEFAULT_SEARCH_ENGINE );
 %EXPORT_TAGS = ( all => [ @EXPORT_OK ] );
 @ISA         = qw(Exporter);
 
@@ -37,24 +33,6 @@ BEGIN {
 ##----------------------------------------------------------------------##
 ##     CONFIGURE THE FOLLOWING PARAMETERS FOR YOUR INSTALLATION         ##
 ##                                                                      ##
-##
-## RepeatMasker Location
-## ======================
-## The path to the RepeatMasker programs and support files
-## This is the directory with this file as well as
-## the ProcessRepeats and Library/ and Matrices/ subdirectories
-## reside.
-##
-##    i.e. Typical UNIX installation
-##     $REPEATMASKER_DIR = "/usr/local/RepeatMasker";
-##    Windows w/Cygwin example:
-##     $REPEATMASKER_DIR = "/cygdrive/c/RepeatMasker";
-##
-  $REPEATMASKER_DIR          = "$FindBin::RealBin";
-  $REPEATMASKER_MATRICES_DIR = "$REPEATMASKER_DIR/Matrices";
-  $REPEATMASKER_LIB_DIR      = "$REPEATMASKER_DIR/Libraries";
-
-##
 ## Search Engine Configuration:
 ##   RepeatMasker uses either the CrossMatch, RMBlast, WUBlast/ABBlast, 
 ##   or the HMMER search engine to find matches to interspersed
@@ -73,11 +51,9 @@ BEGIN {
   ##   - On a windows machine running the cygwin emulation software
   ##     you might set this to something like this:
   ##
-  ##            $CROSSMATCH_DIR = "/cygdrive/c/phrap";
-  ##            $CROSSMATCH_PRGM = "cross_match.exe";
+  ##            $CROSSMATCH_DIR = "/usr/local/phrap";
   ##
     $CROSSMATCH_DIR = "/usr/local/bin";
-    $CROSSMATCH_PRGM = "$CROSSMATCH_DIR/cross_match";
 
   ##
   ## HMMER Location
@@ -85,8 +61,6 @@ BEGIN {
   ## Set the location of the HMMER programs and support utilities.
   ##
     $HMMER_DIR   = "/usr/local/hmmer";
-    $NHMMSCAN_PRGM = "$HMMER_DIR/nhmmscan";
-    $HMMPRESS_PRGM = "$HMMER_DIR/hmmpress";
 
   ##
   ## RMBlast Location
@@ -94,9 +68,6 @@ BEGIN {
   ## Set the location of the NCBI RMBLAST programs and support utilities.
   ##
     $RMBLAST_DIR   = "/usr/local/rmblast";
-    $RMBLASTN_PRGM = "$RMBLAST_DIR/rmblastn";
-    $RMBLASTX_PRGM = "$RMBLAST_DIR/blastx";
-    $RMBLASTDB_PRGM   = "$RMBLAST_DIR/makeblastdb";
  
   ##
   ## WUBLAST/ABBlast Location
@@ -104,11 +75,6 @@ BEGIN {
   ## Set the location of the WUBLAST/ABBlast programs and support utilities.
   ##
     $WUBLAST_DIR   = "/usr/local/abblast";
-    $WUBLASTN_PRGM = "$WUBLAST_DIR/blastn";
-    $WUBLASTP_PRGM = "$WUBLAST_DIR/blastp";
-    $WUBLASTX_PRGM = "$WUBLAST_DIR/blastx";
-    $XDFORMAT_PRGM = "$WUBLAST_DIR/xdformat";
-    $SETDB_PRGM    = "$WUBLAST_DIR/setdb";
   
 ##
 ## Default Search Engine
@@ -118,36 +84,11 @@ BEGIN {
 ##
   $DEFAULT_SEARCH_ENGINE = "crossmatch";
 
-
 ##
-## Library Path
+## TRF Location 
 ## ============
-##   - RepeatMasker now generates and caches
-##     species specific libraries.  The LIBPATH 
-##     parameter defines the search order for
-##     directories where library caches might
-##     be stored.  NOTE: RepeatMasker needs at
-##     least one of these directories to be writable
-##     and thus if it can't read a cached library
-##     from one of these locations, or write
-##     a new library in one of these locations it
-##     will default to building the libraries
-##     in the programs work directory every time
-##     it runs -- this could be slow if you commonly
-##     run against short sequences using the same
-##     species parameters.
 ##
-  @LIBPATH = ( $REPEATMASKER_LIB_DIR, 
-               $ENV{'HOME'} . "/.RepeatMaskerCache" );
-
-
-##
-## TRF Location ( OPTIONAL )
-## ============
-## Tandem Repeat Finder program.  This is only required by
-## the RepeatProteinMask program.
-##
-  $TRF_PRGM = "";
+  $TRF_PRGM = "/usr/local/bin/trf";
 
 ##
 ## Turns on debugging in all RepeatMasker modules/scripts
@@ -159,13 +100,22 @@ BEGIN {
 ##----------------------------------------------------------------------##
 
 ##----------------------------------------------------------------------##
-## Do not change these parameters
-##
-  $VALID_SEARCH_ENGINES = { "crossmatch" => 1, 
-                            "wublast" => 1
-                          };
-
+## DO NOT MODIFY ANYTHING BELOW THIS LINE
 ##----------------------------------------------------------------------##
+
+# Call as apply_config_override(\$var, env => "VAR_NAME");
+sub apply_config_override {
+    my ($var, %overrides) = @_;
+
+    # Only "env" supported, but this way we could add other overrides in the future
+    if (defined $overrides{"env"}) {
+        my $env_name = $overrides{"env"};
+        if (defined $ENV{$env_name}) {
+            ${$var} = $ENV{$env_name};
+        }
+    }
+}
+
 }
 
 1;

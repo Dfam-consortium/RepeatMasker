@@ -168,6 +168,9 @@ use PRSearchResult;
 use Matrix;
 
 # New home for RepeatAnnotationData
+# NOTE: If a user invokes RM using a special libdir 
+# the RepeatAnnotationData.pm is still in the program's
+# Libraries/ directory and will not get overriden.
 use lib "$FindBin::RealBin/Libraries";
 use RepeatAnnotationData;
 

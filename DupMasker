@@ -135,6 +135,15 @@ Produce alignments. These are stored in the output file.
 
 Creates an additional Gene Feature Finding (gff) output file.
 
+=item -libdir [path_to_library_directory]
+
+Use an alternate library directory to for the primary repeat libraries.
+These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
+distribution files. Normally these are stored/updated in the "Libraries/" 
+subdirectory of the main program which RepeatMasker will use by default.  
+This parameter should only be used when it's not possible to keep the 
+libraries in the same place as the program. 
+
 =back
 
 =head1 SEE ALSO
@@ -196,6 +205,9 @@ $Version = $CVSIdTag if ( $Version eq "" );
 #
 my $DEBUG        = 0;
 my $dupliconLib  = "$FindBin::RealBin/Libraries/dupliconlib.fa";
+if ( $options{'libdir'} ) {
+  $dupliconLib = $options{'libdir'} . "/dupliconlib.fa";
+}
 my $REPEATMASKER = "$FindBin::RealBin/RepeatMasker";
 
 die "\n\nThe dupliconlib doesn't appear to be installed in the\n"
@@ -226,6 +238,7 @@ my @getopt_args = (
                     '-maxDiv=i',      # maximal duplicon seed divergence
                     '-maxWidth=i',    # realignNonRepMaxWidth zj 5-10-07
                     '-forceSearch',
+                    '-libdir=s',
                     '-engine=s',
                     '-gff',
                     '-align'
@@ -265,10 +278,10 @@ if ( $engine )
     $engine        = "abblast";
     $searchEngineN =
         WUBlastSearchEngine->new(
-                      pathToEngine => $RepeatMaskerConfig::WUBLASTN_PRGM );
+                      pathToEngine => "$RepeatMaskerConfig::WUBLAST_DIR/blastn" );
     if ( not defined $searchEngineN )
     {
-      die "Cannot execute $RepeatMaskerConfig::WUBLASTN_PRGM please make "
+      die "Cannot execute $RepeatMaskerConfig::WUBLAST_DIR/blastn please make "
           . "sure you have setup RepeatModeler to use AB/WUBlast "
           . "by running the configure script.\n";
     }
@@ -278,10 +291,10 @@ if ( $engine )
     $engine        = "ncbi";
     $searchEngineN =
         NCBIBlastSearchEngine->new(
-                      pathToEngine => $RepeatMaskerConfig::RMBLASTN_PRGM );
+                      pathToEngine => "$RepeatMaskerConfig::RMBLAST_DIR/rmblastn" );
     if ( not defined $searchEngineN )
     {
-      die "Cannot execute $RepeatMaskerConfig::RMBLASTN_PRGM please make "
+      die "Cannot execute $RepeatMaskerConfig::RMBLAST_DIR/rmblastn please make "
           . "sure you have setup RepeatModeler to use NCBI (RMBlast) by "
           . "running the configure script.\n";
     }
@@ -813,18 +826,18 @@ foreach my $reAlignRange ( @ranges )
   ##
   if ( $searchEngineN->isa( "NCBIBlastSearchEngine" ) )
   {
-      system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype nucl "
+      system(   "$RepeatMaskerConfig::RMBLAST_DIR/makeblastdb -dbtype nucl "
               . "-in $tmpLibFile > /dev/null 2>&1" ) == 0
           or die "DupMasker:: Error invoking "
-          . $RepeatMaskerConfig::RMBLASTDB_PRGM
+          . "$RepeatMaskerConfig::RMBLAST_DIR/makeblastdb"
           . " on file $tmpLibFile.\n";
   }else
   {
-      system(   "$RepeatMaskerConfig::XDFORMAT_PRGM -n $tmpLibFile > "
+      system(   "$RepeatMaskerConfig::WUBLAST_DIR/xdformat -n $tmpLibFile > "
               . "/dev/null 2>&1" ) == 0
           or die "DupMasker: Error invoking xdformat on file "
           . "$tmpLibFile.  We tried using the xdformat program ( "
-          . $RepeatMaskerConfig::XDFORMAT_PRGM . " ).\n";
+          . "$RepeatMaskerConfig::WUBLAST_DIR/xdformat ).\n";
   }
 
   $searchEngineN->setQuery( "$tmpQueryFile" );
