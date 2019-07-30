@@ -486,7 +486,10 @@ sub maskSequence
   my @seqIDs     = $seqDB->getIDs();
   my $seq_cnt    = scalar( @seqIDs );
   my $sublength  = $seqDB->getSubtLength();
-  my $totGCLevel = 100 * $seqDB->getGCLength() / $sublength;
+  my $totGCLevel = 0;
+  if ( $sublength > 0 ) {
+    $totGCLevel = 100 * $seqDB->getGCLength() / $sublength;
+  }
   $totGCLevel = sprintf "%4.2f", $totGCLevel;
   my $totalSeqLen     = 0;
   my $totBPMasked     = 0;

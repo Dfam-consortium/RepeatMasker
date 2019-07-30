@@ -5,13 +5,11 @@ Developed by Arian Smit and Robert Hubley
 Please refer to: Smit, AFA, Hubley, R. & Green, P "RepeatMasker" at
 http://www.repeatmasker.org
 
-NOTE: GitHub 'master' branch is a development branch and not a release.  
-      Some large data files such as the Taxonomy database, TE metadata
-      and default libraries are not in the repository.  Please download 
-      an official release from:
-
-        http://www.repeatmasker.org/RMDownload.html
-
+The github 'master' branch is no longer a development branch.  It
+now represents the current release of RepeatMasker.  All development
+is done on a seperate 'development' branch and should not be 
+considered stable.  Official distributions of RepeatMasker may be
+found at: http://www.repeatmasker.org/RMDownload.html
 ```
 
 RepeatMasker

@@ -80,6 +80,15 @@ to the scripts directory as:
 
            ../taxonomy.dat
 
+=item -libdir [path_to_library_directory]
+
+Use an alternate library directory to for the primary repeat libraries.
+These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
+distribution files. Normally these are stored/updated in the "Libraries/" 
+subdirectory of the main program which RepeatMasker will use by default.  
+This parameter should only be used when it's not possible to keep the 
+libraries in the same place as the program. 
+
 =back
 
 =head1 SEE ALSO
@@ -123,6 +132,7 @@ my @getopt_args = (
                     '-version',      # print out the version and exit
                     '-species=s',
                     '-isa=s',
+                    '-libdir=s',
                     '-taxDBFile=s'
 );
 
@@ -145,7 +155,16 @@ if ( $options{'version'} ) {
 
 usage() if ( !exists $options{'species'} );
 
-my $taxFile = "$FindBin::Bin/../Libraries/taxonomy.dat";
+# Allow the user to override the default library directory ( currently only by the command line )
+my $LIBDIR = "$FindBin::Bin/../Libraries";
+if ( $options{'libdir'} ) {
+  $LIBDIR = $options{'libdir'};
+  if ( ! -d $LIBDIR ) {
+    die "The specified library directory $options{'libdir'} does not exist!\n";
+  }
+}
+
+my $taxFile = "$LIBDIR/taxonomy.dat";
 if ( defined $options{'taxDBFile'} && -s $options{'taxDBFile'} ) {
   $taxFile = $options{'taxDBFile'};
 }

@@ -531,7 +531,7 @@ sub getParameters {
 
   # Test if engine is available
   my $engine = $this->getPathToEngine();
-  if ( !defined $engine || !-f "$engine" ) {
+  if ( !defined $engine || !-e "$engine" ) {
     croak $CLASS
         . "::search: The path to the search engine is undefined or\n"
         . "is set incorrectly: $engine\n";
@@ -543,7 +543,7 @@ sub getParameters {
   my $parameterName = "";
 
   if ( defined( $value = $this->getSequenceFile() ) ) {
-    if ( -f $value ) {
+    if ( -e $value ) {
       $value = File::Spec->rel2abs( $value );
       $parameters .= "$value ";
     }
@@ -654,7 +654,7 @@ sub search {
   my $value       = "";
 
   if ( defined( $value = $this->getSequenceFile() ) ) {
-    if ( -f $value ) {
+    if ( -e $value ) {
       $value       = File::Spec->rel2abs( $value );
       $seqFileName = basename( $value );
     }
@@ -678,7 +678,7 @@ sub search {
   my $errFile;
   do {
     $errFile = "trfResults-" . time() . "-$$.err";
-  } while ( -f $workDir . "/$errFile" );
+  } while ( -e $workDir . "/$errFile" );
   my $pid;
 
   print $CLASS
@@ -692,7 +692,7 @@ sub search {
   my $outFile;
   do {
     $outFile = $workDir . "/trfResults-" . time() . "-$$.out";
-  } while ( -f $outFile );
+  } while ( -e $outFile );
 
   open OUT, ">$outFile";
   while ( <$POUTPUT> ) {
@@ -813,8 +813,8 @@ sub search {
   if ( ($resultCode & 127) || ($resultCode == -1) ) {
     return ( $resultCode, $searchResultColl, $outFile, "$workDir/$errFile" );
   }else { 
-    unlink "$workDir/$errFile" if ( -f "$workDir/$errFile" );
-    unlink $outFile if ( -f $outFile );
+    unlink "$workDir/$errFile" if ( -e "$workDir/$errFile" );
+    unlink $outFile if ( -e $outFile );
     return ( $resultCode, $searchResultColl );
   }
 

@@ -51,9 +51,15 @@ The options are:
 
 Displays the version of the program
 
-=item -minDiv #
+=item -minDiv # 
+
+Filter out annotations with a mismatch level less than a given
+value ( 0 - 1 ).
 
 =item -maxDiv #
+
+Filter out annotations with a mismatch level greater than a given
+value ( 0 - 1 ).
 
 =item -species <species_name>
 
@@ -72,8 +78,17 @@ but want it filtered from the output, simply don't include chrUn_*
 in your *.tsv file or *.2bit file.
 
 NOTE: This program relies on the UCSC program twoBitInfo when you
-      use 2bit files.  Please make sure this program is in your path if
-      you plan to use this type of file.
+use 2bit files.  Please make sure this program is in your path if
+you plan to use this type of file.
+
+=item -libdir [path_to_library_directory]
+
+Use an alternate library directory to for the primary repeat libraries.
+These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
+distribution files. Normally these are stored/updated in the "Libraries/" 
+subdirectory of the main program which RepeatMasker will use by default.  
+This parameter should only be used when it's not possible to keep the 
+libraries in the same place as the program. 
 
 =back
 
@@ -138,6 +153,7 @@ my @getopt_args = (
                     '-useAbsoluteGenomeSize',
                     '-species=s',
                     '-genome=s',
+                    '-libdir=s',
                     '-maxDiv=s',
                     '-minDiv=s'
 );
@@ -164,15 +180,24 @@ my $maxDiv;
 $minDiv = $options{'minDiv'} if ( defined $options{'minDiv'} );
 $maxDiv = $options{'maxDiv'} if ( defined $options{'maxDiv'} );
 
+# Allow the user to override the default library directory ( currently only by the command line )
+my $LIBDIR = "$FindBin::Bin/../Libraries";
+if ( $options{'libdir'} ) {
+  $LIBDIR = $options{'libdir'};
+  if ( ! -d $LIBDIR ) {
+    die "The specified library directory $options{'libdir'} does not exist!\n";
+  }
+}
+
 my $taxDB;
 my $repDB;
 if ( defined $options{'species'} ) {
   $taxDB =
       Taxonomy->new(
-                taxonomyDataFile => "$FindBin::Bin/../Libraries/taxonomy.dat" );
+                taxonomyDataFile => "$LIBDIR/taxonomy.dat" );
   $repDB =
       EMBL->new(
-                fileName => "$FindBin::Bin/../Libraries/RepeatMaskerLib.embl" );
+                fileName => "$LIBDIR/RepeatMaskerLib.embl" );
 }
 
 my %seqUnambigSizes = ();
