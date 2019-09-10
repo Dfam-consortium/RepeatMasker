@@ -141,6 +141,7 @@ sub new {
 
   Use:  $obj->writeBatchFile( $batchNum, $batchFilename );
 
+  NOTE: Batches start at 1
 =cut
 
 ##-------------------------------------------------------------------------##
