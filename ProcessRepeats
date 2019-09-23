@@ -256,8 +256,10 @@ if ( $options{'species'} ) {
   }
 }
 else {
-  $options{'species'} = "homo";
-  $options{'primate'} = 1;
+  if ( ! $options{'lib'} ) {
+    $options{'species'} = "homo";
+    $options{'primate'} = 1;
+  }
 }
 
 # warning for debug mode
