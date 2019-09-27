@@ -163,6 +163,7 @@ my %classDivWCLen  = ();
 my $prevQueryName  = "";
 my $prevQueryBegin = "";
 my $prevQueryEnd   = "";
+my $prevHitName    = "";
 my $prevDiv        = "";
 my $prevClass      = "";
 
@@ -355,12 +356,18 @@ sub processAlignment {
       else {
 
         # Current gets overlap bases - subtract overlap from previous
+
+        # TODO: (JR 20191003) This is not quite correct, because it assumes
+        # the previous hit got the overlap. That isn't necessarily always
+        # the case, for example where there are 3 or more overlapping hits.
+        # This usually introduces only relatively minor errors, however.
+
         my $key = "$prevClass $prevDiv";
         $classDivWCLen{$key}                        -= $overlapAbsLen;
-        $repeatMuts{$class}->{$hitname}->{'sumdiv'} -=
+        $repeatMuts{$prevClass}->{$prevHitName}->{'sumdiv'} -=
             $prevDiv * $overlapAbsLen;
-        $repeatMuts{$class}->{$hitname}->{'wellCharLen'} -= $overlapAbsLen;
-        $repeatMuts{$class}->{$hitname}->{'absLen'}      -= $overlapAbsLen;
+        $repeatMuts{$prevClass}->{$prevHitName}->{'wellCharLen'} -= $overlapAbsLen;
+        $repeatMuts{$prevClass}->{$prevHitName}->{'absLen'}      -= $overlapAbsLen;
       }
     }
   }
@@ -368,6 +375,7 @@ sub processAlignment {
   $prevDiv        = $div;
   $prevQueryBegin = $queryStart;
   $prevQueryEnd   = $queryEnd;
+  $prevHitName    = $hitname;
   $prevClass      = $class;
 
   $repeatMuts{$class}->{$hitname}->{'sumdiv'}      += $div * $wellCharBases;
