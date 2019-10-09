@@ -166,17 +166,19 @@ use Taxonomy;
 use Data::Dumper;
 use PRSearchResult;
 use Matrix;
+use RepeatMaskerConfig;
 
-# New home for RepeatAnnotationData
-# NOTE: If a user invokes RM using a special libdir 
-# the RepeatAnnotationData.pm is still in the program's
-# Libraries/ directory and will not get overriden.
-use lib "$FindBin::RealBin/Libraries";
+# This is a special database-specific module
+my $LIBDIR;
+BEGIN {
+  my $config = $RepeatMaskerConfig::configuration;
+  $LIBDIR = $config->{'LIBDIR'}->{'value'};
+}
+use lib $LIBDIR;
 use RepeatAnnotationData;
 
 # Global variables
 my $DEBUG     = 0;
-my $DIRECTORY = "$FindBin::Bin";
 
 #
 #  Refinement Hash:
@@ -243,7 +245,7 @@ if ( $options{'species'} ) {
 
   # Need to set opt_species, opt_mammal, opt_mus
   $tax =
-      Taxonomy->new( taxonomyDataFile => "$DIRECTORY/Libraries/taxonomy.dat" );
+      Taxonomy->new( taxonomyDataFile => "$LIBDIR/taxonomy.dat" );
 
   if ( $tax->isA( $options{'species'}, "primates" ) ) {
     $options{'primate'} = 1;

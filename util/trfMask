@@ -8,7 +8,7 @@
 ##  Description:
 ##
 #******************************************************************************
-#* Copyright (C) Institute for Systems Biology 2012 Developed by
+#* Copyright (C) Institute for Systems Biology 2012-2019 Developed by
 #* Arian Smit and Robert Hubley.
 #*
 #* This work is licensed under the Open Source License v2.1.  To view a copy
@@ -16,12 +16,6 @@
 #* see the license.txt file contained in this distribution.
 #*
 ###############################################################################
-#
-###############################################################################
-#
-# To Do:
-#
-#
 
 =head1 NAME
 
@@ -47,6 +41,8 @@ Detailed help
 
 =back
 
+=head1 CONFIGURATION OVERRIDES
+
 =head1 SEE ALSO
 
 =over 4
@@ -57,7 +53,7 @@ RepeatMasker
 
 =head1 COPYRIGHT
 
-Copyright 2012 Institute for Systems Biology
+Copyright 2012-2019 Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -73,6 +69,7 @@ use FindBin;
 use lib $FindBin::RealBin;
 use lib "$FindBin::Bin/../";
 use Data::Dumper;
+use Pod::Text;
 use Cwd;
 use Carp;
 use Getopt::Long;
@@ -97,6 +94,7 @@ use Matrix;
 my $CLASS = "trfMask";
 my $DEBUG = 0;
 $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
+my $version = $RepeatMaskerConfig::VERSION;
 
 #
 # Option processing
@@ -106,6 +104,37 @@ $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
 #   -t=i: Number paramters
 #
 my @opts = qw( help xsmall dfam_mask ucsc_mask bed );
+# Add configuration parameters as additional command-line options
+push @opts, RepeatMaskerConfig::getCommandLineOptions();
+
+#
+# Provide the POD text from this file and 
+# from the config file by merging them 
+# together.  The heading "CONFIGURATION
+# OVERRIDES" provides the insertion point
+# for the configuration POD.
+#
+sub usage {
+  my $p = Pod::Text->new();
+  $p->output_fh(*STDOUT);
+  my $pod_str;
+  open IN,"<$0" or die "Could not open self ($0) for generating documentation!";
+  while (<IN>){
+    if ( /^=head1\s+CONFIGURATION OVERRIDES\s*$/ )
+    {
+      my $c_pod = RepeatMaskerConfig::getPOD();
+      if ( $c_pod ) {
+        $pod_str .= $_ . $c_pod;
+      }
+    }else {
+      $pod_str .= $_;
+    }
+  }
+  close IN;
+  print "$0 - $version\n";
+  $p->parse_string_document($pod_str);
+  exit(1);
+}
 
 #
 # Get the supplied command line options, and set flags
@@ -113,21 +142,23 @@ my @opts = qw( help xsmall dfam_mask ucsc_mask bed );
 my %options = ();
 unless ( &GetOptions( \%options, @opts ) )
 {
-  exec "pod2text $0";
-  exit( 1 );
+  usage();
 }
 
 # Print the internal POD documentation if something is missing
 if ( $options{'help'} || !$#ARGV < 1 )
 {
-
-  # This is a nifty trick so we don't have to have
-  # a duplicate "USAGE()" subroutine.  Instead we
-  # just recycle our POD docs.  See PERL POD for more
-  # details.
-  exec "pod2text $0";
-  die;
+  usage();
 }
+
+#
+# Resolve configuration settings using the following precedence: 
+# command line first, then environment, followed by config
+# file.
+#
+RepeatMaskerConfig::resolveConfiguration(\%options);
+my $config = $RepeatMaskerConfig::configuration;
+my $TRF_PRGM = $config->{'TRF_PRGM'}->{'value'};
 
 my $dfamMask = 0;
 $dfamMask = 1 if ( $options{'dfam_mask'} );
@@ -166,7 +197,7 @@ die "Could not create tempdir!\n" if ( !-d $scratchDir );
 my $wrkFastaFile = "$scratchDir/$fileName.tmpmasked";
 system( "cp $fastaFile $wrkFastaFile" );
 
-my $trf = TRF->new( pathToEngine => $RepeatMaskerConfig::TRF_PRGM,
+my $trf = TRF->new( pathToEngine => $TRF_PRGM,
                     workDir      => $scratchDir );
 
 # dfamMask:
