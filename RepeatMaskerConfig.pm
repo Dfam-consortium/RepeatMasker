@@ -60,8 +60,8 @@ BEGIN {
                              'description' => 'The path to the installation of the ABBLAST sequence alignment program.',
                              'environment_override' => 'ABBLAST_DIR',
                              'expected_binaries' => [
-                                                      'blastp',
-                                                      'xdformat'
+                                                      'xdformat',
+                                                      'blastp'
                                                     ],
                              'expected_files' => [],
                              'param_type' => 'directory',
@@ -78,13 +78,13 @@ BEGIN {
                                 'expected_files' => [],
                                 'param_type' => 'directory',
                                 'required' => 0,
-                                'value' => '/usr/local/bin'
+                                'value' => '/usr/local/phrap'
                               },
           'DEFAULT_SEARCH_ENGINE' => {
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => 'crossmatch'
+                                       'value' => 'rmblast'
                                      },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
@@ -93,9 +93,10 @@ BEGIN {
                            'expected_binaries' => [
                                                     'nhmmer'
                                                   ],
+                           'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => '/usr/local/hmmer'
+                           'value' => '/usr/local/hmmer/bin'
                          },
           'LIBDIR' => {
                         'command_line_override' => 'libdir',
@@ -348,6 +349,18 @@ sub validateParam{
   return $validParam;
 }
  
+#
+# Clear all settings
+#
+sub clearValues{
+  foreach my $param ( keys %$configuration ) {
+    if ( $configuration->{$param}->{'value'} )
+    {
+      $configuration->{$param}->{'value'} = '';
+    }
+  }
+  &updateConfigFile();
+}
 
 #
 # Update this file ( beware: self modifying code ) new
