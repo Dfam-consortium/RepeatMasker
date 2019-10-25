@@ -81,6 +81,7 @@ BEGIN {
                                 'value' => ''
                               },
           'DEFAULT_SEARCH_ENGINE' => {
+                                       'command_line_override' => 'default_search_engine',
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
