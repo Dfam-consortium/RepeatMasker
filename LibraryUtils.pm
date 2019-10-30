@@ -428,7 +428,7 @@ sub rebuildMainLibrary {
     $combinedDb->addAll( $db );
     my $libVersion = getLibraryVersionStr( "$libDir/$artefactsLibrary" );
     $headerSources .=
-"CC    Artefacts RELEASE $libVersion;                                 *\n";
+"CC    Artefacts RELEASE $libVersion;                                 *";
   }
 
   my %dfam2xNames = ();
@@ -461,7 +461,7 @@ sub rebuildMainLibrary {
     $combinedDb->addAll( $db );
     my $libVersion = getLibraryVersionStr( "$libDir/$dfamCONLibrary" );
     $headerSources .=
-"CC    Dfam RELEASE $libVersion;                                      *\n";
+"\nCC    Dfam RELEASE $libVersion;                                      *";
   }
 
   if ( -s "$libDir/$RMRBSeqLibrary" ) {
@@ -482,7 +482,7 @@ sub rebuildMainLibrary {
 
     my $libVersion = getLibraryVersionStr( "$libDir/$RMRBSeqLibrary" );
     $headerSources .=
-"CC    RepBase RELEASE $libVersion;                                   *";
+"\nCC    RepBase RELEASE $libVersion;                                   *";
 
     my $savBuf = $|;
     $| = 1;
