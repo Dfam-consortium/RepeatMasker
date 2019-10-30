@@ -1,3 +1,10 @@
+4.1.0
+  - Refactored the RepeatMasker configuration system.  
+    The changes make it easier to automate installation and/or
+    bundle RepeatMasker.
+
+4.0.9-p2
+  - Another improvement in TRF error handling
 
 4.0.9-p1 : Tue Apr 16 08:51:22 PDT 2019
   - Input files containing multiple FASTA sequences

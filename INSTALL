@@ -8,7 +8,7 @@ Pre-requisites
 
   - Perl 5.8.0 or higher installed.
 
-  - TRF 4.04 or higher ( http://tandem.bu.edu/trf/trf.html )
+  - TRF 4.09 or higher ( http://tandem.bu.edu/trf/trf.html )
   
   - A search engine.  We currently support:
 
@@ -19,10 +19,10 @@ Pre-requisites
               ( Dfam required )
        abblast/wublast : http://blast.advbiocomp.com/licensing/
 
-  - Dfam and/or RepeatMasker libraries.  Dfam 1.0 is
-    included in this release ( human repeats only ). 
+  - Dfam and/or RepeatMasker libraries.  Dfam 3.1 is
+    included in this release.
     Updates can be found at: www.dfam.org.
-    The full RepeatMasker Library can be obtained
+    The RepBase RepeatMasker Library can be obtained
     at: http://www.girinst.org
        
 
