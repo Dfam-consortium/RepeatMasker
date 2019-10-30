@@ -39,7 +39,7 @@
 #          'percDiv' => '16.31',
 #          'percKimuraDiv' => '16.31',
 #          'subjSeq' => 'AGCGGT...AA',
-#          'matrix' => '35p40g.matrix',
+#          'matrixName' => '35p40g.matrix',
 #          'evalue' => '3e-10',
 #          'PValue' => '0.01',
 #          'ppSeq' => '',
@@ -80,7 +80,7 @@ Usage:
                                  subjRemaining=>value, subjType=>value,
                                  queryRemaining=>value, id=>value,
                                  orientation=>value, queryString=>value,
-                                 subjString=>value, matrix=>value,
+                                 subjString=>value, matrixName=>value,
                                  id=>value, lineageId=>value );
 
 =head1 DESCRIPTION
