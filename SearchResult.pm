@@ -39,7 +39,7 @@
 #          'percDiv' => '16.31',
 #          'percKimuraDiv' => '16.31',
 #          'subjSeq' => 'AGCGGT...AA',
-#          'matrix' => '35p40g.matrix',
+#          'matrixName' => '35p40g.matrix',
 #          'evalue' => '3e-10',
 #          'PValue' => '0.01',
 #          'ppSeq' => '',
@@ -80,7 +80,7 @@ Usage:
                                  subjRemaining=>value, subjType=>value,
                                  queryRemaining=>value, id=>value,
                                  orientation=>value, queryString=>value,
-                                 subjString=>value, matrix=>value,
+                                 subjString=>value, matrixName=>value,
                                  id=>value, lineageId=>value );
 
 =head1 DESCRIPTION
@@ -1374,6 +1374,144 @@ sub rawToBitScore {
   my $mu     = shift;
 
   return ( ( ( $this->getScore() * $lambda ) - log( $mu ) ) / log( 2 ) );
+}
+
+
+##-------------------------------------------------------------------------##
+
+=head2
+
+  Use: my ( $K2PGap, $transitions, $transversions, 
+            $wellCharacterizedBases, $CpGSites, $gapLen ) 
+                 = calcK2PGapDivergence( [divCpGMod => 1] );
+
+            divCpGMod:   Treat CpG sites specially.  At a 
+                     CpG site single transitions will be
+                     counted as 1/10 of a transition and
+                     two transitions will be counted as
+                     one.  Transversions are unaffected
+                     by this option and will be counted
+                     normally.
+
+  A gap-aware extension to the Kimura divergence metric ( Nishimaki, 
+  Sato 2019 ).  NOTE: This treats each gap site as independent. The
+  net effect will be that a 2 - 3bp gaps have the same divergence
+  as 1 - 6bp gap.  
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub calcK2PGapDivergence {
+  my $this            = shift;
+  my %nameValueParams = @_;
+
+  my $subroutine = ( caller( 0 ) )[ 0 ] . "::" . ( caller( 0 ) )[ 3 ];
+
+  my $divCpGMod = $nameValueParams{'divCpGMod'};
+
+  my $DEBUG = 0;
+
+  my $transitions            = 0;
+  my $transversions          = 0;
+  my $CpGSites               = 0;
+  my $wellCharacterizedBases = 0;
+  my $pSBase                 = "";
+  my $prevTrans              = 0;
+  my @sBases                 = split //, $this->{'subjSeq'};
+  my @qBases                 = split //, $this->{'querySeq'};
+  my $alignLen               = length($this->{'subjSeq'});
+  my $siteCount              = $alignLen * 2;
+  my $gapLen                 = 0;
+  foreach my $i ( 0 .. ( length( $this->{'subjSeq'} ) - 1 ) ) {
+    next if ( $sBases[ $i ] eq "-" && $qBases[ $i ] eq "-" );
+    if ( $sBases[ $i ] eq "-" || $qBases[ $i ] eq "-" ) 
+    {
+      $gapLen++;
+      next;
+    }
+
+    $wellCharacterizedBases++
+        if ( $wellCharacterizedBases{ $qBases[ $i ] . $sBases[ $i ] } );
+
+    if ( $divCpGMod && $pSBase eq "C" && $sBases[ $i ] eq "G" ) {
+
+      # CpG
+      $CpGSites++;
+      my $mt = $mutType{ $qBases[ $i ] . $sBases[ $i ] } || 0;
+      if ( $mt == 1 ) {
+        $prevTrans++;
+      }
+      elsif ( $mt == 2 ) {
+        $transversions++;
+      }
+      if ( $prevTrans == 2 ) {
+
+        # CpG sites contains 2 transitions ( treat as 1 trans )
+        $prevTrans = 1;
+      }
+      elsif ( $prevTrans == 1 ) {
+
+        # CpG sites contains 1 transition ( treat as 1/10 trans )
+        $prevTrans = 1 / 10;
+      }
+    }
+    else {
+      $transitions += $prevTrans;
+      $prevTrans = 0;
+
+      # Normal
+      my $mt = $mutType{ $qBases[ $i ] . $sBases[ $i ] } || 0;
+      if ( $mt == 1 ) {
+
+        # Delay recording transition for CpG accounting
+        $prevTrans = 1;
+      }
+      elsif ( $mt == 2 ) {
+        $transversions++;
+      }
+    }
+    $pSBase = $sBases[ $i ];
+  }
+  $transitions += $prevTrans;
+  
+  # K2P-Gap
+  #   
+  # The formula as stated in the paper:
+  #   K = 3/4*w*log(w)-w/2*log(S-P)*sqrt(S+P-Q)
+  #
+  # This is how it's implemented here and has been validated
+  # against results from personal communication with Sato:
+  #
+  #   K = 3/4*w*ln(w)-w/2*ln[(S-P)*sqrt(S+P-Q)]
+  #
+  # Where:
+  #    w = gap sites / (cons+subject sites)
+  #    S = identities / alignment length
+  #    P = transitions / alignment length
+  #    Q = transversions / alignment length
+  #
+  my $K2PGap = 100.00;
+  if ( $wellCharacterizedBases >= 1 ) {
+    my $P          = $transitions / $alignLen;
+    my $Q          = $transversions / $alignLen; 
+    my $S          = ($wellCharacterizedBases - ($transitions + $transversions)) / $alignLen;
+    my $w          = ($siteCount - $gapLen ) / $siteCount;
+    #print "P=$P Q=$Q S=$S w=$w\n";
+    my $logTerm1 = 1;
+    if ( $w > 0 ) {
+      $logTerm1 = log($w);
+    }
+    my $logTerm2 = 1;
+    my $logOp = ($S-$P)*(($S+$P-$Q)**0.5);
+    if ( $logOp > 0 ) {
+      $logTerm2 = log($logOp);
+    }
+    #print "LogTerm2 = $logTerm2\n";
+    $K2PGap = (0.75 * $w * $logTerm1) - (($w/2)*$logTerm2);
+  }
+
+  return ( $K2PGap*100, $transitions, $transversions, $wellCharacterizedBases,
+           $CpGSites, $gapLen );
 }
 
 ##-------------------------------------------------------------------------##

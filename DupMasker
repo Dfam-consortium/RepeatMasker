@@ -137,13 +137,15 @@ Creates an additional Gene Feature Finding (gff) output file.
 
 =back
 
+=head1 CONFIGURATION OVERRIDES
+
 =head1 SEE ALSO
 
 RepeatMasker
 
 =head1 COPYRIGHT
 
-Copyright 2007-2008 Robert Hubley, Institute for Systems Biology
+Copyright 2007-2019 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -157,6 +159,7 @@ Robert Hubley <rhubley@systemsbiology.org>
 use strict;
 use FindBin;
 use lib $FindBin::RealBin;
+use Pod::Text;
 use Getopt::Long;
 use Data::Dumper;
 
@@ -174,45 +177,7 @@ use FastaDB;
 #
 # Version
 #
-#  This is a neat trick.  CVS allows you to tag
-#  files in a repository ( i.e. cvs tag "2003/12/03" ).
-#  If you check out that release into a new
-#  directory with "cvs co -r "2003/12/03" it will
-#  place this string into the $Name:  $ space below
-#  automatically.  This will help us keep track
-#  of which release we are using.  If we simply
-#  check out the code as "cvs co Program" the
-#  $Name:  $ macro will be blank so we should default
-#  to what the ID tag for this file contains.
-#
-my $CVSNameTag = '$Name:  $';
-my $CVSIdTag   = '$Id: DupMasker,v 1.11 2013/11/06 17:48:25 rhubley Exp $';
-my $Version    = $CVSNameTag;
-$Version = $CVSIdTag if ( $Version eq "" );
-
-#
-# Magic numbers/constants here
-#  ie. my $PI = 3.14159;
-#
-my $DEBUG        = 0;
-my $dupliconLib  = "$FindBin::RealBin/Libraries/dupliconlib.fa";
-my $REPEATMASKER = "$FindBin::RealBin/RepeatMasker";
-
-die "\n\nThe dupliconlib doesn't appear to be installed in the\n"
-    . "RepeatMasker Libraries/ directory.  Please download and install\n"
-    . "this library before proceeding.\n\n"
-    if ( !-s $dupliconLib );
-
-## Seed clustering parameters
-my $maxSeedInsertion       = 7000;
-my $maxDupliconSeedOverlap = 30;
-
-## Seed realignment boundaries parameters
-# realignNonRepMaxWidth: A boundary for realignment ends at the consensus
-#                        boundaries or the first occurance of a
-#                        non-repetitive,non-seed sequence window of
-#                        this size.
-my $realignNonRepMaxWidth = 300;
+my $version = $RepeatMaskerConfig::VERSION;
 
 #
 # Option processing
@@ -230,6 +195,37 @@ my @getopt_args = (
                     '-gff',
                     '-align'
 );
+# Add configuration parameters as additional command-line options
+push @getopt_args, RepeatMaskerConfig::getCommandLineOptions();
+
+#
+# Provide the POD text from this file and 
+# from the config file by merging them 
+# together.  The heading "CONFIGURATION
+# OVERRIDES" provides the insertion point
+# for the configuration POD.
+#
+sub usage {
+  my $p = Pod::Text->new();
+  $p->output_fh(*STDOUT);
+  my $pod_str;
+  open IN,"<$0" or die "Could not open self ($0) for generating documentation!";
+  while (<IN>){
+    if ( /^=head1\s+CONFIGURATION OVERRIDES\s*$/ )
+    {
+      my $c_pod = RepeatMaskerConfig::getPOD();
+      if ( $c_pod ) {
+        $pod_str .= $_ . $c_pod;
+      }
+    }else {
+      $pod_str .= $_;
+    }
+  }
+  close IN;
+  print "$0 - $version\n";
+  $p->parse_string_document($pod_str);
+  exit(1);
+}
 
 my %options = ();
 Getopt::Long::config( "noignorecase", "bundling_override" );
@@ -238,24 +234,58 @@ unless ( GetOptions( \%options, @getopt_args ) )
   usage();
 }
 
-sub usage
+if ( $options{'version'} )
 {
-  print "$0 - $Version\n";
-  exec "pod2text $0";
+  print "$version\n";
   exit;
 }
 
-if ( $options{'version'} )
-{
-  print "$Version\n";
-  exit;
-}
+#
+# Resolve configuration settings using the following precedence: 
+# command line first, then environment, followed by config
+# file.
+#
+RepeatMaskerConfig::resolveConfiguration(\%options);
+my $config = $RepeatMaskerConfig::configuration;
+my $LIBDIR = $config->{'LIBDIR'}->{'value'};
+
+#
+# Magic numbers/constants here
+#  ie. my $PI = 3.14159;
+#
+my $DEBUG        = 0;
+$DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
+my $dupliconLib  = "$LIBDIR/dupliconlib.fa";
+my $REPEATMASKER = "$FindBin::RealBin/RepeatMasker";
+
+die "\n\nThe dupliconlib doesn't appear to be installed in the\n"
+    . "RepeatMasker libraries directory ( $LIBDIR ).  Please download and install\n"
+    . "this library before proceeding.\n\n"
+    if ( !-s $dupliconLib );
+
+## Seed clustering parameters
+my $maxSeedInsertion       = 7000;
+my $maxDupliconSeedOverlap = 30;
+
+## Seed realignment boundaries parameters
+# realignNonRepMaxWidth: A boundary for realignment ends at the consensus
+#                        boundaries or the first occurance of a
+#                        non-repetitive,non-seed sequence window of
+#                        this size.
+my $realignNonRepMaxWidth = 300;
+
+
+my $ABBLASTN_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastn";
+my $XDFORMAT_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
+my $RMBLASTN_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/rmblastn";
+my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
+
 
 #
 # Setup the search engines
 #
 my $searchEngineN;
-my $engine = $RepeatMaskerConfig::DEFAULT_SEARCH_ENGINE;
+my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};
 $engine = $options{'engine'} if ( $options{'engine'} );
 my $MATRICES;
 if ( $engine )
@@ -265,10 +295,10 @@ if ( $engine )
     $engine        = "abblast";
     $searchEngineN =
         WUBlastSearchEngine->new(
-                      pathToEngine => $RepeatMaskerConfig::WUBLASTN_PRGM );
+                      pathToEngine => $ABBLASTN_PRGM );
     if ( not defined $searchEngineN )
     {
-      die "Cannot execute $RepeatMaskerConfig::WUBLASTN_PRGM please make "
+      die "Cannot execute $ABBLASTN_PRGM please make "
           . "sure you have setup RepeatModeler to use AB/WUBlast "
           . "by running the configure script.\n";
     }
@@ -278,10 +308,10 @@ if ( $engine )
     $engine        = "ncbi";
     $searchEngineN =
         NCBIBlastSearchEngine->new(
-                      pathToEngine => $RepeatMaskerConfig::RMBLASTN_PRGM );
+                      pathToEngine => $RMBLASTN_PRGM );
     if ( not defined $searchEngineN )
     {
-      die "Cannot execute $RepeatMaskerConfig::RMBLASTN_PRGM please make "
+      die "Cannot execute $RMBLASTN_PRGM please make "
           . "sure you have setup RepeatModeler to use NCBI (RMBlast) by "
           . "running the configure script.\n";
     }
@@ -813,18 +843,18 @@ foreach my $reAlignRange ( @ranges )
   ##
   if ( $searchEngineN->isa( "NCBIBlastSearchEngine" ) )
   {
-      system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype nucl "
+      system(   "$NCBIBLASTDB_PRGM -dbtype nucl "
               . "-in $tmpLibFile > /dev/null 2>&1" ) == 0
           or die "DupMasker:: Error invoking "
-          . $RepeatMaskerConfig::RMBLASTDB_PRGM
+          . "$NCBIBLASTDB_PRGM"
           . " on file $tmpLibFile.\n";
   }else
   {
-      system(   "$RepeatMaskerConfig::XDFORMAT_PRGM -n $tmpLibFile > "
+      system(   "$XDFORMAT_PRGM -n $tmpLibFile > "
               . "/dev/null 2>&1" ) == 0
           or die "DupMasker: Error invoking xdformat on file "
           . "$tmpLibFile.  We tried using the xdformat program ( "
-          . $RepeatMaskerConfig::XDFORMAT_PRGM . " ).\n";
+          . "$XDFORMAT_PRGM ).\n";
   }
 
   $searchEngineN->setQuery( "$tmpQueryFile" );

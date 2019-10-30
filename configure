@@ -8,22 +8,14 @@
 ##      A configuration utility for the RepeatMasker distribution.
 ##
 #******************************************************************************
-#* Copyright (C) Institute for Systems Biology 2003-2012 Developed by
-#* Arian Smit and Robert Hubley.
+#* Copyright (C) Institute for Systems Biology 2003-2019 Developed by
+#* Robert Hubley.
 #*
 #* This work is licensed under the Open Source License v2.1.  To view a copy
 #* of this license, visit http://www.opensource.org/licenses/osl-2.1.php or
 #* see the license.txt file contained in this distribution.
 #*
 ###############################################################################
-# ChangeLog
-#
-#   $Log$
-#
-###############################################################################
-#
-# To Do:
-#
 
 =head1 NAME
 
@@ -37,6 +29,8 @@ configure - Configure the RepeatMasker distribution
 
   An installation script for the RepeatMasker distribution
 
+=head1 CONFIGURATION OVERRIDES
+
 =head1 SEE ALSO
 
 =over 4
@@ -47,7 +41,7 @@ RepeatMasker
 
 =head1 COPYRIGHT
 
-Copyright 2019 Robert Hubley, Institute for Systems Biology
+Copyright 2003-2019 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -61,52 +55,23 @@ Robert Hubley <rhubley@systemsbiology.org>
 use strict;
 use Cwd;
 use FindBin;
-use lib $FindBin::Bin;
 use Getopt::Long;
+use Pod::Text;
+use lib $FindBin::Bin;
 use LibraryUtils;
+use RepeatMaskerConfig;
 
 #
-# Use the existing config to provide defaults
+# Release Version
 #
-my %existingSettings = ();
-if ( -s "$FindBin::Bin/RepeatMaskerConfig.pm" ) {
-  open IN, "<$FindBin::Bin/RepeatMaskerConfig.pm"
-      or die
-      "Could not open $FindBin::Bin/RepeatMaskerConfig.pm for reading!\n";
-  while ( <IN> ) {
-    if ( /^\s*\$(\S+)\s*=\s*(\S.*);/ ) {
-      my $key   = $1;
-      my $value = $2;
-      next if ( $value =~ /\$/ );
-      $value =~ s/['"`\$]+//g;
-      $existingSettings{$key} = $value;
-    }
-  }
-  close IN;
-}
-else {
+my $version = $RepeatMaskerConfig::VERSION;
 
-  # Initialize config from template.
-  system( "cp RepeatMaskerConfig.tmpl RepeatMaskerConfig.pm" );
-}
-
-my @getopt_args = (
-                    '-perlbin=s',    '-phrapbin=s',
-                    '-rmaskerdir=s', '-rmblastbin=s',
-                    '-hmmerbin=s',   '-abblastbin=s',
-                    '-trfbin=s',     '-defaultengine=s'
-);
-
-my %options = ();
-Getopt::Long::config( "noignorecase", "bundling_override" );
-GetOptions( \%options, @getopt_args );
-
-##
-## First...make sure we are running in the same directory
-## as the script is located.  This avoids problems where
-## this script ends up in someones path and they run it
-## unqualified from another installation directory.
-##
+#
+# First...make sure we are running in the same directory
+# as the script is located.  This avoids problems where
+# this script ends up in someones path and they run it
+# unqualified from another installation directory.
+#
 if ( cwd() ne $FindBin::RealBin ) {
   print "\n    The RepeatMasker configure script must be run from\n"
       . "    inside the RepeatMasker installation directory:\n\n"
@@ -114,6 +79,64 @@ if ( cwd() ne $FindBin::RealBin ) {
       . "    Perhaps this is not the \"configure\" you are looking for?\n\n";
   exit;
 }
+
+#
+# Option processing
+#  e.g.
+#   -t: Single letter binary option
+#   -t=s: String parameters
+#   -t=i: Number parameters
+#
+my @getopt_args = ( '-version', '-perlbin' );
+
+# Add configuration parameters as additional command-line options
+push @getopt_args, RepeatMaskerConfig::getCommandLineOptions();
+
+#
+# Get the supplied command line options, and set flags
+#
+my %options = ();
+Getopt::Long::config( "noignorecase", "bundling_override" );
+unless ( GetOptions( \%options, @getopt_args ) ) {
+  usage();
+}
+
+#
+# Provide the POD text from this file and 
+# from the config file by merging them 
+# together.  The heading "CONFIGURATION
+# OVERRIDES" provides the insertion point
+# for the configuration POD.
+#
+sub usage {
+  my $p = Pod::Text->new();
+  $p->output_fh(*STDOUT);
+  my $pod_str;
+  open IN,"<$0" or die "Could not open self ($0) for generating documentation!";
+  while (<IN>){
+    if ( /^=head1\s+CONFIGURATION OVERRIDES\s*$/ )
+    {
+      my $c_pod = RepeatMaskerConfig::getPOD();
+      if ( $c_pod ) {
+        $pod_str .= $_ . $c_pod;
+      }
+    }else {
+      $pod_str .= $_;
+    }
+  }
+  close IN;
+  print "$0 - $version\n";
+  $p->parse_string_document($pod_str);
+  exit(1);
+}
+
+#
+# Resolve configuration settings using the following precedence: 
+# command line first, then environment, followed by config
+# file.
+#
+RepeatMaskerConfig::resolveConfiguration(\%options);
+my $config = $RepeatMaskerConfig::configuration;
 
 ##
 ## Perl interpreter location
@@ -129,8 +152,7 @@ if ( $options{'perlbin'} ) {
       $tbin = $options{'perlbin'} . "/bin/perl";
     }
     else {
-      die
-"Could not find perl using supplied -perlbin parameter $options{'perlbin'}\n"
+      die "Could not find perl using supplied -perlbin parameter $options{'perlbin'}\n"
           . "as $options{'perlbin'}/perl or $options{'perlbin'}/bin/perl.  Please fix\n"
           . "and rerun configure.\n";
     }
@@ -152,12 +174,13 @@ if ( $options{'perlbin'} ) {
 }
 
 ##
-## Introduce ourselves
+## Check for perl version
 ##
-system( "clear" );
-print "RepeatMasker Configuration Program\n";
-my $answer;
-my $goodParam;
+if ( $] && $] < 5.008 ) {
+  print "RepeatMasker should be used with perl 5.008 or higher.\n"
+      . "Perl $] is being used to run configure.";
+  exit;
+}
 
 ##
 ## Check for RepeatMasker dependencies
@@ -210,185 +233,6 @@ if ( $storableVersion < 2.06 ) {
 }
 
 ##
-## Check for perl version
-##
-if ( $] && $] < 5.008 ) {
-  system( "clear" );
-  print "RepeatMasker should be used with perl 5.008 or higher.\n"
-      . "Perl $] is being used to run configure.";
-  print "\n\n\n<PRESS ENTER TO CONTINUE>\n";
-  my $answer = <STDIN>;
-}
-
-# So that we can get the engine versions
-require NCBIBlastSearchEngine;
-require WUBlastSearchEngine;
-require CrossmatchSearchEngine;
-require HMMERSearchEngine;
-
-##
-## RepeatMasker location
-##
-my $rmLocation = "$FindBin::Bin";
-if ( $options{'rmaskerdir'} ) {
-  if (    -d $options{'rmaskerdir'}
-       && -x $options{'rmaskerdir'} . "/ProcessRepeats" )
-  {
-    $rmLocation = $options{'rmaskerdir'};
-  }
-  else {
-    die
-"Option rmaskerdir does not exist or doesn't contain RepeatMasker scripts!";
-  }
-}
-
-my ( $combLib, $tag1, $rmLibraryVersion ) =
-    LibraryUtils::validateLibraries( "$rmLocation/Libraries", "CONSENSUS" );
-
-my ( $na, $tag2, $dfamLibraryVersion ) =
-    LibraryUtils::validateLibraries( "$rmLocation/Libraries", "HMM" );
-
-## TODO: Place this in the LibraryUtils package
-#print "\n  -- Building FASTA database...";
-#system(
-#"$rmLocation/util/buildRMLibFromEMBL.pl $rmLocation/Libraries/RepeatMaskerLib.embl > $rmLocation/Libraries/RepeatMasker.lib 2>/dev/null"
-#);
-
-## Deprecated -- this was compressed so that it would fit into github....this was unfortunately not scalable this way so
-## we had to remove it from github.
-## Uncompress taxonomy.dat
-if ( -s "$rmLocation/Libraries/taxonomy.dat.gz" ) {
-  print "\n  -- Uncompressing taxonomy.dat...";
-  system( "gunzip $rmLocation/Libraries/taxonomy.dat.gz" );
-}
-
-##
-## TRF location
-##
-my $trfProgram;
-
-#if ( $existingConfig && $RepeatMaskerConfig::TRF_PRGM )
-if ( exists $existingSettings{'TRF_PRGM'} ) {
-  $trfProgram = $existingSettings{'TRF_PRGM'};
-}
-else {
-  $trfProgram = `/usr/bin/which trf`;
-}
-$trfProgram =~ s/[\n\r\s]+//g;
-
-if ( $options{'trfbin'} ) {
-  $trfProgram = "";
-  if ( -x $options{'trfbin'} ) {
-    $trfProgram = $options{'trfbin'};
-  }
-  elsif ( -d $options{'trfbin'} ) {
-    foreach my $suffix (
-                         "/trf",                "trf404.linux64",
-                         "trf409.linux64",      "/bin/trf",
-                         "/bin/trf404.linux64", "/bin/trf409.linux64"
-        )
-    {
-      if ( -x $options{'trfbin'} . $suffix ) {
-        $trfProgram = $options{'trfbin'} . $suffix;
-      }
-    }
-    if ( $trfProgram eq "" ) {
-      die
-"The -trfbin parameter does not point to an excutable trf program or a directory containing\n"
-          . "an executable trf program.\n";
-    }
-  }
-}
-else {
-  do {
-    $goodParam = 1;
-    my $prompt =
-"**TRF PROGRAM**\n\n  This is the full path to the TRF program.\n This is now used by RepeatMasker to mask simple repeats.\n";
-    $trfProgram = &promptScreen( $prompt, "Enter path ", $trfProgram );
-    if ( $trfProgram ne "" ) {
-      if ( -d "$trfProgram" ) {
-        unless ( -x "$trfProgram/trf" ) {
-          print "$trfProgram is a directory *and* it does not contain a\n"
-              . "executable file called trf!";
-          $goodParam = 0;
-        }
-        else {
-          $trfProgram .= "/trf";
-          $trfProgram =~ s/\/\//\//g;
-        }
-      }
-      unless ( -x "$trfProgram" ) {
-        print "$trfProgram does not exist\n";
-        $goodParam = 0;
-      }
-      if ( $goodParam == 0 ) {
-        print "<PRESS ENTER TO CONTINUE, CTRL-C TO BREAK>\n";
-        my $answer = <STDIN>;
-      }
-    }
-    else {
-      print "This is a required parameter.\n";
-      print "<PRESS ENTER TO CONTINUE, CTRL-C TO BREAK>\n";
-      $answer    = <STDIN>;
-      $goodParam = 0;
-    }
-  } while ( $goodParam != 1 );
-}
-
-# Make changes to file.
-my $configFile = "RepeatMaskerConfig.pm";
-open IN,  "<$configFile"     || die "Could not open $configFile";
-open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
-while ( <IN> ) {
-  s/^(\s*\$TRF_PRGM\s*=\s*)\S+;/$1\"$trfProgram\";/;
-  print OUT $_;
-}
-close IN;
-close OUT;
-system( "mv $configFile.tmp $configFile" );
-
-##
-## Search Engine Configuration
-##
-if (    $options{'phrapbin'}
-     || $options{'hmmerbin'}
-     || $options{'rmblastbin'}
-     || $options{'abblastbin'} )
-{
-  my $defaultEngine = "";
-  if ( $options{'abblastbin'} ) {
-    &configWUBlast( $configFile, $options{'abblastbin'} );
-    $defaultEngine = "wublast";
-  }
-  if ( $options{'hmmerbin'} ) {
-    &configHMMER( $configFile, $options{'hmmerbin'} );
-    $defaultEngine = "hmmer";
-  }
-  if ( $options{'phrapbin'} ) {
-    &configCrossMatch( $configFile, $options{'phrapbin'} );
-    $defaultEngine = "crossmatch";
-  }
-  if ( $options{'rmblastbin'} ) {
-    &configRMBlast( $configFile, $options{'rmblastbin'} );
-    $defaultEngine = "ncbi";
-  }
-  if ( $defaultEngine ne "" ) {
-    open IN,  "<$configFile"     || die "Could not open $configFile";
-    open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
-    while ( <IN> ) {
-      s/^(\s*\$DEFAULT_SEARCH_ENGINE\s*=\s*)\S+;/$1\"$defaultEngine\";/;
-      print OUT $_;
-    }
-    close IN;
-    close OUT;
-    system( "mv $configFile.tmp $configFile" );
-  }
-}
-else {
-  searchEngineMenu( "RepeatMaskerConfig.pm" );
-}
-
-##
 ## Alter perl invocation headers
 ##
 print " -- Setting perl interpreter...\n";
@@ -404,6 +248,7 @@ my @progFiles = (
                   "util/maskFile.pl",
                   "util/queryTaxonomyDatabase.pl",
                   "util/rmOutToGFF3.pl",
+                  "util/buildRMLibFromEMBL.pl",
                   "util/rmToUCSCTables.pl"
 );
 my $perlLocEsc = $perlLocation;
@@ -414,18 +259,88 @@ foreach my $file ( @progFiles ) {
          "$perlLocation -i -0pe \'s/^#\\!.*perl.*/#\\!$perlLocEsc/g\;' $file" );
 }
 
-print "\nCongratulations!  RepeatMasker is now ready to use.\n";
+##
+## Introduce ourselves
+##
+system( "clear" );
+print "RepeatMasker Configuration Program\n";
+my $answer;
+my $goodParam;
 
-#if ( $isMinLibrary ) {
-#  print "The program is installed with a minimal repeat library\n";
-#  print "by default.  This library only contains simple, low-complexity,\n";
-#  print "and common artefact ( contaminate ) sequences.  These are\n";
-#  print "adequate for use with your own custom repeat library.  If you\n";
-#  print "plan to search using common species specific repeats you will\n";
-#  print "need to obtain the complete RepeatMasker repeat library from\n";
-#  print "GIRI ( www.giriinst.org ) and install it in $rmLocation.\n\n";
-#}
-#else {
+# So that we can get the engine versions
+require NCBIBlastSearchEngine;
+require WUBlastSearchEngine;
+require CrossmatchSearchEngine;
+require HMMERSearchEngine;
+
+##
+## RepeatMasker location
+##
+my $rmLocation = "$FindBin::Bin";
+if ( -d "$rmLocation/Libraries" &&
+     $config->{'LIBDIR'}->{'value'} eq "" ){
+  $config->{'LIBDIR'}->{'value'} = $rmLocation . "/Libraries";
+}
+if ( ! RepeatMaskerConfig::validateParam('LIBDIR') ) {
+  RepeatMaskerConfig::promptForParam('LIBDIR');
+}
+my $LIBDIR = $config->{'LIBDIR'}->{'value'};
+
+my ( $combLib, $tag1, $rmLibraryVersion ) =
+    LibraryUtils::validateLibraries( $LIBDIR, "CONSENSUS" );
+
+my ( $na, $tag2, $dfamLibraryVersion ) =
+    LibraryUtils::validateLibraries( $LIBDIR, "HMM" );
+
+## Deprecated -- this was compressed so that it would 
+## fit into github....this was unfortunately not scalable this way so
+## we had to remove it from github.
+## Uncompress taxonomy.dat
+if ( -s "$LIBDIR/taxonomy.dat.gz" ) {
+  print "\n  -- Uncompressing taxonomy.dat...";
+  system( "gunzip $LIBDIR/taxonomy.dat.gz" );
+}
+
+if ( ! $options{'trf_prgm'} ) {
+  RepeatMaskerConfig::promptForParam('TRF_PRGM');
+}
+
+##
+## Search Engine Configuration
+##
+if ( ! ( $options{'abblast_dir'} || $options{'rmblast_dir'} || $options{'hmmer_dir'} ||
+         $options{'crossmatch_dir'} ) ) {
+  searchEngineMenu();
+}else {
+  # Assumption: if at least one engine is specified on the command line then the intention
+  #             is to not prompt for any engines.
+}
+
+#
+# Freeze RM and RMPep libraries for RepeatModeler use among others
+#
+if ( RepeatMaskerConfig::validateParam('RMBLAST_DIR') ) 
+{
+   my $binDir = $config->{'RMBLAST_DIR'}->{'value'};
+   print "Building RMBlast frozen libraries..\n";
+   system(   "$binDir/makeblastdb -dbtype nucl -in "
+           . "$LIBDIR/RepeatMasker.lib > /dev/null 2>&1" );
+   system(   "$binDir/makeblastdb -dbtype prot -in "
+           . "$LIBDIR/RepeatPeps.lib > /dev/null 2>&1" );
+}
+if ( RepeatMaskerConfig::validateParam('ABBLAST_DIR') ) 
+{
+   my $binDir = $config->{'ABBLAST_DIR'}->{'value'};
+   print "Building WUBlast/ABBlast frozen libraries..\n";
+   system(   "$binDir/xdformat -n -I "
+           . "$LIBDIR/RepeatMasker.lib > /dev/null 2>&1" );
+   system(   "$binDir/xdformat -p -I "
+           . "$LIBDIR/RepeatPeps.lib > /dev/null 2>&1" );
+}
+
+# Save settings
+RepeatMaskerConfig::updateConfigFile();
+
 print "The program is installed with a the following repeat libraries:\n";
 if ( $dfamLibraryVersion ne "" ) {
   print "  $dfamLibraryVersion\n";
@@ -434,8 +349,6 @@ if ( $rmLibraryVersion ne "" ) {
   print "  $rmLibraryVersion\n";
 }
 
-#  print "  Repbase Version = $repbaseVersion\n";
-#}
 print "Further documentation on the program may be found here:\n";
 print "  $rmLocation/repeatmasker.help\n\n";
 
@@ -446,78 +359,50 @@ sub searchEngineMenu {
 
   my @searchEngines = (
     {
-      name         => "crossmatch",
-      desc         => "Crossmatch - Phrap",
-      param        => "CROSSMATCH_DIR",
+      name         => "CROSSMATCH_DIR",
+      desc         => "Crossmatch",
+      defname      => "crossmatch",
       status       => 0,
-      configurator => \&configCrossMatch
     },
     {
-      name         => "ncbi",
-      desc         => "RMBlast - Improved NCBI Blast",
-      param        => "RMBLAST_DIR",
+      name         => "RMBLAST_DIR",
+      desc         => "RMBlast",
+      defname      => "rmblast",
       status       => 0,
-      configurator => \&configRMBlast
     },
     {
-      name         => "hmmer",
+      name         => "HMMER_DIR",
       desc         => "HMMER3.1 & DFAM",
-      param        => "HMMER_DIR",
+      defname      => "nhmmer",
       status       => 0,
-      configurator => \&configHMMER
     },
     {
-      name         => "wublast",
-      desc         => "ABBlast/WUBlast",
-      param        => "WUBLAST_DIR",
+      name         => "ABBLAST_DIR",
+      desc         => "ABBlast",
+      defname      => "abblast",
       status       => 0,
-      configurator => \&configWUBlast
     }
 
   );
 
-  # Fill in existing settings if available
+  my $done          = 0;
   my $defaultEngine = "";
-  my $maxDescLen    = 0;
-  foreach my $engine ( @searchEngines ) {
-    if (    exists $existingSettings{ $engine->{'param'} }
-         && $existingSettings{ $engine->{'param'} } ne ""
-         && -d $existingSettings{ $engine->{'param'} } )
-    {
-      if ( exists $existingSettings{'DEFAULT_SEARCH_ENGINE'}
-           && $engine->{'name'} eq $existingSettings{'DEFAULT_SEARCH_ENGINE'} )
-      {
-        $engine->{'status'} = 2;
-        $defaultEngine = $existingSettings{'DEFAULT_SEARCH_ENGINE'};
-      }
-      else {
-        $engine->{'status'} = 1;
-      }
-    }
-    if ( length( $engine->{'desc'} ) > $maxDescLen ) {
-      $maxDescLen = length( $engine->{'desc'} );
-    }
-  }
-
-  my $done = 0;
   do {
     system( "clear" );
     print "\n\n\n";
     print "Add a Search Engine:\n";
     my $i;
-    for ( $i = 0 ; $i <= $#searchEngines ; $i++ ) {
-      print "   "
-          . ( $i + 1 )
-          . ". $searchEngines[$i]->{'desc'}"
-          . " " x ( $maxDescLen - length( $searchEngines[ $i ]->{'desc'} ) )
-          . "  [ ";
-      if ( $searchEngines[ $i ]->{'status'} == 0 ) {
+    for ( $i = 0 ; $i <= $#searchEngines ; $i++ )
+    {
+      print "   " . ( $i + 1 ) . ". $searchEngines[$i]->{'desc'}: [ ";
+      if ( $searchEngines[ $i ]->{'status'} == 0 )
+      {
         print "Un-configured ]\n";
-      }
-      elsif ( $searchEngines[ $i ]->{'status'} == 1 ) {
+      } elsif ( $searchEngines[ $i ]->{'status'} == 1 )
+      {
         print "Configured ]\n";
-      }
-      else {
+      } else
+      {
         print "Configured, Default ]\n";
       }
     }
@@ -541,22 +426,25 @@ sub searchEngineMenu {
         }
       }
       else {
-        $searchEngines[ $answer - 1 ]->{'status'} =
-            $searchEngines[ $answer - 1 ]->{'configurator'}->( $configFile );
-        if ( $searchEngines[ $answer - 1 ]->{'status'} == 2 ) {
-          $defaultEngine = $searchEngines[ $answer - 1 ]->{'name'};
-
-          # Reset other default status
-          for ( my $j = 0 ; $j <= $#searchEngines ; $j++ ) {
-            next if ( $j == ( $answer - 1 ) );
-            $searchEngines[ $j ]->{'status'} = 1
-                if ( $searchEngines[ $j ]->{'status'} == 2 );
-          }
-        }
-        elsif (    $searchEngines[ $answer - 1 ]->{'status'} == 1
-                && $defaultEngine eq "" )
+        RepeatMaskerConfig::promptForParam($searchEngines[$answer-1]->{'name'});
+        system("clear");
+        print "\n\n\n";
+        print "Do you want " . $searchEngines[$answer-1]->{'desc'} . " to be your default\nsearch engine for Repeatmasker? (Y/N) ";
+        print " [ Y ]: ";
+        my $isDefault = <STDIN>;
+        $isDefault =~ s/[\n\r]+//g;
+        if ( $isDefault =~ /^\s*$/ || $isDefault =~ /\s*[yY]\s*/ ) 
         {
-          $defaultEngine = $searchEngines[ $answer - 1 ]->{'name'};
+          for ( $i = 0 ; $i <= $#searchEngines ; $i++ )
+          {
+            $searchEngines[$i]->{'status'} = 1 
+              if ( $searchEngines[$i]->{'status'} == 2 );
+          }
+          $searchEngines[ $answer - 1 ]->{'status'} = 2;
+          $RepeatMaskerConfig::configuration->{'DEFAULT_SEARCH_ENGINE'}->{'value'} = $searchEngines[$answer-1]->{'defname'};
+          $defaultEngine = $answer;
+        }else {
+          $searchEngines[ $answer - 1 ]->{'status'} = 1;
         }
       }
     }
@@ -566,470 +454,6 @@ sub searchEngineMenu {
       $answer = <STDIN>;
     }
   } while ( $done == 0 );
-
-  # Figure out who is the default.
-  if ( $defaultEngine ne "" ) {
-    open IN,  "<$configFile"     || die "Could not open $configFile";
-    open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
-    while ( <IN> ) {
-      s/^(\s*\$DEFAULT_SEARCH_ENGINE\s*=\s*)\S+;/$1\"$defaultEngine\";/;
-      print OUT $_;
-    }
-    close IN;
-    close OUT;
-    system( "mv $configFile.tmp $configFile" );
-  }
-
-}
-
-sub configCrossMatch {
-  my $configFile = shift;
-  my $option     = shift;
-
-  my $cmLocation;
-  if ( $option ) {
-    foreach my $suffix ( "", "/cross_match", "/bin/cross_match" ) {
-      if ( -f ( $option . $suffix ) && -x ( $option . $suffix ) ) {
-        $cmLocation = $option . $suffix;
-      }
-    }
-    if ( $cmLocation eq "" ) {
-      die
-"Parameter -phrapbin does not point to cross_match nor a directory containing cross_match!\n";
-    }
-    $cmLocation =~ s/\/?cross_match//;
-  }
-  else {
-    my $answer;
-    do {
-      $goodParam = 1;
-      $cmLocation = &promptScreen(
-"**CROSS_MATCH INSTALLATION PATH**\n\n  This is the path to the location where\n  the cross_match program has been installed.\n",
-        "Enter path ",
-        $existingSettings{'CROSSMATCH_DIR'}
-      );
-      if ( $cmLocation ne "" ) {
-        $cmLocation .= "/bin"
-            if ( !-f "$cmLocation/cross_match"
-                 && -f "$cmLocation/bin/cross_match" );
-        if ( !-d $cmLocation ) {
-          print "$cmLocation is not a directory!\n";
-          $goodParam = 0;
-        }
-        elsif ( !-s "$cmLocation/cross_match" ) {
-          print "$cmLocation does not contain the cross_match executable!\n";
-          $goodParam = 0;
-        }
-        if ( $goodParam == 0 ) {
-          print "<PRESS ENTER TO CONTINUE>\n";
-          $answer = <STDIN>;
-        }
-      }
-    } while ( $goodParam != 1 );
-
-    if ( $cmLocation eq "" ) {
-      print "Crossmatch not configured!\n";
-      print "<PRESS ENTER TO CONTINUE>\n";
-      $answer = <STDIN>;
-      return 0;
-    }
-  }
-
-  # Make changes to file.
-  open IN,  "<$configFile"     || die "Could not open $configFile";
-  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
-  while ( <IN> ) {
-    s/^(\s*\$CROSSMATCH_DIR\s*=\s*)\S+;/$1\"$cmLocation\";/;
-    print OUT $_;
-  }
-  close IN;
-  close OUT;
-  system( "mv $configFile.tmp $configFile" );
-
-  if ( $option ) {
-    return;
-  }
-  else {
-    my $cmDefault = &promptScreen(
-      "",
-"Do you want CrossMatch to be your default\nsearch engine for Repeatmasker? (Y/N) ",
-      "Y",
-    );
-
-    $cmDefault = lc( $cmDefault );
-    return ( 2 ) if ( $cmDefault eq "y" || $cmDefault eq "yes" );
-
-    return ( 1 );
-  }
-}
-
-sub configRMBlast {
-  my $configFile = shift;
-  my $option     = shift;
-
-  my $pgLocation;
-  if ( $option ) {
-    foreach my $suffix ( "", "/rmblastn", "/bin/rmblastn" ) {
-      if ( -f ( $option . $suffix ) && -x ( $option . $suffix ) ) {
-        $pgLocation = $option . $suffix;
-      }
-    }
-    if ( $pgLocation eq "" ) {
-      die
-"Parameter -rmblastbin does not point to rmblastn nor a directory containing rmblastn!\n";
-    }
-    $pgLocation =~ s/\/?rmblastn//;
-  }
-  else {
-    my $answer;
-    do {
-      $goodParam = 1;
-      $pgLocation = &promptScreen(
-"**RMBlast (rmblastn) INSTALLATION PATH**\n\n  This is the path to the location where\n  the rmblastn and makeblastdb programs can be found.\n",
-        "Enter path ",
-        $existingSettings{'RMBLAST_DIR'}
-      );
-      if ( $pgLocation ne "" ) {
-        $pgLocation .= "/bin"
-            if ( !-f "$pgLocation/rmblastn"
-                 && -f "$pgLocation/bin/rmblastn" );
-        unless ( -d "$pgLocation" ) {
-          print "$pgLocation does not exist\n";
-          $goodParam = 0;
-        }
-        unless ( -s "$pgLocation/rmblastn" ) {
-          print "$pgLocation/rmblastn does not exist\n";
-          $goodParam = 0;
-        }
-        unless ( -s "$pgLocation/makeblastdb" ) {
-          print "$pgLocation/makeblastdb does not exist\n";
-          $goodParam = 0;
-        }
-        unless ( -s "$pgLocation/blastx" ) {
-          print "$pgLocation/blastx does not exist\n";
-          $goodParam = 0;
-        }
-        if ( $goodParam == 0 ) {
-          print "<PRESS ENTER TO CONTINUE>\n";
-          my $answer = <STDIN>;
-        }
-      }
-    } while ( $goodParam != 1 );
-
-    if ( $pgLocation eq "" ) {
-      print "RMBlast not configured!\n";
-      print "NOTE: NCBI now ( since 2.2.27+ ) separates rmblastn from the\n";
-      print "      rest of the NCBI toolkit binary distributions.  If you\n";
-      print "      downloaded the binary rmblast distribution you will\n";
-      print "      also need to download the standard NCBI Blast Toolkit\n";
-      print "      and install both in the same directory.\n\n";
-      print "<PRESS ENTER TO CONTINUE>\n";
-      $answer = <STDIN>;
-      return 0;
-    }
-  }
-  $pgLocation =~ s/(.*)\/$/$1/;
-
-  # Make sure we can run the program and get the version info
-  my $searchEngine =
-      NCBIBlastSearchEngine->new( pathToEngine => "$pgLocation/rmblastn" );
-  my $version = $searchEngine->getVersion();
-
-  # Make changes to file.
-  open IN,  "<$configFile"     || die "Could not open $configFile";
-  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
-  while ( <IN> ) {
-    s/^(\s*\$RMBLAST_DIR\s*=\s*)\S+;/$1\"$pgLocation\";/;
-    print OUT $_;
-  }
-  close IN;
-  close OUT;
-  system( "mv $configFile.tmp $configFile" );
-
-  # Freeze RM and RMPep libraries for RepeatModeler use among others
-  my $rmLocation = "$FindBin::Bin";
-  print "Building RMBlast frozen libraries..\n";
-  system(   "$pgLocation/makeblastdb -dbtype nucl -in "
-          . "$rmLocation/Libraries/RepeatMasker.lib > /dev/null 2>&1" );
-  system(   "$pgLocation/makeblastdb -dbtype prot -in "
-          . "$rmLocation/Libraries/RepeatPeps.lib > /dev/null 2>&1" );
-
-  return if ( $option );
-
-  my $pgDefault = &promptScreen(
-    "",
-"Do you want RMBlast to be your default\nsearch engine for Repeatmasker? (Y/N) ",
-    "Y",
-  );
-
-  $pgDefault = lc( $pgDefault );
-  return ( 2 ) if ( $pgDefault eq "y" || $pgDefault eq "yes" );
-
-  return ( 1 );
-
-}
-
-sub configWUBlast {
-  my $configFile = shift;
-  my $option     = shift;
-
-  my $wuLocation;
-  my $answer;
-  if ( $option ) {
-    foreach my $suffix ( "", "/blastp", "/bin/blastp" ) {
-      if ( -f ( $option . $suffix ) && -x ( $option . $suffix ) ) {
-        $wuLocation = $option . $suffix;
-      }
-    }
-    if ( $wuLocation eq "" ) {
-      die
-"Parameter -abblastbin does not point to blastp nor a directory containing blastp!\n";
-    }
-    $wuLocation =~ s/\/?blastp//;
-  }
-  else {
-    do {
-      $goodParam = 1;
-      $wuLocation = &promptScreen(
-"**ABBlast/WUBlast BLASTP INSTALLATION PATH**\n\n  This is the path to the location where\n  the ABblast/WUblast blastp and setdb programs can be found.\n",
-        "Enter path ",
-        $existingSettings{'WUBLAST_DIR'}
-      );
-      if ( $wuLocation ne "" ) {
-        $wuLocation .= "/bin"
-            if ( !-f "$wuLocation/blastp"
-                 && -f "$wuLocation/bin/blastp" );
-        unless ( -d "$wuLocation" ) {
-          print "$wuLocation does not exist\n";
-          $goodParam = 0;
-        }
-        unless ( -s "$wuLocation/blastp" ) {
-          print "$wuLocation/blastp does not exist\n";
-          $goodParam = 0;
-        }
-        unless ( -s "$wuLocation/setdb" ) {
-          print "$wuLocation/setdb does not exist\n";
-          $goodParam = 0;
-        }
-        if ( $goodParam == 0 ) {
-          print "<PRESS ENTER TO CONTINUE>\n";
-          my $answer = <STDIN>;
-        }
-      }
-    } while ( $goodParam != 1 );
-
-    if ( $wuLocation eq "" ) {
-      print "WUBlast/ABBlast not configured!\n";
-      print "<PRESS ENTER TO CONTINUE>\n";
-      $answer = <STDIN>;
-      return 0;
-    }
-  }
-  $wuLocation =~ s/(.*)\/$/$1/;
-
-  # Make changes to file.
-  open IN,  "<$configFile"     || die "Could not open $configFile";
-  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
-  while ( <IN> ) {
-    s/^(\s*\$WUBLAST_DIR\s*=\s*)\S+;/$1\"$wuLocation\";/;
-    print OUT $_;
-  }
-  close IN;
-  close OUT;
-  system( "mv $configFile.tmp $configFile" );
-
-  # Freeze RM and RMPep libraries
-  my $rmLocation = "$FindBin::Bin";
-  print "Building WUBlast/ABBlast frozen libraries..\n";
-  system(   "$wuLocation/xdformat -n -I "
-          . "$rmLocation/Libraries/RepeatMasker.lib > /dev/null 2>&1" );
-  system(   "$wuLocation/xdformat -p -I "
-          . "$rmLocation/Libraries/RepeatPeps.lib > /dev/null 2>&1" );
-
-  return if ( $option );
-  my $wuDefault = &promptScreen(
-    "",
-"Do you want ABBlast/WUBlast to be your default\nsearch engine for Repeatmasker? (Y/N) ",
-    "Y",
-  );
-
-  $wuDefault = lc( $wuDefault );
-  return ( 2 ) if ( $wuDefault eq "y" || $wuDefault eq "yes" );
-
-  return ( 1 );
-
-}
-
-sub configHMMER {
-  my $configFile = shift;
-  my $option     = shift;
-
-  my $location;
-  if ( $option ) {
-    foreach my $suffix ( "", "/nhmmscan", "/bin/nhmmscan" ) {
-      if ( -f ( $option . $suffix ) && -x ( $option . $suffix ) ) {
-        $location = $option . $suffix;
-      }
-    }
-    if ( $location eq "" ) {
-      die
-"Parameter -hmmerbin does not point to nhmmscan nor a directory containing nhmmscan!\n";
-    }
-    $location =~ s/\/?nhmmscan//;
-  }
-  else {
-    my $answer;
-    my $concatLine;
-    $goodParam = 0;
-    $location = &promptScreen(
-                     "**HMMER INSTALLATION PATH**\n\n  This is the path "
-                         . "to the location where\n  the nhmmer program can be "
-                         . "found.\n",
-                     "Enter path ",
-                     $existingSettings{'HMMER_DIR'}
-    );
-    if ( $location ne "" ) {
-      $location .= "/bin"
-          if ( !-f "$location/nhmmscan"
-               && -f "$location/bin/nhmmscan" );
-      if ( -f "$location/nhmmscan" ) {
-        my $result = `$location/nhmmscan -h 2>&1`;
-
-        # HMMER 3.0dev (March 2010); http://hmmer.org/
-        # HMMER 3.1dev_0.33 (July 2012); http://hmmer.org
-        # HMMER hmmer3.1-snap20120830 (August 2012); http://hmmer.org/
-        # HMMER 3.1b1 (May 2013); http://hmmer.org/
-        while ( $result =~ /([^\n\r]*)[\n\r]/ig ) {
-          my $line = $1;
-
-          if ( $line =~ /^#\s+HMMER\s+(\d+\.\d+).*/ ) {
-            if ( $1 >= 3.1 ) {
-              $goodParam = 1;
-            }
-            else {
-              print
-"ERROR: Only HMMER version 3.1 ( currently in pre-release ) and above are "
-                  . "supported. This directory contains version: $1\n";
-            }
-          }
-          $concatLine .= $line . "\n";
-          last if ( $line !~ /^#/ );
-        }    # while()
-
-        if ( $goodParam != 1 ) {
-          print "ERROR: Could not identify version of the nhmmer program.\n"
-              . "       Most likely this is older than 3.1.  Please\n"
-              . "       ensure you have at least 3.1 installed and then\n"
-              . "       rerun configure.\n"
-              . "       Data returned from nhmmer exec:\n$concatLine\n\n";
-        }
-      }
-      else {
-        print "ERROR: Could not find nhmmer program in this directory!\n";
-      }
-    }
-
-    if ( $location eq "" || $goodParam == 0 ) {
-      print "HMMER not configured!\n";
-      print "<PRESS ENTER TO CONTINUE>\n";
-      $answer = <STDIN>;
-      return 0;
-    }
-  }
-
-  # Make changes to file.
-  open IN,  "<$configFile"     || die "Could not open $configFile";
-  open OUT, ">$configFile.tmp" || die "Could not open $configFile.tmp";
-  while ( <IN> ) {
-    s/^(\s*\$HMMER_DIR\s*=\s*)\S+;/$1\"$location\";/;
-    print OUT $_;
-  }
-  close IN;
-  close OUT;
-  system( "mv $configFile.tmp $configFile" );
-
-  return if ( $option );
-
-  my $default = &promptScreen(
-    "",
-"Do you want HMMER to be your default\nsearch engine for Repeatmasker? (Y/N) ",
-    "Y",
-  );
-
-  $default = lc( $default );
-  return ( 2 ) if ( $default eq "y" || $default eq "yes" );
-
-  return ( 1 );
-}
-
-##-------------------------------------------------------------------------##
-
-=over 4
-
-=item Use: my $retVal =  &promptScreen( $screenText, $promptText, 
-                                        $defaultAnswer, [$validResponses] );
-
-Clear the screen and prompt the user for input
-
-=back
-
-=cut
-
-##-------------------------------------------------------------------------##
-sub promptScreen {
-  my $screenText     = shift;
-  my $promptText     = shift;
-  my $defaultAnswer  = shift;
-  my $validResponses = shift;
-
-  my $answer = undef;
-
-  # Clear the screen
-  system( "clear" );
-
-  print "\n\n\n";
-  print $screenText;
-  my $numLines = ( $screenText =~ s/(\n)/$1/g );
-  for ( my $i = 0 ; $i < 15 - $numLines ; $i++ ) {
-    print "\n";
-  }
-  if ( defined $validResponses ) {
-    $promptText .= " ( " . $validResponses . " )";
-  }
-  if ( defined $defaultAnswer ) {
-    $promptText .= " [ " . $defaultAnswer . " ]: ";
-  }
-  print $promptText;
-  $answer = <STDIN>;
-
-  if ( $answer =~ /^\s*$/ ) {
-    $answer = $defaultAnswer;
-  }
-  else {
-    $answer =~ s/[\n\r]+//g;
-  }
-
-  return ( $answer );
-}
-
-##-------------------------------------------------------------------------##
-
-=over 4
-
-=item Use: my $vers =  &getModVersion( "/usr/perl5/lib/foo.pm" );
-
-Extract the version from a given perl module.
-
-=back
-
-=cut
-
-##-------------------------------------------------------------------------##
-sub getModVersion {
-  my $mod     = shift;
-  my $version =
-      `/usr/bin/perl -mStorable -e 'print \$${mod}::VERSION' 2>/dev/null`;
-  return ( $version || undef );
 }
 
 1;

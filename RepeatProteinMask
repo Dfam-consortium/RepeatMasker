@@ -10,7 +10,7 @@
 ##      all hits using blastx.
 ##
 #******************************************************************************
-#* Copyright (C) Institute for Systems Biology 2005 Developed by
+#* Copyright (C) Institute for Systems Biology 2005-2019 Developed by
 #* Arian Smit and Robert Hubley.
 #*
 #* This work is licensed under the Open Source License v2.1.  To view a copy
@@ -18,144 +18,6 @@
 #* see the license.txt file contained in this distribution.
 #*
 ###############################################################################
-#  ChangeLog:
-#
-#    $Log: RepeatProteinMask,v $
-#    Revision 1.36  2013/11/06 18:36:59  rhubley
-#      - getting ready for a release
-#
-#    Revision 1.35  2013/10/31 21:53:06  rhubley
-#      - Tidy'd up.
-#      - Fixed a bug with WUBlastSearchEngine.pm rescoring ( matrix transposition )
-#      - Minor option changes
-#
-#    Revision 1.34  2013/09/12 21:05:26  rhubley
-#      - fixed matrix problem
-#
-#    Revision 1.33  2013/09/12 20:29:19  rhubley
-#      - Fixed a bug with RepeatProteinMask ( relative directories and such )
-#
-#    Revision 1.32  2013/06/20 17:35:22  rhubley
-#     - Getting ready for a release
-#
-#    Revision 1.31  2013/02/20 23:44:45  rhubley
-#    *** empty log message ***
-#
-#    Revision 1.30  2012/09/13 18:17:57  rhubley
-#      - Another round of perltidy
-#
-#    Revision 1.29  2012/09/13 17:51:56  rhubley
-#      - Perl Tidy
-#
-#    Revision 1.28  2012/06/07 19:58:28  rhubley
-#      - Added support for NCBI BlastX to RepeatProteinMask. Also removed
-#        independent TRF runs.  TRF is now the default engine for RepeatMasker
-#
-#    Revision 1.27  2012/06/07 16:25:23  rhubley
-#     -- Fixed a bug with the parameterName variable in TRF.pm
-#
-#    Revision 1.26  2012/04/12 19:07:37  rhubley
-#     - Oh boy...lots o changes.  Mostly to RepeatMasker script.  Cleaning up
-#       and generalizing the search stages.  Removing dead code.  Cleaning up
-#       the old Choose ( now filterRepeats ) routine and trying desperately to
-#       remove the metadata which is causing grief for HMMER integration.
-#
-#    Revision 1.25  2012/02/07 00:36:12  rhubley
-#      - Working towards a HMMER release
-#
-#    Revision 1.24  2011/10/25 20:45:50  rhubley
-#      - Fixed an issue with refining ALUs.  The xdrop_gap_final parameter
-#        of NCBIBlast was occassionally fragmenting refinement alignments.
-#        This caused ProcessRepeats to drop portions of the refinement from
-#        the final output.
-#
-#    Revision 1.23  2009/03/26 23:44:11  rhubley
-#      - WUBlast to ABBlast changes
-#      - Fixed the matrix parsing in WUBlastSearchEngine
-#      - Fixed an optimization problem in ProcessRepeats
-#
-#    Revision 1.22  2009/03/26 17:27:20  rhubley
-#       - Stupid Debian/Ubuntu switched /bin/sh from BASH to DASH thus breaking
-#         many many scripts in the holy name of POSIX compliance.  To quote the
-#         mormon south park episode: "Dumb dumb dumb dumb dumb".
-#         I went through and changed all occurances of ">&" to "> file 2>&1"
-#
-#    Revision 1.21  2008/10/28 22:33:28  rhubley
-#      - added a "-noTRF" option to RepeatProteinMask.
-#
-#    Revision 1.20  2008/05/01 22:28:46  rhubley
-#      - Added support in configure for RepeatProteinMask (TRF)
-#
-#    Revision 1.19  2006/09/06 20:42:19  rhubley
-#     - formating changes
-#
-#    Revision 1.18  2006/08/08 18:48:02  rhubley
-#      - prettyPrinted' everything
-#      - Added usage header to ProcessRepeats
-#      - Added -lcambig option to ProcessRepeats: Prints ambiguous DNA transposon
-#        fragment names in lower case ( everything else in upper case ).
-#
-#    Revision 1.17  2006/03/31 20:22:44  rhubley
-#      - Documentation in ProcessRepeats
-#      - Bug fixes in RepeatProteinMask
-#
-#    Revision 1.16  2005/05/10 16:22:27  rhubley
-#      - Changed spacing
-#
-#    Revision 1.15  2005/05/02 21:09:04  rhubley
-#      - type column work
-#
-#    Revision 1.14  2005/05/02 21:01:45  rhubley
-#      - Fixed querystatlen
-#
-#    Revision 1.13  2005/05/02 20:54:49  rhubley
-#     - More adding type column
-#
-#    Revision 1.12  2005/05/02 20:53:13  rhubley
-#      - Added type column
-#
-#    Revision 1.11  2005/05/02 18:49:49  rhubley
-#      - Updated default parameters
-#
-#    Revision 1.10  2005/04/26 00:04:03  rhubley
-#      - fixed querystatlen
-#
-#    Revision 1.9  2005/04/21 20:14:04  rhubley
-#      - Complexity adjust mand effective query length
-#
-#    Revision 1.8  2005/04/19 23:52:34  rhubley
-#      - fixed a bug where it was marking hits as coming from RepeatMasker instead
-#        of wublastx
-#
-#    Revision 1.7  2005/04/19 23:20:34  rhubley
-#      - Give this a shot
-#
-#    Revision 1.6  2005/04/15 20:48:24  rhubley
-#      - Bug fix ( didn't print all TRF matches )
-#      - default changes ( 0.0001, and 333 )
-#
-#    Revision 1.5  2005/04/14 23:28:04  rhubley
-#      - Updates
-#
-#    Revision 1.4  2005/04/14 19:16:43  rhubley
-#     - Small changes
-#
-#    Revision 1.3  2005/04/14 00:21:33  rhubley
-#      - Working toward a perfect RepeatProteinMask
-#
-#    Revision 1.2  2005/04/12 23:36:10  rhubley
-#      - Updates including Arians changes
-#
-#    Revision 1.1  2005/04/12 17:52:18  rhubley
-#      - Adding a new component to the RepeatMasker suite.  RepeatProteinMask
-#        masks sequence based on it's similarity with interspersed repeat
-#        peptides ( RepeatPeps.lib ).  This uses WUBlastX to do it's work.
-#
-#
-###############################################################################
-#
-# To Do:
-#
 #
 
 =head1 NAME
@@ -203,7 +65,6 @@ The effective length of the query to use in statistical calculations.
 The maximum distance to consider two blastx hits as the same
 (and thus contributing to Sum P scores).  Default is 333.
 
-
 =item -noLowSimple
 
 Turns off masking/annotating of low complexity and simple repeats
@@ -211,9 +72,9 @@ in the final output.  Low complexity and simple repeat analysis
 will still occur prior to looking for matches to the RepeatPep
 database.
 
-Detailed help
-
 =back
+
+=head1 CONFIGURATION OVERRIDES
 
 =head1 SEE ALSO
 
@@ -225,7 +86,7 @@ RepeatModeler
 
 =head1 COPYRIGHT
 
-Copyright 2005 Institute for Systems Biology
+Copyright 2005-2019 Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -240,6 +101,7 @@ use strict;
 use FindBin;
 use lib $FindBin::RealBin;
 use Data::Dumper;
+use Pod::Text;
 use Carp;
 use Getopt::Long;
 
@@ -260,6 +122,7 @@ use SearchEngineI;
 my $CLASS = "RepeatProteinMask";
 my $DEBUG = 0;
 $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
+my $version = $RepeatMaskerConfig::VERSION;
 
 #
 # Option processing
@@ -270,6 +133,37 @@ $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
 #
 my @opts =
     qw( help consensi=s wordsize=s pvalue=s maxaadist=s nolowsimple minscore=s querystatlen=s engine=s );
+# Add configuration parameters as additional command-line options
+push @opts, RepeatMaskerConfig::getCommandLineOptions();
+
+#
+# Provide the POD text from this file and 
+# from the config file by merging them 
+# together.  The heading "CONFIGURATION
+# OVERRIDES" provides the insertion point
+# for the configuration POD.
+#
+sub usage {
+  my $p = Pod::Text->new();
+  $p->output_fh(*STDOUT);
+  my $pod_str;
+  open IN,"<$0" or die "Could not open self ($0) for generating documentation!";
+  while (<IN>){
+    if ( /^=head1\s+CONFIGURATION OVERRIDES\s*$/ )
+    { 
+      my $c_pod = RepeatMaskerConfig::getPOD();
+      if ( $c_pod ) {
+        $pod_str .= $_ . $c_pod;
+      }
+    }else {
+      $pod_str .= $_;
+    }
+  }
+  close IN;
+  print "$0 - $version\n";
+  $p->parse_string_document($pod_str);
+  exit(1);
+}
 
 ## Pvalue default used to be 0.0001 now it doesn't filter by default
 
@@ -279,21 +173,28 @@ my @opts =
 my %options = ();
 unless ( &GetOptions( \%options, @opts ) )
 {
-  exec "pod2text $0";
-  exit( 1 );
+  usage();
 }
 
 # Print the internal POD documentation if something is missing
 if ( $options{'help'} || !$#ARGV < 1 )
 {
-
-  # This is a nifty trick so we don't have to have
-  # a duplicate "USAGE()" subroutine.  Instead we
-  # just recycle our POD docs.  See PERL POD for more
-  # details.
-  exec "pod2text $0";
-  die;
+  usage();
 }
+
+#
+# Resolve configuration settings using the following precedence: 
+# command line first, then environment, followed by config
+# file.
+#
+RepeatMaskerConfig::resolveConfiguration(\%options);
+my $config = $RepeatMaskerConfig::configuration;
+my $LIBDIR = $config->{'LIBDIR_DIR'}->{'value'};
+my $NCBIBLASTX_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/blastx";
+my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
+my $ABBLASTX_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastx";
+my $XDFORMAT_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
+my $ABBLAST_DIR = $config->{'ABBLAST_DIR'}->{'value'};
 
 # This will miss alot. But in GC rich DNA a lower score
 # will cause false positives
@@ -369,7 +270,7 @@ my $scratchDir = "/tmp";
 # RepeatMasker
 #
 system( "cp $fastaFile $fastaFile.rmsimple" );
-`$RepeatMaskerConfig::REPEATMASKER_DIR/RepeatMasker -qq -noint -no_is $fastaFile.rmsimple > /dev/null 2>&1`;
+`$FindBin::RealBin/RepeatMasker -qq -noint -no_is $fastaFile.rmsimple > /dev/null 2>&1`;
 my $RMResults;
 if ( -e "$fastaFile.rmsimple.out" && -e "$fastaFile.rmsimple.masked" )
 {
@@ -424,12 +325,12 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
 {
   $searchEngineX =
       NCBIBlastXSearchEngine->new(
-                         pathToEngine => "$RepeatMaskerConfig::RMBLASTX_PRGM" );
+                         pathToEngine => $NCBIBLASTX_PRGM );
 
-  if ( !-s "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib.psq" )
+  if ( !-s "$LIBDIR/RepeatPeps.lib.psq" )
   {
-    system(   "$RepeatMaskerConfig::RMBLASTDB_PRGM -dbtype prot -in "
-            . "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib "
+    system(   "$NCBIBLASTDB_PRGM -dbtype prot -in "
+            . "$LIBDIR/RepeatPeps.lib "
             . "> /dev/null 2>&1" );
   }
 
@@ -439,16 +340,14 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
   $searchEngineX->setAdditionalParameters( $additionalParams );
 } else
 {
-  $ENV{BLASTMAT} = "$RepeatMaskerConfig::WUBLAST_DIR/matrix";
+  $ENV{BLASTMAT} = "$ABBLAST_DIR/matrix";
   $searchEngineX =
       WUBlastXSearchEngine->new(
-                    pathToEngine => "$RepeatMaskerConfig::WUBLAST_DIR/blastx" );
+                    pathToEngine => $ABBLASTX_PRGM );
 
-  if ( !-s "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib.xps" )
+  if ( !-s "$LIBDIR/RepeatPeps.lib.xps" )
   {
-    system(
-"$RepeatMaskerConfig::XDFORMAT_PRGM -p $RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib"
-    );
+    system( "$XDFORMAT_PRGM -p $LIBDIR/RepeatPeps.lib" );
   }
 
   my $additionalParams =
@@ -457,8 +356,7 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
 }
 
 $searchEngineX->setQuery( "$fastaFile.rmsimple" );
-$searchEngineX->setSubject(
-                   "$RepeatMaskerConfig::REPEATMASKER_LIB_DIR/RepeatPeps.lib" );
+$searchEngineX->setSubject( "$LIBDIR/RepeatPeps.lib" );
 $searchEngineX->setFilterWords( 1 );
 if ( defined $options{'pvalue'} )
 {

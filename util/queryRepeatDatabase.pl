@@ -126,6 +126,15 @@ Returns statistics on the sequences
 
 Prints the taxonomy tree for all species in the database.
 
+=item -libdir [path_to_library_directory]
+
+Use an alternate library directory to for the primary repeat libraries.
+These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
+distribution files. Normally these are stored/updated in the "Libraries/" 
+subdirectory of the main program which RepeatMasker will use by default.  
+This parameter should only be used when it's not possible to keep the 
+libraries in the same place as the program. 
+
 =back
 
 =head1 SEE ALSO
@@ -180,6 +189,7 @@ my @getopt_args = (
                     '-clade',
                     '-stage=i',
                     '-class=s',
+                    '-libdir=s',
                     '-quiet',
                     '-id=s',
                     '-tree',
@@ -203,30 +213,39 @@ if ( $options{'version'} ) {
   exit;
 }
 
+# Allow the user to override the default library directory ( currently only by the command line )
+my $LIBDIR = "$FindBin::Bin/../Libraries";
+if ( $options{'libdir'} ) {
+  $LIBDIR = $options{'libdir'};
+  if ( ! -d $LIBDIR ) {
+    die "The specified library directory $options{'libdir'} does not exist!\n";
+  }
+}
+
 my $fileFormat = "Unknown";
 my $RMLib;
 my $libVersion;
 if ( exists $options{'hmm'} ) {
 
   # Dfam file format
-  $RMLib      = "$FindBin::Bin/../Libraries/Dfam.hmm";
+  $RMLib      = "$LIBDIR/Dfam.hmm";
   $fileFormat = "hmm";
   my @values =
-      LibraryUtils::validateLibraries( "$FindBin::Bin/../Libraries", "HMM" );
+      LibraryUtils::validateLibraries( $LIBDIR, "HMM" );
   $libVersion = $values[ 2 ];
 }
 elsif ( exists $options{'fasta'} ) {
 
   # Old legacy library format
-  $RMLib      = "$FindBin::Bin/../Libraries/RepeatMasker.lib";
+  $RMLib      = "$LIBDIR/RepeatMasker.lib";
   $fileFormat = "fasta";
 }
 else {
 
   # RepeatMasker Combined Library format
-  $RMLib      = "$FindBin::Bin/../Libraries/RepeatMaskerLib.embl";
+  $RMLib      = "$LIBDIR/RepeatMaskerLib.embl";
   $fileFormat = "embl";
-  my @values = LibraryUtils::validateLibraries( "$FindBin::Bin/../Libraries",
+  my @values = LibraryUtils::validateLibraries( $LIBDIR,
                                                 "CONSENSUS" );
   $libVersion = $values[ 2 ];
 }
@@ -244,7 +263,7 @@ unless ( $options{'quiet'} ) {
 }
 
 # Open up the taxonomy database
-my $taxDB = "$FindBin::Bin/../Libraries/taxonomy.dat";
+my $taxDB = "$LIBDIR/taxonomy.dat";
 my $tax   = Taxonomy->new( taxonomyDataFile => $taxDB );
 
 if ( $options{'tree'} ) {

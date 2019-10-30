@@ -3,9 +3,6 @@ RepeatMasker
 Developed by Arian Smit and Robert Hubley
 Please refer to: Smit, AFA, Hubley, R. & Green, P "RepeatMasker" at
 http://www.repeatmasker.org
-                                                                       
-The interspersed repeat databases are modified versions of 
-those found in "RepBase Update" (http://www.girinst.org/)
 ######################################################################
 
 
@@ -796,45 +793,17 @@ as described in the signed software agreement).
 
 2.3  Repeat databases
 
-The interspersed repeat databases provided in the RepeatMasker package
-are maintained in synch with the repeat databases (RepBase Update)
-copyrighted by the Genetic Information Research Institute
-(G.I.R.I.). Whereas non-mammalian libraries currently are identical to
-the RepBase Update FASTA files except for formatting and corrections,
-mammalian databases are extensively modified. The modification
-primarily entails inclusion of complete sets of subfamilies for Alu
-and L1, modifications to avoid false matches and false annotations,
-and subdivision in multiple sets for optimization of the analysis.
+The RepeatMasker program are distributed with a copy of the
+Dfam database ( www.dfam.org ). Dfam is a small but growing "open"
+databases of Transposable Element seed alignments, profile Hidden
+Markov Models and consensus sequences.
 
-We transformed the RepBase database from a set of prototypes to a set
-of consensus sequences (described in my dissertation) to allow both
-determination of the origin of these repeats and improved detection. A
-consensus properly derived from a multiple alignment of copies closely
-approaches the original transposable element, since substitutions
-accumulate by-and-large unselected in copies of transposable
-elements. Because of the latter, a copy is on average twice as close
-to the consensus as to any other copy. Consensus sequences are also
-more sensitive search tools because directional substitution matrices
-can be used (see above).
-
-Consensus sequences would be identical to the original transposable
-element if all copies were inserted at about the same time from a
-single source.  DNA transposon copies approach this ideal, but
-retroposons (giving rise to most repeats in our genome) live for long
-periods in a genome and evolve doing so. Thus, over time the sequence
-of the transposable element has changed, and a single consensus does
-not describe the original sequence of each copy. Also, usually at any
-time multiple distinct sequences with a common origin, cousins if you
-will, were active. This situation is reflected by the presence in the
-databases of multiple subfamilies for the more common retroposons
-(usually having the same name ending in a different number or letter.
-
-The mammalian repeat libraries contain, besides consensus sequences
-for transposon derived repeats, consensus satellite units, and a set
-of *small structural RNA sequences*. The latter have created a large
-amount of processed pseudogenes in our genome, and in that way are
-interspersed repeats.
-
+RepeatMasker is also compatible with the RepBase database managed by
+the Genetic Information Research Institute and requires a license to
+use. Up until 2019 we maintained the "Repbase RepeatMasker Edition"
+libraries as co-editor of RepBase Update.  For newer versions of
+RepBase users will need to use the sequences in FASTA format with
+RepeatMasker's "-lib" option.
 
 
 2.4 Sensitivity and speed  

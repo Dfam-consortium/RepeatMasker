@@ -78,6 +78,15 @@ Also mask those repeats unclear to be either lineage specific or ancestral.
 Does not mask satellites, simple repeats and low complexity DNA, none 
 of which $script is trying to label lineage-specific or ancestral
 
+=item -libdir [path_to_library_directory]
+
+Use an alternate library directory to for the primary repeat libraries.
+These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
+distribution files. Normally these are stored/updated in the "Libraries/" 
+subdirectory of the main program which RepeatMasker will use by default.  
+This parameter should only be used when it's not possible to keep the 
+libraries in the same place as the program. 
+
 =back
 
 Only the following species are currently recognized:
@@ -136,7 +145,7 @@ my $dir = "$FindBin::RealBin/Libraries";
 ##  Set the location of the RepeatMasker Taxonomy database file
 ##
 ##
-my $taxFile = "$FindBin::RealBin/taxonomy.dat";
+my $taxFile = "$dir/taxonomy.dat";
 
 ##                                                                      ##
 ##                      END CONFIGURATION AREA                          ##
@@ -197,7 +206,7 @@ phylogeny of mammalian interspersed repeats.
 
 my @spec = ();
 my @opts =
-    ( "query=s", "comp=s" => \@spec, "mask=s", "aggressive", "nolow", "help" );
+    ( "query=s", "comp=s" => \@spec, "mask=s", "aggressive", "nolow", "help", "libdir=s" );
 $opt_query = $opt_mask = $opt_aggressive = $opt_nolow = $opt_help;
 @spec = ();    # global; used in all subroutines
 
@@ -212,6 +221,10 @@ $PAGER = "more" if !defined $PAGER;
 system( "$PAGER $FindBin::Bin/daterepeats.help\n" ), exit if $opt_help;
 
 die "$usage" unless $opt_query && $spec[ 0 ];
+
+if ( $options{'libdir'} ) {
+  $dir = $options{'libdir'};
+}
 
 my $message =
 "You need a RepeatMasker library of June 2003 or later for $script to function\n(the file \"version\" in the $dir directory needs to say 20030606 or later).\nNew RepeatMasker libraries can be downloaded from http://www.girinst.org\n";

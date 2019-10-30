@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl -w
+#!/usr/bin/perl
 ##---------------------------------------------------------------------------##
 ##  File:
 ##      @(#) createRepeatLandscape.pl
@@ -158,6 +158,7 @@ my @getopt_args = (
                     '-version',      # print out the version and exit
                     '-div=s',
                     '-maxScale=s',
+                    '-minCount=s',
                     '-g=s',
                     '-twoBit=s',
                     '-t=s',
@@ -355,6 +356,11 @@ while ( <F> ) {
 }
 close F;
 
+my $minCount = 0;
+if ( $options{'minCount'} ){
+  $minCount = $options{'minCount'};
+}
+
 ## Double check for new repeat classes we don't have in our
 ## fixed graph label list.
 # Create a lookup hash of the graph labels
@@ -377,7 +383,9 @@ my @landscapeGraphLabels = ();
 my @div                  = sort { $a <=> $b } keys %div;
 foreach my $label ( @{$graphLabels} ) {
   if ( defined $sumDiv{ $label->[ 0 ] }
-       && $sumDiv{ $label->[ 0 ] } > 0 )
+       && $sumDiv{ $label->[ 0 ] } > 0 
+       && defined $classTotalBP{ $label->[ 0 ] }
+       && $classTotalBP{ $label->[ 0 ] } > $minCount )
   {
     push @landscapeGraphLabels, $label->[ 0 ];
     $colors .= "\"$label->[1]\", ";
@@ -385,7 +393,7 @@ foreach my $label ( @{$graphLabels} ) {
 }
 
 foreach my $label ( reverse( @{$graphLabels}, @{$extraChartLabels} ) ) {
-  if ( defined $classTotalBP{ $label->[ 0 ] } ) {
+  if ( defined $classTotalBP{ $label->[ 0 ] } && $classTotalBP{ $label->[ 0 ] } > $minCount ) {
     $pieColors .= "$idx: { color: \"$label->[1]\" }, ";
     $idx++;
   }
@@ -418,7 +426,7 @@ $title = $options{'t'} if ( $options{'t'} );
 my @genomeFractionChartLabels = @landscapeGraphLabels;
 foreach my $label ( @{$extraChartLabels} ) {
   if ( defined $classTotalBP{ $label->[ 0 ] }
-       && $classTotalBP{ $label->[ 0 ] } > 0 )
+       && $classTotalBP{ $label->[ 0 ] } > $minCount )
   {
     push @genomeFractionChartLabels, $label->[ 0 ];
   }
