@@ -524,6 +524,12 @@ def main(*args):
                     # class/subclass are not defined
                     flds.insert(10,'unknown')
 
+            # Sanitize the name field -- unfortunately ProcessRepeats
+            # appends "/Alpha" and "/Beta" to ALR and BSR respectively.
+            # This creates problems for using the id as a filesystem
+            # identifier ( for obvious reasons ).
+            flds[9] = flds[9].replace("/","_")
+
             # Now breakup the class/subclass into their own columns
             if ( '/' in flds[10] ):
                 rmclass, rmsubclass = flds[10].split("/")
