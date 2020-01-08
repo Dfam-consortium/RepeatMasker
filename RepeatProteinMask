@@ -189,7 +189,7 @@ if ( $options{'help'} || !$#ARGV < 1 )
 #
 RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
-my $LIBDIR = $config->{'LIBDIR_DIR'}->{'value'};
+my $LIBDIR = $config->{'LIBDIR'}->{'value'};
 my $NCBIBLASTX_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/blastx";
 my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
 my $ABBLASTX_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastx";
