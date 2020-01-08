@@ -5111,7 +5111,7 @@ sub getEquivArray {
 
   if ( defined( my $refHashEntry = $refinementHash{ $annot->getLineageId() } ) )
   {
-    foreach my $key ( keys %{$refHashEntry} ) {
+    foreach my $key ( sort keys %{$refHashEntry} ) {
       push @annots, ( @{ $refHashEntry->{$key} } );
     }
   }

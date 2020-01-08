@@ -4338,7 +4338,7 @@ sub runSearchStages {
           );
 
           #TODO REMOVE...testing
-          copy( $maskfile, "/tmp/backup1" );
+          #copy( $maskfile, "/tmp/backup1" );
 
           if (    -s "$speciesLibDir/cutlib"
                || -s "$speciesLibDir/cutlib.bsq"
