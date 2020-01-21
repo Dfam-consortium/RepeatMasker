@@ -373,7 +373,7 @@ sub searchEngineMenu {
     {
       name         => "HMMER_DIR",
       desc         => "HMMER3.1 & DFAM",
-      defname      => "nhmmer",
+      defname      => "hmmer",
       status       => 0,
     },
     {
