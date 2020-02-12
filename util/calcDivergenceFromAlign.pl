@@ -294,6 +294,12 @@ sub processAlignment {
     $class   = $result->getSubjType();
   }
 
+  # JR 20200116: Some combinations of RepeatMasker/Dfam can produce
+  # an empty class name, particularly in the UCON4 family.
+  if ($class eq "") {
+    $class = "Unspecified";
+  }
+
   my $seqName    = $result->getQueryName();
   my $queryStart = $result->getQueryStart();
   my $queryEnd   = $result->getQueryEnd();
