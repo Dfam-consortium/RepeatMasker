@@ -53,6 +53,7 @@ Robert Hubley <rhubley@systemsbiology.org>
 # Module Dependence
 #
 use strict;
+use Config;
 use Cwd;
 use FindBin;
 use Getopt::Long;
@@ -72,7 +73,7 @@ my $version = $RepeatMaskerConfig::VERSION;
 # this script ends up in someones path and they run it
 # unqualified from another installation directory.
 #
-if ( cwd() ne $FindBin::RealBin ) {
+if ( getcwd() ne $FindBin::RealBin ) {
   print "\n    The RepeatMasker configure script must be run from\n"
       . "    inside the RepeatMasker installation directory:\n\n"
       . "       $FindBin::RealBin\n\n"
@@ -87,7 +88,7 @@ if ( cwd() ne $FindBin::RealBin ) {
 #   -t=s: String parameters
 #   -t=i: Number parameters
 #
-my @getopt_args = ( '-version', '-perlbin' );
+my @getopt_args = ( '-version', '-perlbin=s' );
 
 # Add configuration parameters as additional command-line options
 push @getopt_args, RepeatMaskerConfig::getCommandLineOptions();
@@ -251,6 +252,18 @@ my @progFiles = (
                   "util/buildRMLibFromEMBL.pl",
                   "util/rmToUCSCTables.pl"
 );
+
+# perlLocation will be used in shebang lines, so it must be
+# an absolute path. However $^X is not always absolute (e.g. macOS).
+# In almost all other cases, $Config{perlpath} is suitable.
+if ( !File::Spec->file_name_is_absolute($perlLocation) ) {
+  $perlLocation = $Config{perlpath};
+}
+if ( ! File::Spec->file_name_is_absolute($perlLocation) || ! -x $perlLocation ) {
+  die "Could not find an absolute path for the running perl interpreter!\n" .
+      "Try specifying your perl path manually with the -perlbin option.\n";
+}
+
 my $perlLocEsc = $perlLocation;
 $perlLocEsc =~ s/\//\\\//g;
 
