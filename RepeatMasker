@@ -475,20 +475,24 @@ my $searchEngine;
 my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};
 if ( defined $options{'engine'} ) {
   if ( $options{'engine'} =~
-       /ncbi|rmblast|wublast|abblast|crossmatch|hmmer|nhmmer/i )
+       /^(ncbi|rmblast|wublast|abblast|crossmatch|hmmer|nhmmer)$/i )
   {
     $engine = lc( $options{'engine'} );
-    $engine = "wublast" if ( $engine eq "abblast" );
   }
   else {
     die "I have never heard of the search engine $options{'engine'}.  Please\n"
         . "use rmblast/abblast/hmmer or crossmatch.\n";
   }
 }
-else {
-  # Save the default in options even though it wasn't explicitly set
-  $options{'engine'} = $engine;
-}
+
+# Normalize engine names, so that later code does not have to worry about e.g.
+# "nhmmer" vs "hmmer" and can assume "hmmer"
+$engine = "wublast" if ( $engine eq "abblast" );
+$engine = "hmmer" if ( $engine eq "nhmmer" );
+$engine = "ncbi" if ( $engine eq "rmblast" );
+
+# Save normalized engine name back into options as well
+$options{'engine'} = $engine;
 
 if ( defined $options{'int'} || defined $options{'low'} ) {
   die "\nThe options -int and -low have been deprecated.  Please use either\n"
@@ -555,14 +559,13 @@ elsif ( $engine eq "crossmatch" ) {
   }
   print "Search Engine: Crossmatch [ " . $searchEngine->getVersion() . " ]\n";
 }
-elsif ( $engine eq "ncbi" || $engine eq "rmblast" ) {
+elsif ( $engine eq "ncbi" ) {
   $searchEngine = NCBIBlastSearchEngine->new(
                              pathToEngine => $RMBLASTN_PRGM,
                              DEBUG        => $engineDEBUG );
   if ( not defined $searchEngine ) {
     die "Cannot execute $RMBLASTN_PRGM";
   }
-  $engine = "ncbi";
   print "Search Engine: NCBI/RMBLAST [ " . $searchEngine->getVersion() . " ]\n";
 }
 else {
