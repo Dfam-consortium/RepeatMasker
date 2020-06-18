@@ -648,7 +648,7 @@ sub _parseTagData {
     # Dfam.embl Example:
     #   ID   DF0000001; SV 4; linear; DNA; STD; UNC; 262 BP.
     if ( $data =~
-/(DF\d+)\s*\;\s+SV\s+(\d+)\s*\;\s+linear\s*\;\s+DNA\s*\;\s+STD\s*\;\s+UNC\s*\;\s+(\d+)\s+BP.*/
+/(D[FR]\d+)\s*\;\s+SV\s+(\d+)\s*\;\s+linear\s*\;\s+DNA\s*\;\s+STD\s*\;\s+UNC\s*\;\s+(\d+)\s+BP.*/
         )
     {
       $recRef->setId( $1 );
