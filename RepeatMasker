@@ -434,6 +434,7 @@ RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
 my $NHMMSCAN_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/nhmmscan";
 my $HMMPRESS_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/hmmpress";
+my $HMMSTAT_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/hmmstat";
 my $RMBLASTN_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/rmblastn";
 my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
 my $CROSSMATCH_PRGM = $config->{'CROSSMATCH_DIR'}->{'value'} . "/cross_match";
@@ -579,35 +580,6 @@ else {
 my $libType = "CONSENSUS";
 $libType = "HMM" if ( $engine eq "hmmer" );
 
-#FAMDB_WORK
-# TODO: Obtain version from famdb
-# Deprecated
-my ( $combLib, $rmLibraryVersion, $dbversion, $rbrmVersion ) =
-    LibraryUtils::validateLibraries(
-                              $LIBDIR,
-                              $libType );
-if ( $options{'rbrm_only'} ) {
-  $combLib          = 0;
-  $rmLibraryVersion = $rbrmVersion;
-}
-# Some warnings for Dfam & species choice
-#  my $spec = $options{'species'};
-#  if (
-#       $rmLibraryVersion =~ /rb\d/
-#    && $rmLibraryVersion =~ /Dfam_3/
-#    && ( $spec eq ""
-#      || $spec =~
-#/human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i
-#    )
-#      )
-#  {
-#    print "\n\n"
-#        . "INFO: For this species, RepeatMasker is using the new Dfam\n"
-#        . "      consensus sequences. These are based on the Dfam seed\n"
-#        . "      alignments and may differ from the ones in RepBase.\n\n";
-#  }
-#FAMDB_WORK
-
 #
 # RepeatMasker Batching Parameters
 #
@@ -663,28 +635,6 @@ my $tax =
     Taxonomy->new( taxonomyDataFile =>
                "$LIBDIR/taxonomy.dat" );
 
-#FAMDB_WORK
-# Validate species
-#my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $LIBDIR/RepeatMaskerLib.h5 lineage '" .
-#               $options{'species'} . "' --ancestors --descendants -f semicolon";
-#open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
-#my $orgFlag;
-#while ( <IN> ) {
-#  # famdb lineage output:
-#  # 370040: root;cellular organisms;Eukaryota;Opisthokonta;Metazoa;Eumetazoa;Bilateria;Deuterostomia;Chordata;Craniata;Vertebrata;Gnathostomata;Teleostomi;Euteleostomi;Actinopterygii;Actinopteri;Neopterygii;Teleostei;Osteoglossocephalai;Clupeocephala;Euteleosteomorpha;Neoteleostei;Eurypterygia;Ctenosquamata;Acanthomorphata;Euacanthomorphacea;Percomorphaceae;Ovalentaria;Mugilomorphae;Mugiliformes;Mugilidae;Planiliza;Planiliza haematocheilus [1469]
-#  $orgFlag = "mammalia" if ( /^\d+:\s.*;Mammalia(;| \[)/ );
-#  $orgFlag = "rodentia" if ( /^\d+:\s.*;Rodentia(;| \[)/ ); 
-#  $orgFlag = "primates" if ( /^\d+:\s.*;Primates(;| \[)/ );
-#  # TODO: Catch stderr... and print out ambiguous matches up to 10...
-#  # Ambiguous search term 'mouse' (found 6 results).
-#  # Please use a more specific name or taxa ID, which can be looked
-#  # up with the 'names' command.
-#  #
-#}
-#close IN;
-#print "***** ORG FLAG = $orgFlag\n";
-#FAMDB_WORK
-
 #
 # The search path for finding a place to store the cache
 #
@@ -695,11 +645,7 @@ my @LIBPATH = ( $LIBDIR,
 push @LIBPATH, $tempdir;
 
 
-#FAMDB_WORK
-my $generalLibDir;
-my $speciesLibDir;
-my $customLibDir;
-( $options{"species"}, $generalLibDir, $speciesLibDir, $customLibDir ) =
+my ( $resolvedSpecies, $generalLibDir, $speciesLibDir, $customLibDir, $rmLibraryVersion ) =
     &initLibrariesFromFamdb(
                     $options{'species'},
                     $options{'lib'},
@@ -707,7 +653,9 @@ my $customLibDir;
                     $tempdir,
                     \@LIBPATH,
                     $searchEngine);
-
+my $dbversion = $rmLibraryVersion;
+$options{'species'} = $resolvedSpecies;
+#FAMDB_WORK
 #( $options{"species"}, $generalLibDir, $speciesLibDir, $customLibDir ) =
 #    &initLibraries(
 #                    \%options,
@@ -1289,7 +1237,7 @@ JOBLOOP:
   print CATOUT "## Total NonSub ( excluding all non ACGT bases ):"
       . $db->getSubtLength() . "\n";
   print CATOUT "RepeatMasker version $version , $speed mode\n";
-  print CATOUT "$engineInfo\n$dbversion\n";
+  print CATOUT "$engineInfo\nRM Library: $dbversion\n";
   close CATOUT;
 
   undef $db;
@@ -7925,7 +7873,8 @@ sub commify {
 }
 
 ##-------------------------------------------------------------------------##
-##  my ( $species, $generalCacheDir, $speciesCacheDir, $customLibDir ) =
+##  my ( $species, $generalCacheDir, $speciesCacheDir, 
+##       $customLibDir, $rmLibLabel ) =
 ##                             initLibraries();
 ##
 ##      species       : "-species" option provided by the user or undef.
@@ -7968,7 +7917,6 @@ sub initLibrariesFromFamdb {
   my $customCacheDir  = "$workingDir";  # The directory where we will find the
                                      #   "-lib" custom library.
 
-  #FAMDB
   my $orgFlag;
   my $dbLabel;
 
@@ -8043,8 +7991,11 @@ sub initLibrariesFromFamdb {
     # Default species if non given.
     $species = "homo sapiens" if ( $species eq "" );
 
+    my $modelPrefix = "CONS-";
+    $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
+
     my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 info ";
-    open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
+    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
     my $dbTitle;
     my $dbVersion;
     my $dbDate;
@@ -8072,7 +8023,14 @@ sub initLibrariesFromFamdb {
       }
     }
     close IN;
-    $dbLabel = $dbTitle . "_" . $dbVersion;
+    $dbLabel = $dbTitle;
+    $dbLabel = s/^\s+//;
+    $dbLabel = s/\s+$//;
+    $dbLabel = s/\s+/_/g;
+    my $sanitizedTitle = $dbTitle;
+    $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
+    $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
+    $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
     print "\nUsing Master RepeatMasker Database: $rmLibDir/RepeatMaskerLib.h5\n";
     print "  Title    : $dbTitle\n";
     print "  Version  : $dbVersion\n";
@@ -8091,7 +8049,7 @@ sub initLibrariesFromFamdb {
     $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 lineage '" .
                     $species . "' -f semicolon";
     #print "FamdbCMD: $famdbCmd\n";
-    open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
+    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
     my $lineage = "";
     my $NCBITaxID;
     my $NCBITaxName;
@@ -8117,7 +8075,7 @@ sub initLibrariesFromFamdb {
 
     $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 lineage '" .
                     $species . "' --ancestors --descendants -f totals";
-    open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
+    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
     while ( <IN> ) {
       #1299 entries in ancestors; 8 lineage-specific entries
       if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
@@ -8129,7 +8087,6 @@ sub initLibrariesFromFamdb {
     }
     close IN;
 
-
     if ( $lineage eq "" ) {
       die "\n\nSpecies \""
           . $species
@@ -8139,10 +8096,8 @@ sub initLibrariesFromFamdb {
           . "Please check your entry against the NCBI Taxonomy database\n"
           . "and/or try using a broader clade or related species instead.\n"
           . "The full list of species/clades defined in the library may be\n"
-          . "obtained using the util/queryTaxonomyDatabase.pl script.\n\n";
+          . "obtained using the famdb.py script.\n\n";
     }
-
-
   }
 
   # Check library search path for cached versions
@@ -8413,7 +8368,7 @@ sub initLibrariesFromFamdb {
     }
   }
 
-  return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir );
+  return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir, $dbLabel );
 
 }
 
@@ -8459,19 +8414,15 @@ sub createLibFromFamdb {
     $outFile = "$libName-wublast";
   }
 
-  my $famdbCmd;
-  if ( $stageNum == 80 ) {
-    # This is a wild card stage which selects all families.  In the case
-    # of famdb this is simply the same thing as not specifying a stage:
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" . 
-                $species . "' --ancestors --descendants -f $format > $outFile";
-  }else {
-    # NOTE: Stage 95 is a catch all for 35 50 55 60 65 70 75....basically
-    #       excluding 25/40/45. Currently famdb.py handles this selection internally
-    #       so all we need to do is pass "95" as the stage.
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" . 
-                $species . "' --ancestors --descendants --stage $stageNum -f $format > $outFile";
+  # NOTE: Stage 95 is a catch all for 35 50 55 60 65 70 75....basically
+  #       excluding 25/40/45. Stage '80' is all stages.  Currently famdb.py handles these
+  #       special case selections internally.
+  my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" . 
+              $species . "' --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
+  if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+    $famdbCmd .= " --add-reverse-complement";
   }
+  $famdbCmd .= " > $outFile";
   system($famdbCmd);
 
   if ( `grep -v -c "^#" $outFile` == 0 ) {
@@ -8502,6 +8453,89 @@ sub createLibFromFamdb {
           . " on file $outFile.\n";
     }
     elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+      #
+      # With the addition of DR families we now have the potential of generating
+      # families without any thresholds set.  We can generate thresholds for a
+      # given genome size and E-Value using the HMM using the hmmstat program.
+      # Ideally the genome size and E-Value would be parameters for RepeatMasker
+      # but for now they are fixed at 3GB genome size ( typical for mammals ) and
+      # the Dfam theoretical FDR E-value threshold of 0.02.  Below we calculate
+      # this for all families in the library ( because it's fast ) and then 
+      # add them only if a family is missing a GA.
+      #
+
+      # hmmstat :: display summary statistics for a profile file
+      # # HMMER 3.2.1 (June 2018); http://hmmer.org/
+      # # Copyright (C) 2018 Howard Hughes Medical Institute.
+      # # Freely distributed under the BSD open source license.
+      # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      # # show score required to reach E-value:      0.02
+      # # using base count (search both strands):  3000 Mb
+      # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      # 
+      # #
+      # # idx  name                 accession        nseq eff_nseq      M relent   info p relE compKL sc for   0.02
+      # # ---- -------------------- ------------ -------- -------- ------ ------ ------ ------ ------ -------------
+      #    1      AluY#SINE/Alu        DF0000002.4      2000     2.52    311   0.62   0.62   0.47   0.02        23.92
+      #    2      ...
+      open IN,"$HMMSTAT_PRGM --eval2score --baseZ 3000 -E 0.02 $outFile|" or
+        die "Could not open hmmstat program ($HMMSTAT_PRGM)\n";
+      my %thresholds;
+      while ( <IN> ) {
+        if ( /\s*(\d+\s+\S+\s+D.\d+.*)/ )
+        {
+          my @flds = split(/\s+/, $1);
+          $thresholds{$flds[2]} = $flds[10];
+        }
+      }
+      close IN;
+
+      # Add threshold to any that are missing
+      system("mv $outFile $outFile.preThresh");
+      open IN,"<$outFile.preThresh" or die "Could not open library $outFile.preThresh for reading!\n";
+      open OUT,">$outFile" or die "Could not open library $outFile for writing!\n";
+      my $acc;
+      my $preHeader;
+      my $postHeader;
+      my $beforeChecksum = 1;
+      my $hasGA = 0;
+      while ( <IN> ) {
+        if ( /^ACC\s+(\S+)/ ) {
+          $acc = $1;
+        }
+        if ( /^GA\s+\d+\.\d+;/ ) {
+          $hasGA = 1;
+        }
+        if ( $beforeChecksum ) {
+          $preHeader .= $_;
+        }else {
+          $postHeader .= $_;
+        }
+        if ( /^CKSUM/ ) {
+          $beforeChecksum = 0;
+        }
+        if ( /^\/\// ) {
+          print OUT $preHeader;
+          if ( $hasGA == 0 ){
+            print OUT "GA    " . $thresholds{$acc} . ";\n";
+            print OUT "TC    " . $thresholds{$acc} . ";\n";
+            print OUT "NC    " . $thresholds{$acc} . ";\n";
+          }
+          print OUT $postHeader;
+          $hasGA = 0;
+          $acc = "";
+          $preHeader = "";
+          $postHeader = "";
+          $beforeChecksum = 1;
+        }
+      }
+      close IN;
+      close OUT;
+
+      if ( -s $outFile ) {
+        unlink("$outFile.preThresh");
+      }
+
       system(   "$HMMPRESS_PRGM"
               . " $outFile > $outFileDir/hmmPress.log 2>&1" ) == 0
           or die "RepeatMasker::createLib(): Error invoking "
