@@ -8075,14 +8075,35 @@ sub initLibrariesFromFamdb {
 
     $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 lineage '" .
                     $species . "' --ancestors --descendants -f totals";
+    #print "famdb_command: $famdbCmd\n";
     open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
     while ( <IN> ) {
       #1299 entries in ancestors; 8 lineage-specific entries
       if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+        my $ancestral = $1;
+        my $linSpecific = $2;
         print "Species/Taxa Search:\n";
         print "  $NCBITaxName [NCBI Taxonomy ID: $NCBITaxID]\n";
-        print "  Lineage: $lineage\n";
-        print "  $1 families in ancestor taxa; $2 lineage-specific families\n\n";
+        my $lineageBlock = "";
+        my $lineageLine = "";
+        foreach my $component ( split(/;/,$lineage) ){
+          my $prefix;
+          if ( $lineageBlock eq "" ) {
+            $prefix = "  Lineage: ";
+          }else {
+            $prefix = "           ";
+          }
+          if ( length($lineageLine . ";" . $component) > 60 ) {
+            $lineageBlock .= $prefix . $lineageLine . "\n";
+            $lineageLine = "";
+          }
+          $lineageLine .= "$component;";
+        }
+        $lineageBlock =~ s/;$//;
+        $lineageBlock .= "\n"
+            unless ( $lineageBlock =~ /.*\n+$/s );
+        print "$lineageBlock";
+        print "  $ancestral families in ancestor taxa; $linSpecific lineage-specific families\n\n";
       }
     }
     close IN;
@@ -8139,17 +8160,14 @@ sub initLibrariesFromFamdb {
              (
                   $searchEngine->isa( "WUBlastSearchEngine" )
                && ( my @pathFiles = glob( "$path/$dbLabel/general/*.ahd" ) )
-               && ( -s "$path/$dbLabel/general/refineableHash.dat" )
              )
              || (   $searchEngine->isa( "NCBIBlastSearchEngine" )
                  && ( my @pathFiles = glob( "$path/$dbLabel/general/*.nhr" ) )
-                 && ( -s "$path/$dbLabel/general/refineableHash.dat" ) )
+                )
              || (    $searchEngine->isa( "CrossmatchSearchEngine" )
                   && -s "$path/$dbLabel/general/l1.lib"
                   && -s "$path/$dbLabel/general/refineableHash.dat" )
-             || (   $searchEngine->isa( "HMMERSearchEngine" )
-                 && ( my @pathFiles = glob( "$path/$dbLabel/general/*.hmm" ) )
-                 && ( -s "$path/$dbLabel/general/refineableHash.dat" ) )
+             || (   $searchEngine->isa( "HMMERSearchEngine" ) )
             )
         {
           $generalCacheDir = "$path/$dbLabel/general";
@@ -8243,6 +8261,7 @@ sub initLibrariesFromFamdb {
         # the refinelib.
         my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" .
                        $species . "' --ancestors --descendants -f embl_meta";
+        #print "Running $famdbCmd\n";
         open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
         my $acc;
         my $name;

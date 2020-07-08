@@ -351,7 +351,6 @@ class Family:  # pylint: disable=too-many-instance-attributes
             identifier = self.name or self.accession
 
         if buffer:
-            rm_class = "buffer"
             if buffer is True:
                 # range-less specification: leave identifier unchanged, and use
                 # the whole sequence as the buffer
@@ -361,12 +360,13 @@ class Family:  # pylint: disable=too-many-instance-attributes
                 identifier += "_%d_%d" % (buffer[0], buffer[1])
 
             sequence = sequence[buffer[0]-1:buffer[1]]
+            identifier = identifier + "#buffer"
 
         if do_reverse_complement:
             sequence = sequence.translate(self.__COMPLEMENT_TABLE)
             sequence = sequence[::-1]
 
-        if include_class_in_name:
+        if include_class_in_name and not buffer:
             rm_class = self.repeat_type
             if self.repeat_subtype:
                 rm_class += "/" + self.repeat_subtype
@@ -456,7 +456,7 @@ class Family:  # pylint: disable=too-many-instance-attributes
             for clade_id in self.clades:
                 lineage = famdb.get_lineage_path(clade_id)
                 if lineage[0] == "root":
-                    del lineage[0]
+                    lineage = lineage[1:]
 
                 if len(lineage) > 0:
                     append("OS", lineage[-1])
@@ -755,12 +755,12 @@ class FamDB:
         seen = self.seen
         value = getattr(family, key)
         if key not in seen:
-            seen[key] = []
+            seen[key] = set()
 
         if value in seen[key]:
             raise Exception("Family is not unique! Already seen {}: {}".format(key, value))
 
-        seen[key] += [value]
+        seen[key].add(value)
 
     def add_family(self, family):
         """Adds the family described by 'family' to the database."""
