@@ -82,6 +82,7 @@ the search engine specified. For each search engine invocation
 ( where applicable ) a fixed the number of cores/threads is used:
 
   RMBlast     4 cores
+  ABBlast     4 cores
   nhmmer      2 cores
   crossmatch  1 core
 
