@@ -58,7 +58,6 @@ use FindBin;
 use Getopt::Long;
 use Pod::Text;
 use lib $FindBin::Bin;
-use LibraryUtils;
 use RepeatMaskerConfig;
 
 #
@@ -286,11 +285,14 @@ if ( ! RepeatMaskerConfig::validateParam('LIBDIR') ) {
 }
 my $LIBDIR = $config->{'LIBDIR'}->{'value'};
 
-my ( $combLib, $tag1, $rmLibraryVersion ) =
-    LibraryUtils::validateLibraries( $LIBDIR, "CONSENSUS" );
 
-my ( $na, $tag2, $dfamLibraryVersion ) =
-    LibraryUtils::validateLibraries( $LIBDIR, "HMM" );
+if ( ! -s "$LIBDIR/RepeatMaskerLib.h5" ) {
+  die "Could not find the main library file RepeatMaskerLib.h5.\n" .
+    "Please copy Dfam.h5 to RepeatMaskerLib.h5 to use only Dfam, or\n" .
+    "run the addRepBase.pl script to use RepBase RepeatMasker Edition.\n";
+}
+
+my $dbInfo = `$rmLocation/famdb.py -i $LIBDIR/RepeatMaskerLib.h5 info`;
 
 ## Deprecated -- this was compressed so that it would 
 ## fit into github....this was unfortunately not scalable this way so
@@ -315,6 +317,9 @@ if ( ! ( $options{'abblast_dir'} || $options{'rmblast_dir'} || $options{'hmmer_d
   # Assumption: if at least one engine is specified on the command line then the intention
   #             is to not prompt for any engines.
 }
+
+print "Building FASTA version of RepeatMasker.lib ...\n";
+system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated > $rmLocation/Libraries/RepeatMasker.lib");
 
 #
 # Freeze RM and RMPep libraries for RepeatModeler use among others
@@ -342,12 +347,7 @@ if ( RepeatMaskerConfig::validateParam('ABBLAST_DIR') )
 RepeatMaskerConfig::updateConfigFile();
 
 print "The program is installed with a the following repeat libraries:\n";
-if ( $dfamLibraryVersion ne "" ) {
-  print "  $dfamLibraryVersion\n";
-}
-if ( $rmLibraryVersion ne "" ) {
-  print "  $rmLibraryVersion\n";
-}
+print "$dbInfo\n";
 
 print "Further documentation on the program may be found here:\n";
 print "  $rmLocation/repeatmasker.help\n\n";
