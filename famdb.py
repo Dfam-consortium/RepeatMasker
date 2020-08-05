@@ -312,7 +312,7 @@ class Family:  # pylint: disable=too-many-instance-attributes
         if self.search_method:
             append("SM", self.search_method)
 
-        append("CT", self.classification.replace("root;", ""))
+        append("CT", (self.classification and self.classification.replace("root;", "")))
 
         for clade_id in self.clades:
             tax_name = famdb.get_sanitized_name(clade_id)
@@ -934,7 +934,7 @@ class FamDB:
         try:
             tax_id = int(term)
             if self.has_taxon(tax_id):
-                return [(tax_id, True)]
+                return [[tax_id, True]]
 
             return []
         except ValueError:
@@ -991,7 +991,7 @@ class FamDB:
         if len(results) == 0:
             print("No species found for search term '{}'".format(term), file=sys.stderr)
         elif len(results) == 1:
-            return results[0]
+            return results[0][0]
         else:
             print("""Ambiguous search term '{}' (found {} results).
 Please use a more specific name or taxa ID, which can be looked
@@ -1131,6 +1131,23 @@ up with the 'names' command."""
 
         return False
 
+    @staticmethod
+    def __filter_curated(accession):
+        """
+        Returns True if the family is "curated".
+
+        Families are currently assumed to be curated unless their name is of the
+        form DR<7 digits> and have a version.
+
+        TODO: perhaps this should be a dedicated 'curated' boolean field on Family
+        """
+
+        if len(accession) == 9 and accession.startswith("DR"):
+            # any non-digit makes this "curated"
+            return any([ch not in "0123456789" for ch in accession[2:]])
+
+        return True
+
     def get_accessions_filtered(self, **kwargs):
         """
         Returns an iterator that yields accessions for the given search terms.
@@ -1141,6 +1158,7 @@ up with the 'names' command."""
             descendants: boolean, default False
                 If none of (tax_id, ancestors, descendants) are
                 specified, *all* families will be checked.
+            curated_only = boolean
             stage = int
             is_hmm = boolean
             repeat_type = string (prefix)
@@ -1159,11 +1177,14 @@ up with the 'names' command."""
             descendants = True
         else:
             tax_id = kwargs["tax_id"]
-            ancestors = kwargs["ancestors"] or False
-            descendants = kwargs["descendants"] or False
+            ancestors = kwargs.get("ancestors") or False
+            descendants = kwargs.get("descendants") or False
 
         # Define family filters (logically ANDed together)
         filters = []
+
+        if kwargs.get("curated_only"):
+            filters += [lambda a, f: self.__filter_curated(a)]
 
         filter_stage = kwargs.get("stage")
         filter_stages = None
@@ -1205,37 +1226,36 @@ up with the 'names' command."""
 
         seen = set()
 
-        # special case: Searching the whole database in a specific
-        # stage only is a common usage pattern in RepeatMasker.
-        # When searching the whole database instead of a species,
-        # the number of accessions to read through is shorter
-        # when going off of only the stage indexes.
-        if tax_id == 1 and descendants and filter_stages \
-                and not filter_repeat_type and not filter_name:
-            for stage in filter_stages:
-                grp = self.group_bystage.get(stage)
-                if grp:
-                    for accession in grp.keys():
-                        if accession in seen:
-                            continue
-                        seen.add(accession)
+        def iterate_accs():
+            # special case: Searching the whole database in a specific
+            # stage only is a common usage pattern in RepeatMasker.
+            # When searching the whole database instead of a species,
+            # the number of accessions to read through is shorter
+            # when going off of only the stage indexes.
+            if tax_id == 1 and descendants and filter_stages \
+                    and not filter_repeat_type and not filter_name:
+                for stage in filter_stages:
+                    grp = self.group_bystage.get(stage)
+                    if grp:
+                        yield from grp.keys()
+            else:
+                lineage = self.get_lineage(tax_id, ancestors=ancestors, descendants=descendants)
+                for node in walk_tree(lineage):
+                    yield from self.get_families_for_taxon(node)
 
-                        yield accession
-        else:
-            lineage = self.get_lineage(tax_id, ancestors=ancestors, descendants=descendants)
-            for node in walk_tree(lineage):
-                for accession in self.get_families_for_taxon(node):
-                    if accession in seen:
-                        continue
 
-                    seen.add(accession)
-                    family = self.file["Families"].get(accession)
-                    match = True
-                    for filt in filters:
-                        if not filt(accession, family):
-                            match = False
-                    if match:
-                        yield accession
+        for accession in iterate_accs():
+            if accession in seen:
+                continue
+            seen.add(accession)
+
+            family = self.file["Families"].get(accession)
+            match = True
+            for filt in filters:
+                if not filt(accession, family):
+                    match = False
+            if match:
+                yield accession
 
     def get_family_names(self):
         """Returns a list of names of families in the database."""
@@ -1480,14 +1500,14 @@ def print_families(args, families, header, species=None):
                     use_accession=use_accession,
                     include_class_in_name=args.include_class_in_name,
                     buffer=buffer_spec
-                )
+                ) or ""
 
                 if args.add_reverse_complement:
                     entry += family.to_fasta(args.file,
                                              use_accession=use_accession,
                                              include_class_in_name=args.include_class_in_name,
                                              do_reverse_complement=True,
-                                             buffer=buffer_spec)
+                                             buffer=buffer_spec) or ""
         elif args.format == "embl":
             entry = family.to_embl(args.file)
         elif args.format == "embl_meta":
@@ -1528,6 +1548,7 @@ def command_families(args):
     accessions = sorted(args.file.get_accessions_filtered(tax_id=target_id,
                                                           descendants=args.descendants,
                                                           ancestors=args.ancestors,
+                                                          curated_only=args.curated,
                                                           is_hmm=is_hmm,
                                                           stage=args.stage,
                                                           repeat_type=args.repeat_type,
@@ -1629,6 +1650,8 @@ def main():
                             help="include only families that have the specified repeat type")
     p_families.add_argument("--name", type=str,
                             help="include only families whose name begins with this search term")
+    p_families.add_argument("--curated", action="store_true",
+                            help="include only 'curated' families (those not named DRXXXXXXX)")
     p_families.add_argument("-f", "--format", default="summary", choices=family_formats,
                             help="choose output format")
     p_families.add_argument("--add-reverse-complement", action="store_true", help=argparse.SUPPRESS)
@@ -1642,7 +1665,7 @@ def main():
     p_family.add_argument("term", help="the accession of the family to be retrieved")
     p_family.set_defaults(func=command_family)
 
-    p_append = subparsers.add_parser("append", help=argparse.SUPPRESS)
+    p_append = subparsers.add_parser("append")
     p_append.add_argument("infile", help="the name of the input file to be appended")
     p_append.set_defaults(func=command_append)
 

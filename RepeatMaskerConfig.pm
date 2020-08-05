@@ -105,11 +105,8 @@ BEGIN {
                         'environment_override' => 'LIBDIR',
                         'expected_binaries' => [],
                         'expected_files' => [
-                                              'Dfam.hmm',
-                                              'Dfam.embl',
-                                              'Artefacts.embl',
+                                              'Dfam.h5',
                                               'RepeatAnnotationData.pm',
-                                              'taxonomy.dat',
                                               'RepeatPeps.lib',
                                               'RMRBMeta.embl'
                                             ],
