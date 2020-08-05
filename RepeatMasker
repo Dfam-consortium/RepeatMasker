@@ -329,7 +329,7 @@ use DFAM;
 use RepeatMaskerConfig;
 use SearchResult;
 use SearchResultCollection;
-use Taxonomy;
+#use Taxonomy;
 use CrossmatchSearchEngine;
 use WUBlastSearchEngine;
 use HMMERSearchEngine;
@@ -631,9 +631,10 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 #
 # Species & Library Setup
 #
-my $tax =
-    Taxonomy->new( taxonomyDataFile =>
-               "$LIBDIR/taxonomy.dat" );
+my $tax;
+#my $tax =
+#    Taxonomy->new( taxonomyDataFile =>
+#               "$LIBDIR/taxonomy.dat" );
 
 #
 # The search path for finding a place to store the cache
