@@ -669,6 +669,12 @@ class FamDB:
 
     dtype_str = h5py.special_dtype(vlen=str)
 
+    GROUP_FAMILIES = "Families"
+    GROUP_FAMILIES_BYNAME = "Families/ByName"
+    GROUP_FAMILIES_BYACC = "Families/ByAccession"
+    GROUP_FAMILIES_BYSTAGE = "Families/ByStage"
+    GROUP_NODES = "Taxonomy/Nodes"
+
     def __init__(self, filename, mode="r"):
         if mode not in ["r", "w", "a"]:
             raise ValueError("Invalid file mode. Expected 'r' or 'w' or 'a', got '{}'".format(mode))
@@ -691,12 +697,6 @@ class FamDB:
             # value not matching if it is present.
             raise Exception("This file cannot be read by this version of famdb.py.")
 
-        self.group_nodes = self.file.require_group("Taxonomy/Nodes")
-        self.group_families = self.file.require_group("Families")
-        self.group_byname = self.file.require_group("Families/ByName")
-        self.group_byaccession = self.file.require_group("Families/ByAccession")
-        self.group_bystage = self.file.require_group("Families/ByStage")
-
         self.__lineage_cache = {}
 
         if self.mode == "w":
@@ -705,8 +705,8 @@ class FamDB:
             self.__write_metadata()
         elif self.mode == "a":
             self.seen = {}
-            self.seen["name"] = set(self.group_byname.keys())
-            self.seen["accession"] = set(self.group_byaccession.keys())
+            self.seen["name"] = set(self.file[FamDB.GROUP_FAMILIES_BYNAME].keys())
+            self.seen["accession"] = set(self.file[FamDB.GROUP_FAMILIES_BYACC].keys())
 
             self.added = self.get_counts()
 
@@ -794,7 +794,7 @@ class FamDB:
             self.added['hmm'] += 1
 
         # Create the family data
-        dset = self.group_families.create_dataset(family.accession, (0,))
+        dset = self.file.require_group(FamDB.GROUP_FAMILIES).create_dataset(family.accession, (0,))
 
         # Set the family attributes
         for k in Family.META_LOOKUP:
@@ -804,16 +804,16 @@ class FamDB:
 
         # Create links
         if family.name:
-            self.group_byname[family.name] = h5py.SoftLink("/Families/" + family.accession)
-        self.group_byaccession[family.accession] = h5py.SoftLink("/Families/" + family.accession)
+            self.file.require_group(FamDB.GROUP_FAMILIES_BYNAME)[family.name] = h5py.SoftLink("/Families/" + family.accession)
+        self.file.require_group(FamDB.GROUP_FAMILIES_BYACC)[family.accession] = h5py.SoftLink("/Families/" + family.accession)
 
         for clade_id in family.clades:
-            taxon_group = self.group_nodes.require_group(str(clade_id))
+            taxon_group = self.file.require_group(FamDB.GROUP_NODES).require_group(str(clade_id))
             families_group = taxon_group.require_group("Families")
             families_group[family.accession] = h5py.SoftLink("/Families/" + family.accession)
 
         def add_stage_link(stage, accession):
-            stage_group = self.group_bystage.require_group(stage.strip())
+            stage_group = self.file.require_group(FamDB.GROUP_FAMILIES_BYSTAGE).require_group(stage.strip())
             if accession not in stage_group:
                 stage_group[accession] = h5py.SoftLink("/Families/" + accession)
 
@@ -843,7 +843,7 @@ class FamDB:
                 self.names_dump[taxon.tax_id] = taxon.names
 
         def store_tree_links(taxon, parent_id):
-            group = self.group_nodes.require_group(str(taxon.tax_id))
+            group = self.file.require_group(FamDB.GROUP_NODES).require_group(str(taxon.tax_id))
             if parent_id:
                 group.create_dataset("Parent", data=[parent_id])
 
@@ -874,14 +874,14 @@ class FamDB:
 
     def has_taxon(self, tax_id):
         """Returns True if 'self' has a taxonomy entry for 'tax_id'"""
-        return str(tax_id) in self.group_nodes
+        return str(tax_id) in self.file[FamDB.GROUP_NODES]
 
     def search_taxon_names(self, text, kind=None, search_similar=False):
         """
         Searches 'self' for taxons with a name containing 'text', returning an
         iterator that yields a tuple of (id, is_exact) for each matching node.
-        The same id can be returned more than once, and can furthermore be
-        returned both as an exact and a non-exact match.
+        Each id is returned at most once, and if any of its names are an exact
+        match the whole node is treated as an exact match.
 
         If 'similar' is True, names that sound similar will also be considered
         eligible.
@@ -893,26 +893,27 @@ class FamDB:
         text = text.lower()
 
         for tax_id, names in self.names_dump.items():
+            matches = False
+            exact = False
             for name_cls, name_txt in names:
                 name_txt = name_txt.lower()
                 if kind is None or kind == name_cls:
-                    matches = False
-                    exact = False
                     if text == name_txt:
                         matches = True
                         exact = True
                     elif name_txt.startswith(text + " <"):
                         matches = True
                         exact = True
+                    elif text == sanitize_name(name_txt):
+                        matches = True
+                        exact = True
                     elif text in name_txt:
                         matches = True
-                        exact = False
                     elif search_similar and sounds_like(text, name_txt):
                         matches = True
-                        exact = False
 
-                    if matches:
-                        yield [int(tax_id), exact]
+            if matches:
+                yield [int(tax_id), exact]
 
     def resolve_species(self, term, kind=None, search_similar=False):
         """
@@ -940,18 +941,14 @@ class FamDB:
         except ValueError:
             pass
 
-        # Perform a search by name, deduplicating with 'seen' and splitting
-        # between exact and inexact matches for sorting
-        seen = set()
+        # Perform a search by name, splitting between exact and inexact matches for sorting
         exact = []
         inexact = []
         for tax_id, is_exact in self.search_taxon_names(term, kind, search_similar):
-            if tax_id not in seen:
-                seen.add(tax_id)
-                if is_exact:
-                    exact += [tax_id]
-                else:
-                    inexact += [tax_id]
+            if is_exact:
+                exact += [tax_id]
+            else:
+                inexact += [tax_id]
 
         # Combine back into one list, with exact matches first
         results = [[tax_id, True] for tax_id in exact]
@@ -993,10 +990,10 @@ class FamDB:
         elif len(results) == 1:
             return results[0][0]
         else:
-            print("""Ambiguous search term '{}' (found {} results).
+            print("""Ambiguous search term '{}' (found {} results, {} exact).
 Please use a more specific name or taxa ID, which can be looked
 up with the 'names' command."""
-                  .format(term, len(results)), file=sys.stderr)
+                  .format(term, len(results), len(exact_matches)), file=sys.stderr)
 
         return None
 
@@ -1033,7 +1030,7 @@ up with the 'names' command."""
 
     def get_families_for_taxon(self, tax_id):
         """Returns a list of the accessions for each family directly associated with 'tax_id'."""
-        group = self.group_nodes[str(tax_id)].get("Families")
+        group = self.file[FamDB.GROUP_NODES][str(tax_id)].get("Families")
         if group:
             return group.keys()
         else:
@@ -1048,10 +1045,12 @@ up with the 'names' command."""
         where '2' may have been the passed-in 'tax_id'.
         """
 
+        group_nodes = self.file[FamDB.GROUP_NODES]
+
         if kwargs.get("descendants"):
             def descendants_of(tax_id):
                 descendants = [int(tax_id)]
-                for child in self.group_nodes[str(tax_id)]["Children"]:
+                for child in group_nodes[str(tax_id)]["Children"]:
                     descendants += [descendants_of(child)]
                 return descendants
             tree = descendants_of(tax_id)
@@ -1060,7 +1059,7 @@ up with the 'names' command."""
 
         if kwargs.get("ancestors"):
             while tax_id:
-                node = self.group_nodes[str(tax_id)]
+                node = group_nodes[str(tax_id)]
                 if "Parent" in node:
                     tax_id = node["Parent"][0]
                     tree = [tax_id, tree]
@@ -1105,7 +1104,7 @@ up with the 'names' command."""
     def __filter_stages(self, accession, stages):
         """Returns True if the family belongs to a search or buffer stage in 'stages'."""
         for stage in stages:
-            grp = self.group_bystage.get(stage)
+            grp = self.file[FamDB.GROUP_FAMILIES_BYSTAGE].get(stage)
             if grp and accession in grp:
                 return True
 
@@ -1235,7 +1234,7 @@ up with the 'names' command."""
             if tax_id == 1 and descendants and filter_stages \
                     and not filter_repeat_type and not filter_name:
                 for stage in filter_stages:
-                    grp = self.group_bystage.get(stage)
+                    grp = self.file[FamDB.GROUP_FAMILIES_BYSTAGE].get(stage)
                     if grp:
                         yield from grp.keys()
             else:
@@ -1259,11 +1258,11 @@ up with the 'names' command."""
 
     def get_family_names(self):
         """Returns a list of names of families in the database."""
-        return sorted(self.group_byname.keys(), key=str.lower)
+        return sorted(self.file[FamDB.GROUP_FAMILIES_BYNAME].keys(), key=str.lower)
 
     def get_family_accessions(self):
         """Returns a list of accessions for families in the database."""
-        return sorted(self.group_byaccession.keys(), key=str.lower)
+        return sorted(self.file[FamDB.GROUP_FAMILIES_BYACCESSION].keys(), key=str.lower)
 
     @staticmethod
     def __get_family(entry):
@@ -1316,16 +1315,26 @@ def command_names(args):
     """The 'names' command displays all names of all taxa that match the search term."""
 
     entries = []
-    for tax_id, _ in args.file.resolve_species(args.term):
+    for tax_id, is_exact in args.file.resolve_species(args.term):
         names = args.file.get_taxon_names(tax_id)
-        entries += [[tax_id, names]]
+        entries += [[tax_id, is_exact, names]]
 
     if args.format == "pretty":
-        for (tax_id, names) in entries:
+        prev_exact = None
+        for (tax_id, is_exact, names) in entries:
+            if is_exact != prev_exact:
+                if is_exact:
+                    print("Exact Matches\n=============")
+                else:
+                    if prev_exact:
+                        print()
+                    print("Non-exact Matches\n=================")
+                prev_exact = is_exact
+
             print(tax_id, ", ".join(["{1} ({0})".format(*n) for n in names]))
     elif args.format == "json":
         obj = []
-        for (tax_id, names) in entries:
+        for (tax_id, _, names) in entries:
             names_obj = [{"kind": name[0], "value": name[1]} for name in names]
             obj += [{"id": tax_id, "names": names_obj}]
         print(json.dumps(obj))
