@@ -66,7 +66,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => '/usr/local/abblast'
+                             'value' => ''
                            },
           'CROSSMATCH_DIR' => {
                                 'command_line_override' => 'crossmatch_dir',
@@ -78,14 +78,14 @@ BEGIN {
                                 'expected_files' => [],
                                 'param_type' => 'directory',
                                 'required' => 0,
-                                'value' => '/usr/local/phrap'
+                                'value' => ''
                               },
           'DEFAULT_SEARCH_ENGINE' => {
                                        'command_line_override' => 'default_search_engine',
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => 'rmblast'
+                                       'value' => ''
                                      },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
@@ -97,7 +97,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => '/usr/local/hmmer/bin'
+                           'value' => ''
                          },
           'LIBDIR' => {
                         'command_line_override' => 'libdir',
@@ -112,7 +112,7 @@ BEGIN {
                                             ],
                         'param_type' => 'directory',
                         'required' => 0,
-                        'value' => '/u1/home/rhubley/projects/RepeatMasker/Libraries'
+                        'value' => ''
                       },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
@@ -129,7 +129,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => '/usr/local/rmblast/bin'
+                             'value' => ''
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',
@@ -137,7 +137,7 @@ BEGIN {
                           'environment_override' => 'TRF_PRGM',
                           'param_type' => 'program',
                           'required' => 1,
-                          'value' => '/usr/local/bin/trf409.linux64'
+                          'value' => ''
                         }
         };
 
@@ -154,7 +154,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.0-alpha-3";
+$VERSION = "4.1.1-alpha-3";
 
 #
 # Set this flag to default to debug mode for the entire package
