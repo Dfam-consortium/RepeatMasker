@@ -105,7 +105,6 @@ BEGIN {
                         'environment_override' => 'LIBDIR',
                         'expected_binaries' => [],
                         'expected_files' => [
-                                              'Dfam.h5',
                                               'RepeatAnnotationData.pm',
                                               'RepeatPeps.lib',
                                               'RMRBMeta.embl'
@@ -154,7 +153,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.1-alpha-3";
+$VERSION = "4.1.1-alpha-4";
 
 #
 # Set this flag to default to debug mode for the entire package

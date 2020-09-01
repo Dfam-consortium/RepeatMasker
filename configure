@@ -294,15 +294,6 @@ if ( ! -s "$LIBDIR/RepeatMaskerLib.h5" ) {
 
 my $dbInfo = `$rmLocation/famdb.py -i $LIBDIR/RepeatMaskerLib.h5 info`;
 
-## Deprecated -- this was compressed so that it would 
-## fit into github....this was unfortunately not scalable this way so
-## we had to remove it from github.
-## Uncompress taxonomy.dat
-if ( -s "$LIBDIR/taxonomy.dat.gz" ) {
-  print "\n  -- Uncompressing taxonomy.dat...";
-  system( "gunzip $LIBDIR/taxonomy.dat.gz" );
-}
-
 if ( ! $options{'trf_prgm'} ) {
   RepeatMaskerConfig::promptForParam('TRF_PRGM');
 }
