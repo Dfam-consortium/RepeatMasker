@@ -289,12 +289,31 @@ if ( ! RepeatMaskerConfig::validateParam('LIBDIR') ) {
 }
 my $LIBDIR = $config->{'LIBDIR'}->{'value'};
 
-
-if ( ! -s "$LIBDIR/RepeatMaskerLib.h5" ) {
-  die "Could not find the main library file RepeatMaskerLib.h5.\n" .
-    "Please copy Dfam.h5 to RepeatMaskerLib.h5 to use only Dfam, or\n" .
-    "run the addRepBase.pl script to use RepBase RepeatMasker Edition.\n";
+print "\n\nChecking for libraries...\n\n";
+# Installation scenarios
+#  1: Both Dfam *and* RepBase RepeatMasker Edition
+if ( -s "$LIBDIR/Dfam.h5" && -s "$LIBDIR/RMRBSeqs.embl" ) {
+  unlink("$LIBDIR/RepeatMaskerLib.h5") if ( -e "$LIBDIR/RepeatMaskerLib.h5" );
+  system("$FindBin::RealBin/addRepBase.pl -libdir $LIBDIR");
+#  2: Just a form of Dfam ( curated or curated+uncurated )
+}elsif ( -s "$LIBDIR/Dfam.h5" ) {
+  print "  - Found Dfam\n";
+  unlink("$LIBDIR/RepeatMaskerLib.h5") if ( -e "$LIBDIR/RepeatMaskerLib.h5" );
+  system("ln -s $LIBDIR/Dfam.h5 $LIBDIR/RepeatMaskerLib.h5");
+#  3: What...nothing?
+}else {
+  die "\nCould not find $LIBDIR/Dfam.h5!\n" .
+      "Please download a copy of the Dfam library ( famdb HDF5 format )\n" . 
+      "from:\n\n" . 
+      "  https://www.dfam.org/releases/Dfam_#.#/families/Dfam.h5.gz\n" .
+      "or\n" . 
+      "  https://www.dfam.org/releases/Dfam_#.#/families/Dfam_curatedonly.h5.gz\n\n" .
+      "uncompress it ( gunzip ), store in $LIBDIR,\n" . 
+      "and rerun the configure program.\n\n\n";
 }
+#print "<PRESS ENTER TO CONTINUE>\n";
+#$answer = <STDIN>;
+
 
 my $dbInfo = `$rmLocation/famdb.py -i $LIBDIR/RepeatMaskerLib.h5 info`;
 

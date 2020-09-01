@@ -29,22 +29,45 @@ Pre-requisites
 Installation 
 ------------
 
-  1. Unpack the files to the directory you wish to install
-     them in.
+  1. Unpack the distribution in your home directory or in a location where it 
+     may be shared with other users of your system ( ie. /usr/local/ ). Make 
+     sure you do not extract in a directory already containing a pre-existing
+     directory called "RepeatMasker" as it will attempt to overwrite files 
+     contained within.  For example:
 
-  2. [optional] Download the complete Dfam ( curated & uncurated )
-     library "dfam.h5" ( famdb HDF5 format ) from www.dfam.org and
-     replace the curated-only file in the Libraries directory.
-  
-  3. [optional] Download the last verion RepBase RepeatMasker
-     Edition and unpack in the RepeatMasker directory.  This will
-     create files in the Libraries subdiretory ready for merging
-     with the Dfam library.  Run ./addRepBase.  This will merge 
-     RepBase RepeatMasker Edition (RMRBMeta.embl and RMRBSeqs.embl)
-     with Dfam.h5, and writes it the main RepeatMasker 
-     library (RepeatMaskerLib.h5).
+         % cp RepeatMasker-open-4-#-#.tar.gz /usr/local
+         % cd /usr/local
+         % gunzip RepeatMasker-open-4-#-#.tar.gz
+         % tar xvf RepeatMasker-open-4-#-#.tar
 
-  4. Configure the distribution by invoking Perl on the
+  2. RepeatMasker comes with a copy of the curated portion of 
+     Dfam ( Libraries/Dfam.h5 ).  This is a small library ( at 
+     this time ).  There are two options for supplementing the
+     main RepeatMasker library:
+
+       - The complete Dfam ( curated and uncurated families ) library
+         may be downloaded from www.dfam.org in famdb HDF5 format and
+         used to replace the distributed "Libraries/dfam.h5" file. For
+         example:
+
+             % wget https://www.dfam.org/releases/Dfam_3.2/families/Dfam.h5.gz
+             % gunzip Dfam.h5.gz
+             ## NOTE: This will overwrite the distributed Dfam.h5 file.
+             % mv Dfam.h5 /usr/local/RepeatMasker/Libraries
+
+     and/or
+
+       - The RepBase RepeatMasker Edition ( final version 10/26/2018 )
+         may be downloaded from www.girinst.org and unpaked in the
+         RepeatMasker directory.  For example:
+
+             % cp RepBaseRepeatMaskerEdition-20181026.tar.gz /usr/local/RepeatMasker/
+             % cd /usr/local/RepeatMasker
+             % gunzip RepBaseRepeatMaskerEdition-20181026.tar.gz
+             % tar xvf RepBaseRepeatMaskerEdition-20181026.tar
+             % rm RepBaseRepeatMaskerEdition-20181026.tar
+               
+  3. Configure the distribution by invoking Perl on the
      the "configure" script, i.e.:
   
             perl ./configure
