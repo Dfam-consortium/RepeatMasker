@@ -19,11 +19,11 @@ Pre-requisites
               ( Dfam required )
        abblast/wublast : http://blast.advbiocomp.com/licensing/
 
-  - Dfam and/or RepeatMasker libraries.  Dfam 3.1 is
-    included in this release.
-    Updates can be found at: www.dfam.org.
-    The RepBase RepeatMasker Library can be obtained
-    at: http://www.girinst.org
+  - Dfam and/or RepeatMasker libraries.  The curated families from
+    Dfam 3.1 are included in this release. Updates and the complete
+    (curated & uncrated) Dfam libraries can be found at: www.dfam.org.
+    The RepBase RepeatMasker Library can be obtained at: 
+    http://www.girinst.org
        
 
 Installation 
@@ -32,7 +32,19 @@ Installation
   1. Unpack the files to the directory you wish to install
      them in.
 
-  2. Configure the distribution by invoking Perl on the
+  2. [optional] Download the complete Dfam ( curated & uncurated )
+     library "dfam.h5" ( famdb HDF5 format ) from www.dfam.org and
+     replace the curated-only file in the Libraries directory.
+  
+  3. [optional] Download the last verion RepBase RepeatMasker
+     Edition and unpack in the RepeatMasker directory.  This will
+     create files in the Libraries subdiretory ready for merging
+     with the Dfam library.  Run ./addRepBase.  This will merge 
+     RepBase RepeatMasker Edition (RMRBMeta.embl and RMRBSeqs.embl)
+     with Dfam.h5, and writes it the main RepeatMasker 
+     library (RepeatMaskerLib.h5).
+
+  4. Configure the distribution by invoking Perl on the
      the "configure" script, i.e.:
   
             perl ./configure
@@ -40,6 +52,7 @@ Installation
      The configure script will prompt you for all the
      information needed to setup the RepeatMasker suite of
      programs.
+
 
 
 Library Cache Directories

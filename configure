@@ -59,6 +59,10 @@ use Getopt::Long;
 use Pod::Text;
 use lib $FindBin::Bin;
 use RepeatMaskerConfig;
+use POSIX qw(:sys_wait_h);
+
+# No output buffering
+$|=1;
 
 #
 # Release Version
@@ -309,8 +313,18 @@ if ( ! ( $options{'abblast_dir'} || $options{'rmblast_dir'} || $options{'hmmer_d
   #             is to not prompt for any engines.
 }
 
-print "Building FASTA version of RepeatMasker.lib ...\n";
-system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated > $rmLocation/Libraries/RepeatMasker.lib");
+print "Building FASTA version of RepeatMasker.lib ...";
+
+defined(my $pid = fork) or die "Couldn't fork: $!";
+if (!$pid) { # Child
+  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated > $rmLocation/Libraries/RepeatMasker.lib");
+} else { # Parent
+  while (! waitpid($pid, WNOHANG)) {
+    print ".";
+    sleep 2;
+  }
+}
+print "\n";
 
 #
 # Freeze RM and RMPep libraries for RepeatModeler use among others
