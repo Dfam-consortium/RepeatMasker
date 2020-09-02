@@ -1622,7 +1622,12 @@ def command_append(args):
             args.file.add_family(entry)
 
     db_info = args.file.get_db_info()
-    db_info["name"] += " (with additions)"
+
+    if args.name:
+        db_info["name"] = args.name
+    if args.description:
+        db_info["description"] += "\n" + args.description
+
     db_info["copyright"] += "\n\n" + header
 
     args.file.set_db_info(
@@ -1695,6 +1700,8 @@ def main():
 
     p_append = subparsers.add_parser("append")
     p_append.add_argument("infile", help="the name of the input file to be appended")
+    p_append.add_argument("--name", help="new name for the database (replaces the existing name)")
+    p_append.add_argument("--description", help="additional database description (added to the existing description)")
     p_append.set_defaults(func=command_append)
 
     args = parser.parse_args()

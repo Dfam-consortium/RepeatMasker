@@ -245,6 +245,7 @@ my @progFiles = (
                   "ProcessRepeats",
                   "RepeatProteinMask",
                   "DupMasker",
+                  "addRepBase.pl",
                   "util/calcDivergenceFromAlign.pl",
                   "util/createRepeatLandscape.pl",
                   "util/maskFile.pl",

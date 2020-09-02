@@ -66,6 +66,7 @@ libraries in the same place as the program.
 #
 use strict;
 use FindBin;
+use lib $FindBin::RealBin;
 use Getopt::Long;
 use EMBL;
 use File::Copy;
@@ -99,8 +100,15 @@ my $RMRBLibrary      = "RMRB.embl";
 
 print "Rebuilding $mainLibrary master library\n";
 
+my $versionWarned = 0;
 if ( ! -s "$LIBDIR/$RMRBLibrary") {
   combineRMRBMetaWithSeqs( $LIBDIR );
+}
+
+my $libVersion = getLibraryVersionStr( "$LIBDIR/$RMRBLibrary" );
+if ( !$versionWarned && $libVersion ne "20181026" ) {
+  $versionWarned = 1;
+  print "WARNING: RepBase RepeatMasker edition older than 20181026 is untested with this version of RepeatMasker.\n";
 }
 
 my $savBuf = $|;
@@ -115,7 +123,7 @@ copy( "$LIBDIR/$dfamLibrary", "$LIBDIR/$mainLibrary.writing" )
 my $REPEATMASKER_DIR = "$FindBin::Bin";
 my $FAMDB = "$REPEATMASKER_DIR/famdb.py";
 
-system("$FAMDB -i $LIBDIR/$mainLibrary.writing append $LIBDIR/$RMRBLibrary");
+system("$FAMDB -i $LIBDIR/$mainLibrary.writing append $LIBDIR/$RMRBLibrary --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
 my $status = $?;
 if ( $status ) {
   die "Failed to append $LIBDIR/$RMRBLibrary to $LIBDIR/$mainLibrary.writing.\n" .
@@ -174,7 +182,13 @@ sub combineRMRBMetaWithSeqs {
     my $savBuf = $|;
     $| = 1;
     print "    Reading RepBase RepeatMasker Edition database...";
+    my $libVersion = getLibraryVersionStr( "$LIBDIR/$RMRBSeqLibrary" );
+    if ( $libVersion ne "20181026" ) {
+      $versionWarned = 1;
+      print "\nWARNING: RepBase RepeatMasker edition older than 20181026 is untested with this version of RepeatMasker.\n";
+    }
     $| = $savBuf;
+
     my $seqs = EMBL->new( fileName => "$LIBDIR/$RMRBSeqLibrary" );
     my %seqId = ();
     for ( my $i = 0 ; $i < $seqs->size() ; $i++ ) {
@@ -185,8 +199,6 @@ sub combineRMRBMetaWithSeqs {
         . $seqs->size()
         . " sequences from $LIBDIR/$RMRBSeqLibrary\n";
     undef $seqs;
-
-    my $libVersion = getLibraryVersionStr( "$LIBDIR/$RMRBSeqLibrary" );
 
     my $savBuf = $|;
     $| = 1;
