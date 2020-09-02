@@ -8,6 +8,12 @@ Pre-requisites
 
   - Perl 5.8.0 or higher installed.
 
+  - Python 3.0 installed.
+
+  - h5py HDF5 library for Python
+      See https://docs.h5py.org/en/latest/build.html for installation
+      instructions.
+
   - TRF 4.09 or higher ( http://tandem.bu.edu/trf/trf.html )
   
   - A search engine.  We currently support:
