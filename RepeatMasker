@@ -82,6 +82,7 @@ the search engine specified. For each search engine invocation
 ( where applicable ) a fixed the number of cores/threads is used:
 
   RMBlast     4 cores
+  ABBlast     4 cores
   nhmmer      2 cores
   crossmatch  1 core
 
@@ -289,10 +290,10 @@ Crossmatch, ProcessRepeats
 
 =head1 COPYRIGHT
 
-2002-2019 Copyright (C) Institute for Systems Biology 2002-2019 Developed by
+2002-2020 Copyright (C) Institute for Systems Biology Developed by
 Arian Smit and Robert Hubley.
 
-2000-2001 Copyright (C) Arian Smit 2000-2001.
+2000-2001 Copyright (C) Arian Smit.
 
 1996-1999 Copyright (C) University of Washington, Developed by Arian Smit,
 Philip Green and Colin Wilson of the University of Washington Department of
@@ -434,6 +435,7 @@ RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
 my $NHMMSCAN_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/nhmmscan";
 my $HMMPRESS_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/hmmpress";
+my $HMMSTAT_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/hmmstat";
 my $RMBLASTN_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/rmblastn";
 my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
 my $CROSSMATCH_PRGM = $config->{'CROSSMATCH_DIR'}->{'value'} . "/cross_match";
@@ -475,20 +477,24 @@ my $searchEngine;
 my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};
 if ( defined $options{'engine'} ) {
   if ( $options{'engine'} =~
-       /ncbi|rmblast|wublast|abblast|crossmatch|hmmer|nhmmer/i )
+       /^(ncbi|rmblast|wublast|abblast|crossmatch|hmmer|nhmmer)$/i )
   {
     $engine = lc( $options{'engine'} );
-    $engine = "wublast" if ( $engine eq "abblast" );
   }
   else {
     die "I have never heard of the search engine $options{'engine'}.  Please\n"
         . "use rmblast/abblast/hmmer or crossmatch.\n";
   }
 }
-else {
-  # Save the default in options even though it wasn't explicitly set
-  $options{'engine'} = $engine;
-}
+
+# Normalize engine names, so that later code does not have to worry about e.g.
+# "nhmmer" vs "hmmer" and can assume "hmmer"
+$engine = "wublast" if ( $engine eq "abblast" );
+$engine = "hmmer" if ( $engine eq "nhmmer" );
+$engine = "ncbi" if ( $engine eq "rmblast" );
+
+# Save normalized engine name back into options as well
+$options{'engine'} = $engine;
 
 if ( defined $options{'int'} || defined $options{'low'} ) {
   die "\nThe options -int and -low have been deprecated.  Please use either\n"
@@ -555,14 +561,13 @@ elsif ( $engine eq "crossmatch" ) {
   }
   print "Search Engine: Crossmatch [ " . $searchEngine->getVersion() . " ]\n";
 }
-elsif ( $engine eq "ncbi" || $engine eq "rmblast" ) {
+elsif ( $engine eq "ncbi" ) {
   $searchEngine = NCBIBlastSearchEngine->new(
                              pathToEngine => $RMBLASTN_PRGM,
                              DEBUG        => $engineDEBUG );
   if ( not defined $searchEngine ) {
     die "Cannot execute $RMBLASTN_PRGM";
   }
-  $engine = "ncbi";
   print "Search Engine: NCBI/RMBLAST [ " . $searchEngine->getVersion() . " ]\n";
 }
 else {
@@ -575,66 +580,6 @@ else {
 #
 my $libType = "CONSENSUS";
 $libType = "HMM" if ( $engine eq "hmmer" );
-
-my ( $combLib, $rmLibraryVersion, $dbversion, $rbrmVersion ) =
-    LibraryUtils::validateLibraries(
-                              $LIBDIR,
-                              $libType );
-
-if ( $options{'rbrm_only'} ) {
-  $combLib          = 0;
-  $rmLibraryVersion = $rbrmVersion;
-}
-
-# Some warnings for Dfam & species choice
-if ( $engine eq "hmmer" ) {
-  my $version;
-  if ( $rmLibraryVersion =~ /Dfam_([\d\.]+)/ ) {
-    $version = $1;
-  }
-  if ( $version == 2.0 ) {
-    if ( $options{'species'} == ""
-      || $options{'species'} !~
-/human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i
-        )
-    {
-      print "\n\nWARNING: Dfam 2.0 includes repeats found in human, mouse,\n"
-          . "         drosophila melanogaster, danio rerio and\n"
-          . "         caenorhabditis elegans.  Searching with other species\n"
-          . "         will only search for ancestral repeats shared with\n"
-          . "         human and your species ( if any exist ) and will use the\n"
-          . "         \"TC\" cutoffs ( trusted cutoff ) instead of the \n"
-          . "         species-specific cutoffs.\n\n";
-    }
-  }
-  elsif ( $version < 2.0 ) {
-    if ( defined $options{'species'}
-         && $options{'species'} !~ /human|homo[ \_]sapiens|homo/i )
-    {
-      print
-          "\n\nWARNING: The Dfam 1.0-1.4 are human-only databases.  Searching\n"
-          . "with other species will only search for ancestral repeats shared\n"
-          . "with human and your species ( if any exist ).\n\n";
-    }
-  }
-}
-else {
-  my $spec = $options{'species'};
-  if (
-       $rmLibraryVersion =~ /rb\d/
-    && $rmLibraryVersion =~ /Dfam_3/
-    && ( $spec eq ""
-      || $spec =~
-/human|homo[ \_]sapiens|homo|mouse|mus[ \_]musculus|drosophila[ \_]melanogaster|danio[ \_]rerio|caenorhabditis[ \_]elegans/i
-    )
-      )
-  {
-    print "\n\n"
-        . "INFO: For this species, RepeatMasker is using the new Dfam\n"
-        . "      consensus sequences. These are based on the Dfam seed\n"
-        . "      alignments and may differ from the ones in RepBase.\n\n";
-  }
-}
 
 #
 # RepeatMasker Batching Parameters
@@ -688,8 +633,7 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 # Species & Library Setup
 #
 my $tax =
-    Taxonomy->new( taxonomyDataFile =>
-               "$LIBDIR/taxonomy.dat" );
+    Taxonomy->new( famdbfile => "$LIBDIR/RepeatMaskerLib.h5" );
 
 #
 # The search path for finding a place to store the cache
@@ -700,25 +644,35 @@ my @LIBPATH = ( $LIBDIR,
 # Add tempdir to the end of the library search path
 push @LIBPATH, $tempdir;
 
-my $generalLibDir;
-my $speciesLibDir;
-my $customLibDir;
-( $options{"species"}, $generalLibDir, $speciesLibDir, $customLibDir ) =
-    &initLibraries(
-                    \%options,
+
+my ( $resolvedSpecies, $generalLibDir, $speciesLibDir, $customLibDir, $rmLibraryVersion ) =
+    &initLibrariesFromFamdb(
+                    $options{'species'},
+                    $options{'lib'},
                     $LIBDIR,
-                    $tax,
                     $tempdir,
                     \@LIBPATH,
-                    $searchEngine,
-                    $rmLibraryVersion
-    );
+                    $searchEngine);
+my $dbversion = $rmLibraryVersion;
+$options{'species'} = $resolvedSpecies;
+#FAMDB_WORK
+#( $options{"species"}, $generalLibDir, $speciesLibDir, $customLibDir ) =
+#    &initLibraries(
+#                    \%options,
+#                    $LIBDIR,
+#                    $tax,
+#                    $tempdir,
+#                    \@LIBPATH,
+#                    $searchEngine,
+#                    $rmLibraryVersion
+#    );
+#FAMDB_WORK
 
 # Read in a frozen hash of element id's which are refineable.  This
 # hash is created by initLibraries the first time a library is initialized.
 my $refineableHashRef;
 if ( !$options{"lib"} ) {
-  $refineableHashRef = retrieve( "$generalLibDir/refineableHash.dat" );
+  $refineableHashRef = retrieve( "$speciesLibDir/refineableHash.dat" );
 }
 
 # Functions saveOldFiles and cleanUp expect the -dir directory to
@@ -1283,7 +1237,7 @@ JOBLOOP:
   print CATOUT "## Total NonSub ( excluding all non ACGT bases ):"
       . $db->getSubtLength() . "\n";
   print CATOUT "RepeatMasker version $version , $speed mode\n";
-  print CATOUT "$engineInfo\n$dbversion\n";
+  print CATOUT "$engineInfo\nRM Library: $dbversion\n";
   close CATOUT;
 
   undef $db;
@@ -4338,7 +4292,7 @@ sub runSearchStages {
           );
 
           #TODO REMOVE...testing
-          copy( $maskfile, "/tmp/backup1" );
+          #copy( $maskfile, "/tmp/backup1" );
 
           if (    -s "$speciesLibDir/cutlib"
                || -s "$speciesLibDir/cutlib.bsq"
@@ -6985,47 +6939,50 @@ sub cleanUp {
 }
 
 ##----
+# DEPRECATED
 ##----
-sub getDBStats {
-  my $options     = %{ shift() };
-  my $db          = shift;
-  my $specPattern = shift;
-  my $tax         = shift;
+#sub getDBStats {
+#  my $options     = %{ shift() };
+#  my $db          = shift;
+#  my $specPattern = shift;
+#  my $tax         = shift;
+#
+#  print "RepeatMasker::getDBStats( \$db, " . "$specPattern, \$tax );\n"
+#      if ( $DEBUG );
+#
+#  my $seqCount = $db->getRecordCount();
+#
+#  my $cladeCnt  = 0;
+#  my $ancestCnt = 0;
+#
+#  # For each sequence in the master library
+#  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
+#    my $record = $db->getRecord( $i );
+#    foreach my $name ( $record->getRMSpeciesArray() ) {
+#      $name =~ s/_/ /g;
+#      my $isDescendant = $tax->isA( $name,        $specPattern );
+#      my $isAncestor   = $tax->isA( $specPattern, $name );
+#
+#      if ( $isDescendant == 1 ) {
+#        $cladeCnt++;
+#        last;
+#      }
+#      else {
+#        if ( $isAncestor ) {
+#          $ancestCnt++;
+#          last;
+#        }
+#      }
+#    }
+#  }
+#
+#  print
+#      "   - $ancestCnt ancestral and ubiquitous sequence(s) for $specPattern\n";
+#  print "   - $cladeCnt lineage specific sequence(s) for $specPattern\n";
+#}
 
-  print "RepeatMasker::getDBStats( \$db, " . "$specPattern, \$tax );\n"
-      if ( $DEBUG );
 
-  my $seqCount = $db->getRecordCount();
-
-  my $cladeCnt  = 0;
-  my $ancestCnt = 0;
-
-  # For each sequence in the master library
-  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
-    my $record = $db->getRecord( $i );
-    foreach my $name ( $record->getRMSpeciesArray() ) {
-      $name =~ s/_/ /g;
-      my $isDescendant = $tax->isA( $name,        $specPattern );
-      my $isAncestor   = $tax->isA( $specPattern, $name );
-
-      if ( $isDescendant == 1 ) {
-        $cladeCnt++;
-        last;
-      }
-      else {
-        if ( $isAncestor ) {
-          $ancestCnt++;
-          last;
-        }
-      }
-    }
-  }
-
-  print
-      "   - $ancestCnt ancestral and ubiquitous sequence(s) for $specPattern\n";
-  print "   - $cladeCnt lineage specific sequence(s) for $specPattern\n";
-}
-
+#### DEPRECATED
 ##-------------------------------------------------------------------------##
 ## Use:  my $libSize = createLib( \%options, $db, $libName, $specPattern,
 ##                                $stageNum, $tax);
@@ -7051,328 +7008,328 @@ sub getDBStats {
 ##
 ##  Globals Used: None
 ##-------------------------------------------------------------------------##·
-sub createLib {
-  my $options      = %{ shift() };
-  my $db           = shift;
-  my $libName      = shift;
-  my $specPattern  = shift;
-  my $stageNum     = shift;
-  my $tax          = shift;
-  my $searchEngine = shift;
+#sub createLib {
+#  my $options      = %{ shift() };
+#  my $db           = shift;
+#  my $libName      = shift;
+#  my $specPattern  = shift;
+#  my $stageNum     = shift;
+#  my $tax          = shift;
+#  my $searchEngine = shift;
+#
+#  print "RepeatMasker::createLib( \$db, "
+#      . "$libName, $specPattern, $stageNum, \$tax );\n"
+#      if ( $DEBUG );
+#
+#  my @ids;
+#  my @descs;
+#  my $seqCount = $db->getRecordCount();
+#
+#  my $outFile = $libName;
+#  $outFile = "$libName-wublast"
+#      if ( $searchEngine->isa( "WUBlastSearchEngine" ) );
+#
+#  $outFile .= ".hmm" if ( $searchEngine->isa( "HMMERSearchEngine" ) );
+#
+#  open OUT, ">$outFile"
+#      or die "RepeatMasker::createLib(): Could "
+#      . "not open library file $outFile!\n";
+#
+#  # The number of sequences stored in this library
+#  my $librarySize = 0;
+#
+#  # For each sequence in the master library
+#  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
+#    my $match   = 0;
+#    my @buffers = ();
+#    my $seq     = "";
+#    my $id      = "";
+#    my $type    = "";
+#    my $desc    = "";
+#    my $record  = $db->getRecord( $i );
+#    foreach my $name ( $record->getRMSpeciesArray() ) {
+#      $name =~ s/_/ /g;
+#      if (    $tax->isA( $name, $specPattern ) > 0
+#           || $tax->isA( $specPattern, $name ) > 0 )
+#      {
+#        if ( $stageNum == 80 ) {
+#
+#          # For the specieslib it is sufficient to be in
+#          # the clade or in the ancestral species.  No
+#          # need to breakout into seperate search stages
+#          # yet.
+#          $match = 1;
+#        }
+#        else {
+#
+#          # Full length sequence non-buffered
+#          my @stages = $record->getRMSearchStagesArray();
+#          foreach my $stage ( @stages ) {
+#            if (
+#                 $stage eq $stageNum
+#                 || (
+#                      $stageNum == 95
+#                      && (    $stage == 35
+#                           || $stage == 50
+#                           || $stage == 55
+#                           || $stage == 60
+#                           || $stage == 65
+#                           || $stage == 70
+#                           || $stage == 75 )
+#                 )
+#                )
+#            {
+#              $match = 1;
+#            }
+#          }
+#
+#          # Buffered Sequence
+#          @stages = $record->getRMBufferStagesArray();
+#          foreach my $stage ( @stages ) {
+#            if ( $stage =~ /(\d+)\[(\d+)\-(\d+)\]/ ) {
+#              if ( $1 == $stageNum ) {
+#                push @buffers, "$2-$3";
+#              }
+#            }
+#            elsif ( $stage =~ /(\d+)/ ) {
+#              if ( $1 == $stageNum ) {
+#                push @buffers, "full";
+#              }
+#            }
+#            else {
+#              print "RepeatMasker::createLib: Warning buffer stage $stage "
+#                  . "understood!\n";
+#            }
+#          }
+#        }
+#        last if ( $match == 1 );
+#      }
+#    }
+#
+#    if ( $match > 0 || @buffers ) {
+#      $librarySize++;
+#      $id = $record->getId();
+#      if ( $id =~ /D[FR]\d+/ && defined $record->getName() ) {
+#        $id = $record->getName();
+#      }
+#      $type = "#" . $record->getRMType();
+#      if ( $record->getRMSubType() ne "" ) {
+#        $type .= "/" . $record->getRMSubType();
+#      }
+#
+#      if ( $match > 0 ) {
+#        if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#
+#          # Use species-specific thresholds if supplied
+#          my @thresholds    = $record->getThreshArray();
+#          my %subThresholds = ();
+#          foreach my $thresh ( @thresholds ) {
+#            if ( $tax->isSpecies( $thresh->{'taxname'} ) eq
+#                 $tax->isSpecies( $specPattern ) )
+#            {
+#              $subThresholds{'GA'} = $thresh->{'hit_ga'};
+#              $subThresholds{'TC'} = $thresh->{'hit_tc'};
+#              $subThresholds{'NC'} = $thresh->{'hit_nc'};
+#              last;
+#            }
+#          }
+#          if ( exists $subThresholds{'GA'}
+#               && $subThresholds{'GA'} > 0 )
+#          {
+#            my $recordLines = $record->getRecordLines();
+#            while ( $recordLines =~ /(.*)[\n\r]+/ig ) {
+#              my $line = $1;
+#              if ( $line =~ /^(GA|TC|NC) / ) {
+#                print OUT "$1   " . $subThresholds{$1} . ";\n";
+#              }
+#              else {
+#                print OUT $line . "\n";
+#              }
+#            }
+#          }
+#          else {
+#            print OUT $record->getRecordLines();
+#          }
+#        }
+#        else {
+#          $desc = $record->getDescription();
+#          $seq  = $record->getSequence();
+#          if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+#            my $rseq = uc( $seq );
+#            $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
+#            $rseq = reverse $rseq;
+#
+#            die "Repeat consensus ( $id ) contains the "
+#                . "word \"anti\" in it's name.  This will cause "
+#                . "incorrect orientation calls in the output when "
+#                . "running with wublast."
+#                if ( $id =~ /anti/ );
+#
+#            print OUT ">$id" . $type;
+#            print OUT " (anti)\n";
+#            $rseq =~ s/(\S{50})/$1\n/g;
+#            $rseq .= "\n"
+#                unless ( $rseq =~ /.*\n+$/s );
+#            print OUT $rseq;
+#          }
+#
+#          print OUT ">" . $id . "$type\n";
+#          $seq =~ s/(\S{50})/$1\n/g;
+#          $seq .= "\n"
+#              unless ( $seq =~ /.*\n+$/s );
+#          print OUT $seq;
+#        }
+#      }
+#
+#      if ( @buffers ) {
+#        foreach my $buffer ( @buffers ) {
+#          if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#
+#            # TODO: Consider need for buffering with HMMs
+#            #warn "Currently we do not support sequence "
+#            #    . "buffers for HMMs $id ( $buffer )\n";
+#          }
+#          else {
+#            $desc = $record->getDescription();
+#            $seq  = $record->getSequence();
+#            if ( $buffer eq "full" ) {
+#              $type = "#buffer";
+#            }
+#            elsif ( $buffer =~ /(\d+)-(\d+)/ ) {
+#              $seq = substr( $seq, $1 - 1, $2 - $1 + 1 );
+#              $type = "_$1" . "_$2#buffer";
+#            }
+#            if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+#              my $rseq = uc( $seq );
+#              $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
+#              $rseq = reverse $rseq;
+#
+#              die "Repeat consensus ( $id ) contains the "
+#                  . "word \"anti\" in it's name.  This will cause "
+#                  . "incorrect orientation calls in the output when "
+#                  . "running with wublast."
+#                  if ( $id =~ /anti/ );
+#
+#              print OUT ">" . $id . "$type";
+#              print OUT " (anti)\n";
+#              $rseq =~ s/(\S{50})/$1\n/g;
+#              $rseq .= "\n"
+#                  unless ( $rseq =~ /.*\n+$/s );
+#              print OUT $rseq;
+#            }
+#
+#            print OUT ">" . $id . "$type\n";
+#            $seq =~ s/(\S{50})/$1\n/g;
+#            $seq .= "\n"
+#                unless ( $seq =~ /.*\n+$/s );
+#            print OUT $seq;
+#          }
+#        }
+#      }
+#    }
+#  }
+#  close OUT;
+#
+#  if ( $librarySize == 0 ) {
+#    unlink( $outFile );
+#  }
+#  else {
+#    my ( $outFileVol, $outFileDir, $outFileBasename ) =
+#        File::Spec->splitpath( $outFile );
+#    $outFileDir = "." if ( $outFileDir eq "" );
+#
+#    if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+#      system(   "$SETDB_PRGM $outFile > "
+#              . "$outFileDir/setdb.log 2>&1" ) == 0
+#          or die "RepeatMasker::createLib(): Error invoking setdb on file "
+#          . "$outFile.  We tried using the setdb program ( "
+#          . "$SETDB_PRGM ).\n";
+#      unlink( $outFile ) unless ( $DEBUG );
+#      move( "$outFile.ahd", "$libName.ahd" );
+#      move( "$outFile.atb", "$libName.atb" );
+#      move( "$outFile.bsq", "$libName.bsq" );
+#    }
+#    elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
+#      system(   "$NCBIBLASTDB_PRGM -dbtype nucl "
+#              . "-in $outFile > $outFileDir/rmblastdb.log 2>&1" ) == 0
+#          or die "RepeatMasker::createLib(): Error invoking "
+#          . "$NCBIBLASTDB_PRGM"
+#          . " on file $outFile.\n";
+#    }
+#    elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#      system(   "$HMMPRESS_PRGM"
+#              . " $outFile > $outFileDir/hmmPress.log 2>&1" ) == 0
+#          or die "RepeatMasker::createLib(): Error invoking "
+#          . "$HMMPRESS_PRGM on file "
+#          . "$outFile.\n";
+#    }
+#  }
+#
+#  return ( $librarySize );
+#
+#}
 
-  print "RepeatMasker::createLib( \$db, "
-      . "$libName, $specPattern, $stageNum, \$tax );\n"
-      if ( $DEBUG );
-
-  my @ids;
-  my @descs;
-  my $seqCount = $db->getRecordCount();
-
-  my $outFile = $libName;
-  $outFile = "$libName-wublast"
-      if ( $searchEngine->isa( "WUBlastSearchEngine" ) );
-
-  $outFile .= ".hmm" if ( $searchEngine->isa( "HMMERSearchEngine" ) );
-
-  open OUT, ">$outFile"
-      or die "RepeatMasker::createLib(): Could "
-      . "not open library file $outFile!\n";
-
-  # The number of sequences stored in this library
-  my $librarySize = 0;
-
-  # For each sequence in the master library
-  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
-    my $match   = 0;
-    my @buffers = ();
-    my $seq     = "";
-    my $id      = "";
-    my $type    = "";
-    my $desc    = "";
-    my $record  = $db->getRecord( $i );
-    foreach my $name ( $record->getRMSpeciesArray() ) {
-      $name =~ s/_/ /g;
-      if (    $tax->isA( $name, $specPattern ) > 0
-           || $tax->isA( $specPattern, $name ) > 0 )
-      {
-        if ( $stageNum == 80 ) {
-
-          # For the specieslib it is sufficient to be in
-          # the clade or in the ancestral species.  No
-          # need to breakout into seperate search stages
-          # yet.
-          $match = 1;
-        }
-        else {
-
-          # Full length sequence non-buffered
-          my @stages = $record->getRMSearchStagesArray();
-          foreach my $stage ( @stages ) {
-            if (
-                 $stage eq $stageNum
-                 || (
-                      $stageNum == 95
-                      && (    $stage == 35
-                           || $stage == 50
-                           || $stage == 55
-                           || $stage == 60
-                           || $stage == 65
-                           || $stage == 70
-                           || $stage == 75 )
-                 )
-                )
-            {
-              $match = 1;
-            }
-          }
-
-          # Buffered Sequence
-          @stages = $record->getRMBufferStagesArray();
-          foreach my $stage ( @stages ) {
-            if ( $stage =~ /(\d+)\[(\d+)\-(\d+)\]/ ) {
-              if ( $1 == $stageNum ) {
-                push @buffers, "$2-$3";
-              }
-            }
-            elsif ( $stage =~ /(\d+)/ ) {
-              if ( $1 == $stageNum ) {
-                push @buffers, "full";
-              }
-            }
-            else {
-              print "RepeatMasker::createLib: Warning buffer stage $stage "
-                  . "understood!\n";
-            }
-          }
-        }
-        last if ( $match == 1 );
-      }
-    }
-
-    if ( $match > 0 || @buffers ) {
-      $librarySize++;
-      $id = $record->getId();
-      if ( $id =~ /DF\d+/ && defined $record->getName() ) {
-        $id = $record->getName();
-      }
-      $type = "#" . $record->getRMType();
-      if ( $record->getRMSubType() ne "" ) {
-        $type .= "/" . $record->getRMSubType();
-      }
-
-      if ( $match > 0 ) {
-        if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-
-          # Use species-specific thresholds if supplied
-          my @thresholds    = $record->getThreshArray();
-          my %subThresholds = ();
-          foreach my $thresh ( @thresholds ) {
-            if ( $tax->isSpecies( $thresh->{'taxname'} ) eq
-                 $tax->isSpecies( $specPattern ) )
-            {
-              $subThresholds{'GA'} = $thresh->{'hit_ga'};
-              $subThresholds{'TC'} = $thresh->{'hit_tc'};
-              $subThresholds{'NC'} = $thresh->{'hit_nc'};
-              last;
-            }
-          }
-          if ( exists $subThresholds{'GA'}
-               && $subThresholds{'GA'} > 0 )
-          {
-            my $recordLines = $record->getRecordLines();
-            while ( $recordLines =~ /(.*)[\n\r]+/ig ) {
-              my $line = $1;
-              if ( $line =~ /^(GA|TC|NC) / ) {
-                print OUT "$1   " . $subThresholds{$1} . ";\n";
-              }
-              else {
-                print OUT $line . "\n";
-              }
-            }
-          }
-          else {
-            print OUT $record->getRecordLines();
-          }
-        }
-        else {
-          $desc = $record->getDescription();
-          $seq  = $record->getSequence();
-          if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-            my $rseq = uc( $seq );
-            $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
-            $rseq = reverse $rseq;
-
-            die "Repeat consensus ( $id ) contains the "
-                . "word \"anti\" in it's name.  This will cause "
-                . "incorrect orientation calls in the output when "
-                . "running with wublast."
-                if ( $id =~ /anti/ );
-
-            print OUT ">$id" . $type;
-            print OUT " (anti)\n";
-            $rseq =~ s/(\S{50})/$1\n/g;
-            $rseq .= "\n"
-                unless ( $rseq =~ /.*\n+$/s );
-            print OUT $rseq;
-          }
-
-          print OUT ">" . $id . "$type\n";
-          $seq =~ s/(\S{50})/$1\n/g;
-          $seq .= "\n"
-              unless ( $seq =~ /.*\n+$/s );
-          print OUT $seq;
-        }
-      }
-
-      if ( @buffers ) {
-        foreach my $buffer ( @buffers ) {
-          if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-
-            # TODO: Consider need for buffering with HMMs
-            #warn "Currently we do not support sequence "
-            #    . "buffers for HMMs $id ( $buffer )\n";
-          }
-          else {
-            $desc = $record->getDescription();
-            $seq  = $record->getSequence();
-            if ( $buffer eq "full" ) {
-              $type = "#buffer";
-            }
-            elsif ( $buffer =~ /(\d+)-(\d+)/ ) {
-              $seq = substr( $seq, $1 - 1, $2 - $1 + 1 );
-              $type = "_$1" . "_$2#buffer";
-            }
-            if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-              my $rseq = uc( $seq );
-              $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
-              $rseq = reverse $rseq;
-
-              die "Repeat consensus ( $id ) contains the "
-                  . "word \"anti\" in it's name.  This will cause "
-                  . "incorrect orientation calls in the output when "
-                  . "running with wublast."
-                  if ( $id =~ /anti/ );
-
-              print OUT ">" . $id . "$type";
-              print OUT " (anti)\n";
-              $rseq =~ s/(\S{50})/$1\n/g;
-              $rseq .= "\n"
-                  unless ( $rseq =~ /.*\n+$/s );
-              print OUT $rseq;
-            }
-
-            print OUT ">" . $id . "$type\n";
-            $seq =~ s/(\S{50})/$1\n/g;
-            $seq .= "\n"
-                unless ( $seq =~ /.*\n+$/s );
-            print OUT $seq;
-          }
-        }
-      }
-    }
-  }
-  close OUT;
-
-  if ( $librarySize == 0 ) {
-    unlink( $outFile );
-  }
-  else {
-    my ( $outFileVol, $outFileDir, $outFileBasename ) =
-        File::Spec->splitpath( $outFile );
-    $outFileDir = "." if ( $outFileDir eq "" );
-
-    if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-      system(   "$SETDB_PRGM $outFile > "
-              . "$outFileDir/setdb.log 2>&1" ) == 0
-          or die "RepeatMasker::createLib(): Error invoking setdb on file "
-          . "$outFile.  We tried using the setdb program ( "
-          . "$SETDB_PRGM ).\n";
-      unlink( $outFile ) unless ( $DEBUG );
-      move( "$outFile.ahd", "$libName.ahd" );
-      move( "$outFile.atb", "$libName.atb" );
-      move( "$outFile.bsq", "$libName.bsq" );
-    }
-    elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-      system(   "$NCBIBLASTDB_PRGM -dbtype nucl "
-              . "-in $outFile > $outFileDir/rmblastdb.log 2>&1" ) == 0
-          or die "RepeatMasker::createLib(): Error invoking "
-          . "$NCBIBLASTDB_PRGM"
-          . " on file $outFile.\n";
-    }
-    elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-      system(   "$HMMPRESS_PRGM"
-              . " $outFile > $outFileDir/hmmPress.log 2>&1" ) == 0
-          or die "RepeatMasker::createLib(): Error invoking "
-          . "$HMMPRESS_PRGM on file "
-          . "$outFile.\n";
-    }
-  }
-
-  return ( $librarySize );
-
-}
-
-sub createValidIDList {
-  my $db          = shift;
-  my $specPattern = shift;
-  my $speciesDir  = shift;
-  my $tax         = shift;
-
-  print "RepeatMasker::createValidIDList( \$db, "
-      . "$specPattern, $speciesDir, \$tax );\n"
-      if ( $DEBUG );
-
-  open OUT, ">$speciesDir/speciesMeta.pm"
-      or die "RepeatMasker::createValidIDList(): Could "
-      . "not open library file $speciesDir/speciesMeta.pm!\n";
-
-  my %validIDs = ();
-  my $seqCount = $db->getRecordCount();
-
-  # For each sequence in the master library
-  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
-    my $record = $db->getRecord( $i );
-    my $id     = $record->getId();
-
-    my $match = 0;
-    foreach my $name ( $record->getRMSpeciesArray() ) {
-      $name =~ s/_/ /g;
-      if (    $tax->isA( $name, $specPattern ) > 0
-           || $tax->isA( $specPattern, $name ) > 0 )
-      {
-        $match = 1;
-        last;
-      }
-    }
-    if ( $match ) {
-      $validIDs{ lc( $id ) } = 1;
-    }
-  }
-
-  ##
-  ##
-  ##
-  print OUT "package speciesMeta;\n";
-  print OUT "require Exporter;\n";
-  print OUT "\@EXPORT_OK   = qw( \%validIDs );\n";
-  print OUT "\%EXPORT_TAGS = ( all => [ \@EXPORT_OK ] );\n";
-  print OUT "\@ISA         = qw(Exporter);\n";
-  print OUT "BEGIN {\n";
-  print OUT "  \%validIDs = (\n";
-  my $output = Dumper( \%validIDs );
-  $output =~ s/^\$VAR1 = \{//;
-  $output =~ s/\};//;
-  print OUT $output;
-  print OUT "\n";
-  print OUT "  ); }\n";
-  close OUT;
-
-}
-
+#sub createValidIDList {
+#  my $db          = shift;
+#  my $specPattern = shift;
+#  my $speciesDir  = shift;
+#  my $tax         = shift;
+#
+#  print "RepeatMasker::createValidIDList( \$db, "
+#      . "$specPattern, $speciesDir, \$tax );\n"
+#      if ( $DEBUG );
+#
+#  open OUT, ">$speciesDir/speciesMeta.pm"
+#      or die "RepeatMasker::createValidIDList(): Could "
+#      . "not open library file $speciesDir/speciesMeta.pm!\n";
+#
+#  my %validIDs = ();
+#  my $seqCount = $db->getRecordCount();
+#
+#  # For each sequence in the master library
+#  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
+#    my $record = $db->getRecord( $i );
+#    my $id     = $record->getId();
+#
+#    my $match = 0;
+#    foreach my $name ( $record->getRMSpeciesArray() ) {
+#      $name =~ s/_/ /g;
+#      if (    $tax->isA( $name, $specPattern ) > 0
+#           || $tax->isA( $specPattern, $name ) > 0 )
+#      {
+#        $match = 1;
+#        last;
+#      }
+#    }
+#    if ( $match ) {
+#      $validIDs{ lc( $id ) } = 1;
+#    }
+#  }
+#
+#  ##
+#  ##
+#  ##
+#  print OUT "package speciesMeta;\n";
+#  print OUT "require Exporter;\n";
+#  print OUT "\@EXPORT_OK   = qw( \%validIDs );\n";
+#  print OUT "\%EXPORT_TAGS = ( all => [ \@EXPORT_OK ] );\n";
+#  print OUT "\@ISA         = qw(Exporter);\n";
+#  print OUT "BEGIN {\n";
+#  print OUT "  \%validIDs = (\n";
+#  my $output = Dumper( \%validIDs );
+#  $output =~ s/^\$VAR1 = \{//;
+#  $output =~ s/\};//;
+#  print OUT $output;
+#  print OUT "\n";
+#  print OUT "  ); }\n";
+#  close OUT;
+#
+#}
+#
 ##-------------------------------------------------------------------------##
-## Use:  my &processCustomLib( \%options, $wublastSetDB, $tempdir );
+## Use:  my &processCustomLib( $libFile, $wublastSetDB, $tempdir );
 ##
-##         \%options     :  RepeatMasker options hash
+##         $libFile      :  RepeatMasker options hash
 ##         $wublastSetDB :  The full path to the wublast "setdb" program.
 ##         $tempdir      :  The temporary directory for this run
 ##         $searchEngine :  The searchEngine being used
@@ -7387,14 +7344,14 @@ sub createValidIDList {
 ##  Globals Used: None
 ##-------------------------------------------------------------------------##·
 sub processCustomLib {
-  my $options      = %{ shift() };
+  my $libFile      = shift;
   my $tempdir      = shift;
   my $searchEngine = shift;
 
   print "RepeatMasker::processCustomLib()\n" if ( $DEBUG );
 
   my ( $custLibVol, $custLibDir, $custLibFile ) =
-      File::Spec->splitpath( $options{'lib'} );
+      File::Spec->splitpath( $libFile );
   $custLibDir = "." if ( $custLibDir eq "" );
 
   # TODO: Check name syntax
@@ -7402,7 +7359,7 @@ sub processCustomLib {
   if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
 
     my $libDB = FastaDB->new(
-                              fileName    => $options{'lib'},
+                              fileName    => $libFile,
                               openMode    => SeqDBI::ReadOnly,
                               maxIDLength => 80
     );
@@ -7456,11 +7413,11 @@ sub processCustomLib {
   }
   elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
     system(   "$NCBIBLASTDB_PRGM -out $tempdir/$custLibFile "
-            . "-dbtype nucl -in $options{'lib'} > "
+            . "-dbtype nucl -in $libFile > "
             . "$tempdir/makeblastdb.log 2>&1" );
   }
   elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-    system( "cp $options{'lib'} $tempdir/$custLibFile" );
+    system( "cp $libFile $tempdir/$custLibFile" );
     system(   "$HMMPRESS_PRGM "
             . " $tempdir/$custLibFile > $tempdir/hmmPress.log 2>&1" ) == 0
         or die "RepeatMasker::createLib(): Error invoking "
@@ -7511,41 +7468,474 @@ sub buildRefineableHash {
 ##
 ##  Globals Used: None
 ##-------------------------------------------------------------------------##·
-sub initLibraries {
-  my %options      = %{ shift() };
-  my $rmLibDir     = shift;
-  my $tax          = shift;
-  my $tempdir      = shift;
-  my @libraryPath  = @{ shift() };
-  my $searchEngine = shift;
-  my $dbversion    = shift;
+#sub initLibraries {
+#  my %options      = %{ shift() };
+#  my $rmLibDir     = shift;
+#  my $tax          = shift;
+#  my $tempdir      = shift;
+#  my @libraryPath  = @{ shift() };
+#  my $searchEngine = shift;
+#  my $dbversion    = shift;
+#
+#  if ( defined $options{'species'} && defined $options{'lib'} ) {
+#    die "You can choose only one species option (including -species\n"
+#        . "and -lib) at a time.\n";
+#  }
+#
+#  my $species;    # The "real" species
+#  my $speciesCacheDir = "";          # The directory where we will find the
+#                                     #   cache files for species spec. libraries
+#  my $generalCacheDir = "";          # The directory where we will find the
+#                                     #   cache files for general libraries
+#  my $customCacheDir  = "$tempdir";  # The directory where we will find the
+#                                     #   "-lib" custom library.
+#
+#  print "RepeatMasker::initLibraries: Using dbversion $dbversion\n"
+#      if ( $DEBUG );
+#
+#  # If the user specified a library and it is already frozen we
+#  # should check to see if the names are right???
+#  if ( $options{'lib'} ) {
+#    if ( -s $options{'lib'} ) {
+#      if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+#        if (    -s "$options{'lib'}.bsq"
+#             || -s "$options{'lib'}.xps" )
+#        {
+#          my ( $custLibVol, $custLibDir, $custLibFile ) =
+#              File::Spec->splitpath( $options{'lib'} );
+#          $customCacheDir = $custLibDir || ".";
+#          warn "NOTE: Compressed versions of your custom library were\n"
+#              . "found in the $custLibDir directory.  The program will\n"
+#              . "use these by default. If these databases do not contain\n"
+#              . "reverse complemented copies of your sequences the reverse\n"
+#              . "strand hits will not be returned!";
+#        }
+#        else {
+#          &processCustomLib( $options{'lib'}, $tempdir, $searchEngine );
+#        }
+#      }
+#      elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
+#        if (    -s "$options{'lib'}.nsq"
+#             || -s "$options{'lib'}.nhr" )
+#        {
+#          my ( $custLibVol, $custLibDir, $custLibFile ) =
+#              File::Spec->splitpath( $options{'lib'} );
+#          $customCacheDir = $custLibDir || ".";
+#        }
+#        else {
+#          &processCustomLib( $options{'lib'}, $tempdir, $searchEngine );
+#        }
+#      }
+#      elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#
+#        # mylib.hmm.h3f
+#        # mylib.hmm.h3i
+#        # mylib.hmm.h3m
+#        # mylib.hmm.h3p
+#        if (    -s "$options{'lib'}.h3f"
+#             && -s "$options{'lib'}.h3i"
+#             && -s "$options{'lib'}.h3m"
+#             && -s "$options{'lib'}.h3p" )
+#        {
+#          my ( $custLibVol, $custLibDir, $custLibFile ) =
+#              File::Spec->splitpath( $options{'lib'} );
+#          $customCacheDir = $custLibDir || ".";
+#        }
+#        else {
+#          &processCustomLib( $options{'lib'}, $tempdir, $searchEngine );
+#        }
+#      }
+#      else {
+#        my ( $custLibVol, $custLibDir, $custLibFile ) =
+#            File::Spec->splitpath( $options{'lib'} );
+#        $customCacheDir = $custLibDir || ".";
+#      }
+#    }
+#    else {
+#      die "RepeatMasker::setspecies: Could not find user specified library "
+#          . $options{'lib'} . ".\n";
+#    }
+#  }
+#  else {
+#
+#    # Default species if non given.
+#    $species = "homo sapiens";
+#    $species = $options{'species'} if ( exists $options{'species'} );
+#
+#    # lookup species name in Taxonomy database
+#    if ( ( $species = $tax->isSpecies( $species ) ) eq "" ) {
+#
+#      #
+#      # The taxonomy has grown to the point that this method
+#      # of finding similar sounding names is way too slow.
+#      #
+#      #my $dieMsg =
+#      #      "RepeatMasker::initLibraries: Species \""
+#      #    . $options{'species'}
+#      #    . "\" is not known to RepeatMasker.\nHere are some similar "
+#      #    . "sounding (using Soundex) valid species names:\n";
+#      #foreach
+#      #    my $alts ( $tax->getSimilarSoundingSpecies( $options{'species'} ) )
+#      #{
+#      #  $dieMsg .= "        -species \"$alts\"\n";
+#      #}
+#      #die $dieMsg;
+#      die "\n\nSpecies \""
+#          . $options{'species'}
+#          . "\" is not known to RepeatMasker.  There may\n"
+#          . "not be any TE families defined in the libraries for this\n"
+#          . "species/clade or there may be an error in the spelling.\n"
+#          . "Please check your entry against the NCBI Taxonomy database\n"
+#          . "and/or try using a broader clade or related species instead.\n"
+#          . "The full list of species/clades defined in the library may be\n"
+#          . "obtained using the util/queryTaxonomyDatabase.pl script.\n\n";
+#    }
+#  }
+#
+#  # Check library search path for cached versions
+#  # of libraries.  NOTE: cached versions are
+#  # stored as follows:
+#  #
+#  #     @libraryPath/$dbversion/general/foo.lib
+#  #     @libraryPath/$dbversion/$species/foolib
+#  #
+#  # The first directory in the search path containing
+#  # the desired library type is used.
+#  #
+#  my $speciesWord = $species || "";
+#  $speciesWord =~ s/\s+/_/g;
+#  foreach my $path ( @libraryPath ) {
+#    if ( -d "$path/$dbversion" ) {
+#      if ( -d "$path/$dbversion/$speciesWord" ) {
+#        if (
+#          (
+#            $searchEngine->isa( "WUBlastSearchEngine" )
+#            && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*.ahd" ) )
+#          )
+#          || ( $searchEngine->isa( "NCBIBlastSearchEngine" )
+#            && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*.nhr" ) )
+#          )
+#          || ( $searchEngine->isa( "CrossmatchSearchEngine" )
+#             && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*lib" ) )
+#          )
+#          || ( $searchEngine->isa( "HMMERSearchEngine" )
+#             && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*hmm" ) )
+#          )
+#            )
+#        {
+#          $speciesCacheDir = "$path/$dbversion/$speciesWord";
+#        }
+#      }
+#      if ( -d "$path/$dbversion/general" ) {
+#        if (
+#             (
+#                  $searchEngine->isa( "WUBlastSearchEngine" )
+#               && ( my @pathFiles = glob( "$path/$dbversion/general/*.ahd" ) )
+#               && ( -s "$path/$dbversion/general/refineableHash.dat" )
+#             )
+#             || (   $searchEngine->isa( "NCBIBlastSearchEngine" )
+#                 && ( my @pathFiles = glob( "$path/$dbversion/general/*.nhr" ) )
+#                 && ( -s "$path/$dbversion/general/refineableHash.dat" ) )
+#             || (    $searchEngine->isa( "CrossmatchSearchEngine" )
+#                  && -s "$path/$dbversion/general/l1.lib"
+#                  && -s "$path/$dbversion/general/refineableHash.dat" )
+#             || (   $searchEngine->isa( "HMMERSearchEngine" )
+#                 && ( my @pathFiles = glob( "$path/$dbversion/general/*.hmm" ) )
+#                 && ( -s "$path/$dbversion/general/refineableHash.dat" ) )
+#            )
+#        {
+#          $generalCacheDir = "$path/$dbversion/general";
+#        }
+#      }
+#    }
+#  }
+#
+#  if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#    print "Master RepeatMasker Database: $rmLibDir/Dfam.hmm ";
+#  }
+#  elsif ( $options{'rbrm_only'} ) {
+#    print "Master RepeatMasker Database: $rmLibDir/RMRB.embl ";
+#  }
+#  else {
+#    print "Master RepeatMasker Database: $rmLibDir/RepeatMaskerLib.embl ";
+#  }
+#  if ( $dbversion =~ /-min/ ) {
+#    print "( Simple/Low_complexity Only: $dbversion )\n";
+#  }
+#  else {
+#    print "( Complete Database: $dbversion )\n";
+#  }
+#  if ( $options{'lib'} ) {
+#    print "Custom Repeat Library: $options{'lib'}\n";
+#  }
+#  print "\n\n";
+#
+#  #print "WARNING: $generalCacheDir\n";
+#
+#  #
+#  # If we could not find either the general library cache
+#  # or the species library cache we need to build them.
+#  #
+#  if ( $generalCacheDir eq "" || $speciesCacheDir eq "" ) {
+#
+#    ## Need to build some library....must open the database ( NOTE This is slow )
+#    my $db;
+#    if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#      $db = DFAM->new( fileName => "$rmLibDir/Dfam.hmm" );
+#    }
+#    elsif ( $options{'rbrm_only'} ) {
+#      $db = EMBL->new( fileName => "$rmLibDir/RMRB.embl" );
+#    }
+#    else {
+#      $db = EMBL->new( fileName => "$rmLibDir/RepeatMaskerLib.embl" );
+#    }
+#
+#    #
+#    # Determine the highest level writable directory
+#    #
+#    my $writableCacheDir = "";
+#    foreach my $path ( @libraryPath ) {
+#      if ( -d $path ) {
+#        if ( open( TEST, ">$path/rmwritetest.deleteme" ) ) {
+#          close TEST;
+#          unlink "$path/rmwritetest.deleteme";
+#
+#          # Just in case there is a read-only version of the
+#          # db already extracted by the installer.
+#          if ( -d "$path/$dbversion" ) {
+#            if ( open( TEST, ">$path/$dbversion/rmwritetest.deleteme" ) ) {
+#              close TEST;
+#              unlink "$path/rmwritetest.deleteme";
+#              $writableCacheDir = $path;
+#              last;
+#            }
+#          }
+#          else {
+#            $writableCacheDir = $path;
+#            last;
+#          }
+#        }
+#      }
+#      elsif ( mkdir "$path", 0777 ) {
+#        $writableCacheDir = $path;
+#        last;
+#      }
+#    }
+#
+#    if ( $generalCacheDir eq "" ) {
+#
+#      # Need to build libraries:   at.lib,  simple.lib
+#      #                            l1.lib, mirs.lib, mir.lib, is.lib
+#      print "Building general libraries in: "
+#          . "$writableCacheDir/$dbversion/general\n";
+#
+#      # Make cache dir
+#      if ( !-d "$writableCacheDir/$dbversion/general" ) {
+#        eval { mkpath( "$writableCacheDir/$dbversion/general" ) };
+#        if ( $@ ) {
+#          die "RepeatMasker::setspecies: Can't creat dir path "
+#              . "$writableCacheDir/$dbversion/general! $@\n";
+#        }
+#      }
+#
+#      # Build the cached refineable elements hash.  These are the
+#      # IDs of sequences which can be refined by searching against
+#      # the refinelib.
+#      my $refineableHashRef = buildRefineableHash( $db );
+#      nstore $refineableHashRef,
+#          "$writableCacheDir/$dbversion/general/refineableHash.dat";
+#
+#      #createLib( \%options, $db, "$writableCacheDir/$dbversion/general/at.lib",
+#      #           "root", "30", $tax, $searchEngine );
+#      unless ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#        createLib( \%options, $db,
+#                   "$writableCacheDir/$dbversion/general/simple.lib",
+#                   "root", "25", $tax, $searchEngine );
+#      }
+#      createLib( \%options, $db, "$writableCacheDir/$dbversion/general/l1.lib",
+#                 "root", "75", $tax, $searchEngine );
+#      createLib( \%options, $db, "$writableCacheDir/$dbversion/general/is.lib",
+#                 "root", "10", $tax, $searchEngine );
+#
+#      $generalCacheDir = "$writableCacheDir/$dbversion/general";
+#    }
+#    else {
+#      print STDERR "Using general libraries in:\n  $generalCacheDir\n"
+#          if ( $DEBUG );
+#    }
+#
+#    if ( !$options{'lib'} ) {
+#      if ( $speciesCacheDir eq "" ) {
+#
+#        # Need to build species specific libraries
+#        print "Building species libraries in: "
+#            . "$writableCacheDir/$dbversion/$speciesWord\n";
+#
+#        # Make cache dir
+#        if ( !-d "$writableCacheDir/$dbversion/$speciesWord" ) {
+#          eval { mkpath( "$writableCacheDir/$dbversion/$speciesWord" ) };
+#          if ( $@ ) {
+#            die "RepeatMasker::setspecies: Can't create dir path "
+#                . "$writableCacheDir/$dbversion/$speciesWord! $@\n";
+#          }
+#        }
+#
+#        getDBStats( \%options, $db, $species, $tax );
+#
+#        # Build species metadata module
+#        createValidIDList( $db, $species,
+#                           "$writableCacheDir/$dbversion/$speciesWord", $tax );
+#
+#        if ( $tax->isA( $species, "mammalia" ) == 1 ) {
+#
+#          # alu.lib, rodcutsines.lib => sinecutlib
+#          createLib( \%options, $db,
+#                     "$writableCacheDir/$dbversion/$speciesWord/sinecutlib",
+#                     $species, "35", $tax, $searchEngine );
+#
+#          # cut1.lib, rodcut.lib => shortcutlib
+#          createLib( \%options, $db,
+#                     "$writableCacheDir/$dbversion/$speciesWord/shortcutlib",
+#                     $species, "40", $tax, $searchEngine );
+#
+#          # cut2.lib, rodcut2.lib, cetartiocut.lib => cutlib
+#          createLib( \%options, $db,
+#                     "$writableCacheDir/$dbversion/$speciesWord/cutlib",
+#                     $species, "45", $tax, $searchEngine );
+#
+#          unless ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+#
+#            # humsines.lib, rod1.lib, cetartio1.lib => shortlib
+#            createLib( \%options, $db,
+#                       "$writableCacheDir/$dbversion/$speciesWord/shortlib",
+#                       $species, "50", $tax, $searchEngine );
+#
+#            # humlines.lib, rod2.lib => longlib
+#            createLib( \%options, $db,
+#                       "$writableCacheDir/$dbversion/$speciesWord/longlib",
+#                       $species, "55", $tax, $searchEngine );
+#
+#            # mirs.lib => mirslib
+#            createLib( \%options, $db,
+#                       "$writableCacheDir/$dbversion/$speciesWord/mirslib",
+#                       $species, "60", $tax, $searchEngine );
+#
+#            # mir.lib => mirlib
+#            createLib( \%options, $db,
+#                       "$writableCacheDir/$dbversion/$speciesWord/mirlib",
+#                       $species, "65", $tax, $searchEngine );
+#
+#            # retrovirus.lib => retrolib
+#            createLib( \%options, $db,
+#                       "$writableCacheDir/$dbversion/$speciesWord/retrolib",
+#                       $species, "70", $tax, $searchEngine );
+#
+#          }
+#          else {
+#
+#            createLib( \%options, $db,
+#                       "$writableCacheDir/$dbversion/$speciesWord/masklib",
+#                       $species, "95", $tax, $searchEngine );
+#
+#          }
+#
+#          # refinelib
+#          createLib( \%options, $db,
+#                     "$writableCacheDir/$dbversion/$speciesWord/refinelib",
+#                     $species, "85", $tax, $searchEngine );
+#
+#        }
+#        else {
+#
+#          # Need to separate into a species.lib
+#          createLib( \%options, $db,
+#                     "$writableCacheDir/$dbversion/$speciesWord/specieslib",
+#                     $species, "80", $tax, $searchEngine );
+#        }
+#
+#        $speciesCacheDir = "$writableCacheDir/$dbversion/$speciesWord";
+#
+#      }
+#      else {
+#        print STDERR "Using species libraries in:\n  $speciesCacheDir\n"
+#            if ( $DEBUG );
+#      }
+#
+#      undef $db;
+#    }
+#  }
+#
+#  return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir );
+#
+#}
+#
+sub commify {
+    my $text = reverse $_[0];
+    $text =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;
+    return scalar reverse $text;
+}
 
-  if ( defined $options{'species'} && defined $options{'lib'} ) {
-    die "You can choose only one species option (including -species\n"
-        . "and -lib) at a time.\n";
+##-------------------------------------------------------------------------##
+##  my ( $species, $generalCacheDir, $speciesCacheDir, 
+##       $customLibDir, $rmLibLabel ) =
+##                             initLibraries();
+##
+##      species       : "-species" option provided by the user or undef.
+##      customLibFile : "-lib" option provided by the user or undef.
+##      rmLibDir      : Directory containing the RepeatMaskerLib.h5 file.
+##      workingDir    : The programs working directory (e.g "RM_#####..").
+##      libraryPath   : Search path for cached RM libraries.
+##      searchEngine  : The search engine object.
+##
+##  Initialize and collect data on libraries for use by RepeatMasker.
+##  The expectation is that libraries now come in two forms either 
+##  a simple FASTA/HMM file provided directly by the user with the 
+##  -lib option or a FAMDB (hdf5) library with taxonomic labels for
+##  multi-purpose searching.
+##
+##  Returns
+##     orgFlag : 
+##
+##     Or it fails validation and exits the program.
+##
+##  Globals Used: None
+##-------------------------------------------------------------------------##·
+sub initLibrariesFromFamdb {
+  my $species       = shift;
+  my $customLibFile = shift;
+  my $rmLibDir      = shift;
+  my $workingDir    = shift;
+  my @libraryPath   = @{ shift() };
+  my $searchEngine  = shift;
+
+  if ( $species ne "" && $customLibFile ne "" ) {
+    die "The custom library (-lib) option may not be combined with the\n" .
+        "species (-species) option.\n\n";
   }
 
-  my $species;    # The "real" species
   my $speciesCacheDir = "";          # The directory where we will find the
                                      #   cache files for species spec. libraries
   my $generalCacheDir = "";          # The directory where we will find the
                                      #   cache files for general libraries
-  my $customCacheDir  = "$tempdir";  # The directory where we will find the
+  my $customCacheDir  = "$workingDir";  # The directory where we will find the
                                      #   "-lib" custom library.
 
-  print "RepeatMasker::initLibraries: Using dbversion $dbversion\n"
-      if ( $DEBUG );
+  my $orgFlag;
+  my $dbLabel;
 
-  # If the user specified a library and it is already frozen we
-  # should check to see if the names are right???
-  if ( $options{'lib'} ) {
-    if ( -s $options{'lib'} ) {
+  ##
+  ## User supplied FASTA/HMM library
+  ##
+  if ( $customLibFile ne "" ) {
+    if ( -s $customLibFile ) {
+      # Validate/Generate required pre-processed files for
+      # the search engine requested.
       if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-        if (    -s "$options{'lib'}.bsq"
-             || -s "$options{'lib'}.xps" )
+        if (    -s "$customLibFile.bsq"
+             || -s "$customLibFile.xps" )
         {
           my ( $custLibVol, $custLibDir, $custLibFile ) =
-              File::Spec->splitpath( $options{'lib'} );
+              File::Spec->splitpath( $customLibFile );
           $customCacheDir = $custLibDir || ".";
           warn "NOTE: Compressed versions of your custom library were\n"
               . "found in the $custLibDir directory.  The program will\n"
@@ -7554,84 +7944,183 @@ sub initLibraries {
               . "strand hits will not be returned!";
         }
         else {
-          &processCustomLib( \%options, $tempdir, $searchEngine );
+          &processCustomLib( $customLibFile, $workingDir, $searchEngine );
         }
       }
       elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-        if (    -s "$options{'lib'}.nsq"
-             || -s "$options{'lib'}.nhr" )
+        if (    -s "$customLibFile.nsq"
+             || -s "$customLibFile.nhr" )
         {
           my ( $custLibVol, $custLibDir, $custLibFile ) =
-              File::Spec->splitpath( $options{'lib'} );
+              File::Spec->splitpath( $customLibFile );
           $customCacheDir = $custLibDir || ".";
         }
         else {
-          &processCustomLib( \%options, $tempdir, $searchEngine );
+          &processCustomLib( $customLibFile, $workingDir, $searchEngine );
         }
       }
       elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-
         # mylib.hmm.h3f
         # mylib.hmm.h3i
         # mylib.hmm.h3m
         # mylib.hmm.h3p
-        if (    -s "$options{'lib'}.h3f"
-             && -s "$options{'lib'}.h3i"
-             && -s "$options{'lib'}.h3m"
-             && -s "$options{'lib'}.h3p" )
+        if (    -s "$customLibFile.h3f"
+             && -s "$customLibFile.h3i"
+             && -s "$customLibFile.h3m"
+             && -s "$customLibFile.h3p" )
         {
           my ( $custLibVol, $custLibDir, $custLibFile ) =
-              File::Spec->splitpath( $options{'lib'} );
+              File::Spec->splitpath( $customLibFile );
           $customCacheDir = $custLibDir || ".";
         }
         else {
-          &processCustomLib( \%options, $tempdir, $searchEngine );
+          &processCustomLib( $customLibFile, $workingDir, $searchEngine );
         }
       }
       else {
         my ( $custLibVol, $custLibDir, $custLibFile ) =
-            File::Spec->splitpath( $options{'lib'} );
+            File::Spec->splitpath( $customLibFile );
         $customCacheDir = $custLibDir || ".";
       }
     }
     else {
       die "RepeatMasker::setspecies: Could not find user specified library "
-          . $options{'lib'} . ".\n";
+          . $customLibFile . ", or the file is empty.\n";
     }
+    print "Using Custom Repeat Library: $customLibFile\n\n";
   }
   else {
 
     # Default species if non given.
-    $species = "homo sapiens";
-    $species = $options{'species'} if ( exists $options{'species'} );
+    $species = "homo sapiens" if ( $species eq "" );
 
-    # lookup species name in Taxonomy database
-    if ( ( $species = $tax->isSpecies( $species ) ) eq "" ) {
+    my $modelPrefix = "CONS-";
+    $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
 
+    my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 info ";
+    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
+    my $dbTitle;
+    my $dbVersion;
+    my $dbDate;
+    my $dbConsCnt;
+    my $dbHMMCnt;
+    while (<IN>){
+      # Database: Dfam
+      # Version: 3.1
+      # Date: 2019-06-20
       #
-      # The taxonomy has grown to the point that this method
-      # of finding similar sounding names is way too slow.
+      # Dfam - A database of transposable element (TE) sequence alignments and HMMs.
       #
-      #my $dieMsg =
-      #      "RepeatMasker::initLibraries: Species \""
-      #    . $options{'species'}
-      #    . "\" is not known to RepeatMasker.\nHere are some similar "
-      #    . "sounding (using Soundex) valid species names:\n";
-      #foreach
-      #    my $alts ( $tax->getSimilarSoundingSpecies( $options{'species'} ) )
-      #{
-      #  $dieMsg .= "        -species \"$alts\"\n";
-      #}
-      #die $dieMsg;
+      # Total consensus sequences: 273655
+      # Total HMMs: 273655
+      if ( /Database:\s*(\S.*)/ ) { 
+        $dbTitle = $1;
+      }elsif ( /Version:\s*(\S.*)/ ) {
+        $dbVersion = $1;
+      }elsif ( /Date:\s*(\S.*)/ ) {
+        $dbDate = $1;
+      }elsif ( /Total consensus sequences:\s*(\d+)/ ) {
+        $dbConsCnt = $1;
+      }elsif ( /Total HMMs:\s*(\d+)/ ) {
+        $dbHMMCnt = $1;
+      }
+    }
+    close IN;
+    $dbLabel = $dbTitle;
+    $dbLabel = s/^\s+//;
+    $dbLabel = s/\s+$//;
+    $dbLabel = s/\s+/_/g;
+    my $sanitizedTitle = $dbTitle;
+    $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
+    $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
+    $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
+    print "\nUsing Master RepeatMasker Database: $rmLibDir/RepeatMaskerLib.h5\n";
+    print "  Title    : $dbTitle\n";
+    print "  Version  : $dbVersion\n";
+    print "  Date     : $dbDate\n";
+    if ( $dbConsCnt > $dbHMMCnt ) {
+      print "  Families : " . commify($dbConsCnt) . "\n\n";
+    }else {
+      print "  Families : " . commify($dbHMMCnt) . "\n\n";
+    }
+    # TODO Print total Taxa count
+ 
+    # Lookup species in famdb and resolve orgFlag
+    # NOTE: orgFlag is a bit of a legacy concept that will probably disappear
+    #       in a future RM version. 
+    # TODO: Should REPEATMASKER_DIR be global???
+    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 lineage '" .
+                    $species . "' -f semicolon";
+    #print "FamdbCMD: $famdbCmd\n";
+    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
+    my $lineage = "";
+    my $NCBITaxID;
+    my $NCBITaxName;
+    while ( <IN> ) {
+      # famdb lineage output:
+      # 370040: root;cellular organisms;Eukaryota;Opisthokonta;Metazoa;Eumetazoa;Bilateria;Deuterostomia;Chordata;Craniata;Vertebrata;Gnathostomata;Teleostomi;Euteleostomi;Actinopterygii;Actinopteri;Neopterygii;Teleostei;Osteoglossocephalai;Clupeocephala;Euteleosteomorpha;Neoteleostei;Eurypterygia;Ctenosquamata;Acanthomorphata;Euacanthomorphacea;Percomorphaceae;Ovalentaria;Mugilomorphae;Mugiliformes;Mugilidae;Planiliza;Planiliza haematocheilus [1469]
+      #1299 entries in ancestors; 8 lineage-specific entries
+      $orgFlag = "mammalia" if ( /^\d+:\s.*;Mammalia(;| \[)/ );
+      $orgFlag = "rodentia" if ( /^\d+:\s.*;Rodentia(;| \[)/ );
+      $orgFlag = "primates" if ( /^\d+:\s.*;Primates(;| \[)/ );
+      if ( /^(\d+):\s+(root.*)\;(\S.*)\s+\[.*/ ) {
+        $NCBITaxID = $1;
+        $lineage = $2;
+        $NCBITaxName = $3;
+      }
+      # TODO: Catch stderr... and print out ambiguous matches up to 10...
+      # Ambiguous search term 'mouse' (found 6 results).
+      # Please use a more specific name or taxa ID, which can be looked
+      # up with the 'names' command.
+      #
+    }
+    close IN;
+
+    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 lineage '" .
+                    $species . "' --ancestors --descendants -f totals";
+    #print "famdb_command: $famdbCmd\n";
+    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
+    while ( <IN> ) {
+      #1299 entries in ancestors; 8 lineage-specific entries
+      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+        my $ancestral = $1;
+        my $linSpecific = $2;
+        print "Species/Taxa Search:\n";
+        print "  $NCBITaxName [NCBI Taxonomy ID: $NCBITaxID]\n";
+        my $lineageBlock = "";
+        my $lineageLine = "";
+        foreach my $component ( split(/;/,$lineage) ){
+          my $prefix;
+          if ( $lineageBlock eq "" ) {
+            $prefix = "  Lineage: ";
+          }else {
+            $prefix = "           ";
+          }
+          if ( length($lineageLine . ";" . $component) > 60 ) {
+            $lineageBlock .= $prefix . $lineageLine . "\n";
+            $lineageLine = "";
+          }
+          $lineageLine .= "$component;";
+        }
+        $lineageBlock =~ s/;$//;
+        $lineageBlock .= "\n"
+            unless ( $lineageBlock =~ /.*\n+$/s );
+        print "$lineageBlock";
+        print "  $ancestral families in ancestor taxa; $linSpecific lineage-specific families\n\n";
+      }
+    }
+    close IN;
+
+    if ( $lineage eq "" ) {
       die "\n\nSpecies \""
-          . $options{'species'}
+          . $species
           . "\" is not known to RepeatMasker.  There may\n"
           . "not be any TE families defined in the libraries for this\n"
           . "species/clade or there may be an error in the spelling.\n"
           . "Please check your entry against the NCBI Taxonomy database\n"
           . "and/or try using a broader clade or related species instead.\n"
           . "The full list of species/clades defined in the library may be\n"
-          . "obtained using the util/queryTaxonomyDatabase.pl script.\n\n";
+          . "obtained using the famdb.py script.\n\n";
     }
   }
 
@@ -7639,8 +8128,8 @@ sub initLibraries {
   # of libraries.  NOTE: cached versions are
   # stored as follows:
   #
-  #     @libraryPath/$dbversion/general/foo.lib
-  #     @libraryPath/$dbversion/$species/foolib
+  #     @libraryPath/$dbLabel/general/foo.lib
+  #     @libraryPath/$dbLabel/$species/foolib
   #
   # The first directory in the search path containing
   # the desired library type is used.
@@ -7648,91 +8137,54 @@ sub initLibraries {
   my $speciesWord = $species || "";
   $speciesWord =~ s/\s+/_/g;
   foreach my $path ( @libraryPath ) {
-    if ( -d "$path/$dbversion" ) {
-      if ( -d "$path/$dbversion/$speciesWord" ) {
+    if ( -d "$path/$dbLabel" ) {
+      if ( -d "$path/$dbLabel/$speciesWord" ) {
         if (
           (
             $searchEngine->isa( "WUBlastSearchEngine" )
-            && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*.ahd" ) )
+            && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*.ahd" ) )
           )
           || ( $searchEngine->isa( "NCBIBlastSearchEngine" )
-            && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*.nhr" ) )
+            && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*.nhr" ) )
           )
           || ( $searchEngine->isa( "CrossmatchSearchEngine" )
-             && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*lib" ) )
+             && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*lib" ) )
           )
           || ( $searchEngine->isa( "HMMERSearchEngine" )
-             && ( my @pathFiles = glob( "$path/$dbversion/$speciesWord/*hmm" ) )
+             && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*hmm" ) )
           )
             )
         {
-          $speciesCacheDir = "$path/$dbversion/$speciesWord";
+          $speciesCacheDir = "$path/$dbLabel/$speciesWord";
         }
       }
-      if ( -d "$path/$dbversion/general" ) {
+      if ( -d "$path/$dbLabel/general" ) {
         if (
              (
                   $searchEngine->isa( "WUBlastSearchEngine" )
-               && ( my @pathFiles = glob( "$path/$dbversion/general/*.ahd" ) )
-               && ( -s "$path/$dbversion/general/refineableHash.dat" )
+               && ( my @pathFiles = glob( "$path/$dbLabel/general/*.ahd" ) )
              )
              || (   $searchEngine->isa( "NCBIBlastSearchEngine" )
-                 && ( my @pathFiles = glob( "$path/$dbversion/general/*.nhr" ) )
-                 && ( -s "$path/$dbversion/general/refineableHash.dat" ) )
+                 && ( my @pathFiles = glob( "$path/$dbLabel/general/*.nhr" ) )
+                )
              || (    $searchEngine->isa( "CrossmatchSearchEngine" )
-                  && -s "$path/$dbversion/general/l1.lib"
-                  && -s "$path/$dbversion/general/refineableHash.dat" )
-             || (   $searchEngine->isa( "HMMERSearchEngine" )
-                 && ( my @pathFiles = glob( "$path/$dbversion/general/*.hmm" ) )
-                 && ( -s "$path/$dbversion/general/refineableHash.dat" ) )
+                  && -s "$path/$dbLabel/general/l1.lib"
+                  && -s "$path/$dbLabel/general/refineableHash.dat" )
+             || (   $searchEngine->isa( "HMMERSearchEngine" ) )
             )
         {
-          $generalCacheDir = "$path/$dbversion/general";
+          $generalCacheDir = "$path/$dbLabel/general";
         }
       }
     }
   }
-
-  if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-    print "Master RepeatMasker Database: $rmLibDir/Dfam.hmm ";
-  }
-  elsif ( $options{'rbrm_only'} ) {
-    print "Master RepeatMasker Database: $rmLibDir/RMRB.embl ";
-  }
-  else {
-    print "Master RepeatMasker Database: $rmLibDir/RepeatMaskerLib.embl ";
-  }
-  if ( $dbversion =~ /-min/ ) {
-    print "( Simple/Low_complexity Only: $dbversion )\n";
-  }
-  else {
-    print "( Complete Database: $dbversion )\n";
-  }
-  if ( $options{'lib'} ) {
-    print "Custom Repeat Library: $options{'lib'}\n";
-  }
-  print "\n\n";
-
-  #print "WARNING: $generalCacheDir\n";
 
   #
   # If we could not find either the general library cache
   # or the species library cache we need to build them.
   #
   if ( $generalCacheDir eq "" || $speciesCacheDir eq "" ) {
-
-    ## Need to build some library....must open the database ( NOTE This is slow )
-    my $db;
-    if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-      $db = DFAM->new( fileName => "$rmLibDir/Dfam.hmm" );
-    }
-    elsif ( $options{'rbrm_only'} ) {
-      $db = EMBL->new( fileName => "$rmLibDir/RMRB.embl" );
-    }
-    else {
-      $db = EMBL->new( fileName => "$rmLibDir/RepeatMaskerLib.embl" );
-    }
-
+    # Cached libraries are missing -- generate them
     #
     # Determine the highest level writable directory
     #
@@ -7745,8 +8197,8 @@ sub initLibraries {
 
           # Just in case there is a read-only version of the
           # db already extracted by the installer.
-          if ( -d "$path/$dbversion" ) {
-            if ( open( TEST, ">$path/$dbversion/rmwritetest.deleteme" ) ) {
+          if ( -d "$path/$dbLabel" ) {
+            if ( open( TEST, ">$path/$dbLabel/rmwritetest.deleteme" ) ) {
               close TEST;
               unlink "$path/rmwritetest.deleteme";
               $writableCacheDir = $path;
@@ -7766,150 +8218,353 @@ sub initLibraries {
     }
 
     if ( $generalCacheDir eq "" ) {
-
       # Need to build libraries:   at.lib,  simple.lib
       #                            l1.lib, mirs.lib, mir.lib, is.lib
       print "Building general libraries in: "
-          . "$writableCacheDir/$dbversion/general\n";
+          . "$writableCacheDir/$dbLabel/general\n";
 
       # Make cache dir
-      if ( !-d "$writableCacheDir/$dbversion/general" ) {
-        eval { mkpath( "$writableCacheDir/$dbversion/general" ) };
+      if ( !-d "$writableCacheDir/$dbLabel/general" ) {
+        eval { mkpath( "$writableCacheDir/$dbLabel/general" ) };
         if ( $@ ) {
           die "RepeatMasker::setspecies: Can't creat dir path "
-              . "$writableCacheDir/$dbversion/general! $@\n";
+              . "$writableCacheDir/$dbLabel/general! $@\n";
         }
       }
 
-      # Build the cached refineable elements hash.  These are the
-      # IDs of sequences which can be refined by searching against
-      # the refinelib.
-      my $refineableHashRef = buildRefineableHash( $db );
-      nstore $refineableHashRef,
-          "$writableCacheDir/$dbversion/general/refineableHash.dat";
+      &createLibFromFamdb( $rmLibDir, 
+                           "$writableCacheDir/$dbLabel/general/is.lib", 
+                           'root', 10, $searchEngine );
 
-      #createLib( \%options, $db, "$writableCacheDir/$dbversion/general/at.lib",
-      #           "root", "30", $tax, $searchEngine );
-      unless ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-        createLib( \%options, $db,
-                   "$writableCacheDir/$dbversion/general/simple.lib",
-                   "root", "25", $tax, $searchEngine );
-      }
-      createLib( \%options, $db, "$writableCacheDir/$dbversion/general/l1.lib",
-                 "root", "75", $tax, $searchEngine );
-      createLib( \%options, $db, "$writableCacheDir/$dbversion/general/is.lib",
-                 "root", "10", $tax, $searchEngine );
-
-      $generalCacheDir = "$writableCacheDir/$dbversion/general";
+      $generalCacheDir = "$writableCacheDir/$dbLabel/general";
     }
     else {
       print STDERR "Using general libraries in:\n  $generalCacheDir\n"
           if ( $DEBUG );
     }
 
-    if ( !$options{'lib'} ) {
+    if ( !$customLibFile ) {
       if ( $speciesCacheDir eq "" ) {
 
         # Need to build species specific libraries
         print "Building species libraries in: "
-            . "$writableCacheDir/$dbversion/$speciesWord\n";
+            . "$writableCacheDir/$dbLabel/$speciesWord\n";
 
         # Make cache dir
-        if ( !-d "$writableCacheDir/$dbversion/$speciesWord" ) {
-          eval { mkpath( "$writableCacheDir/$dbversion/$speciesWord" ) };
+        if ( !-d "$writableCacheDir/$dbLabel/$speciesWord" ) {
+          eval { mkpath( "$writableCacheDir/$dbLabel/$speciesWord" ) };
           if ( $@ ) {
             die "RepeatMasker::setspecies: Can't create dir path "
-                . "$writableCacheDir/$dbversion/$speciesWord! $@\n";
+                . "$writableCacheDir/$dbLabel/$speciesWord! $@\n";
           }
         }
 
-        getDBStats( \%options, $db, $species, $tax );
+        # Build the cached refineable elements hash.  These are the
+        # IDs of sequences which can be refined by searching against
+        # the refinelib.
+        my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" .
+                       $species . "' --ancestors --descendants -f embl_meta";
+        #print "Running $famdbCmd\n";
+        open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
+        my $acc;
+        my $name;
+        my $ref;
+        my %validIDs = ();
+        my %refineableHash = ();
+        while ( <IN> ) {
+           if ( /^\/\// ) {
+             if ( $name ) {
+               $validIDs{ lc( $name ) } = 1;
+               $refineableHash{ $name } = 1 if ( $ref );
+             }else {
+               $validIDs{ lc( $acc ) } = 1;
+               $refineableHash{ $acc } = 1 if ( $ref );
+             }
+             $acc = undef;
+             $name = undef;
+             $ref = 0; 
+           }
+           #ID   DF0000003; SV 4; linear; DNA; STD; UNC; 309 BP.
+           $acc = $1 if ( /^ID\s+(\S+)\;/ );
+           #NM   AluSc
+           $name = $1 if ( /^NM\s+(\S+)/ );
+           #CC        Refineable
+           $ref = 1 if ( /^CC\s+Refineable/ );
+        }
+        close IN;
+        nstore \%refineableHash,
+            "$writableCacheDir/$dbLabel/$speciesWord/refineableHash.dat";
+   
+        ##
+        ##
+        ##
+        open OUT,">$writableCacheDir/$dbLabel/$speciesWord/speciesMeta.pm" or 
+            die "Could not open $writableCacheDir/$dbLabel/$speciesWord/speciesMeta.pm " . 
+                "for writing!\n";
+        print OUT "package speciesMeta;\n";
+        print OUT "require Exporter;\n";
+        print OUT "\@EXPORT_OK   = qw( \%validIDs );\n";
+        print OUT "\%EXPORT_TAGS = ( all => [ \@EXPORT_OK ] );\n";
+        print OUT "\@ISA         = qw(Exporter);\n";
+        print OUT "BEGIN {\n";
+        print OUT "  \%validIDs = (\n";
+        my $output = Dumper( \%validIDs );
+        $output =~ s/^\$VAR1 = \{//;
+        $output =~ s/\};//;
+        print OUT $output;
+        print OUT "\n";
+        print OUT "  ); }\n";
+        close OUT;
 
-        # Build species metadata module
-        createValidIDList( $db, $species,
-                           "$writableCacheDir/$dbversion/$speciesWord", $tax );
-
-        if ( $tax->isA( $species, "mammalia" ) == 1 ) {
-
+        if ( $orgFlag eq "mammalia" || $orgFlag eq "primates" ) {
+      
           # alu.lib, rodcutsines.lib => sinecutlib
-          createLib( \%options, $db,
-                     "$writableCacheDir/$dbversion/$speciesWord/sinecutlib",
-                     $species, "35", $tax, $searchEngine );
+          &createLibFromFamdb( $rmLibDir, 
+                               "$writableCacheDir/$dbLabel/$speciesWord/sinecutlib", 
+                               $species, 35, $searchEngine );
 
           # cut1.lib, rodcut.lib => shortcutlib
-          createLib( \%options, $db,
-                     "$writableCacheDir/$dbversion/$speciesWord/shortcutlib",
-                     $species, "40", $tax, $searchEngine );
+          &createLibFromFamdb( $rmLibDir, 
+                               "$writableCacheDir/$dbLabel/$speciesWord/shortcutlib", 
+                               $species, 40, $searchEngine );
+
+
 
           # cut2.lib, rodcut2.lib, cetartiocut.lib => cutlib
-          createLib( \%options, $db,
-                     "$writableCacheDir/$dbversion/$speciesWord/cutlib",
-                     $species, "45", $tax, $searchEngine );
+          &createLibFromFamdb( $rmLibDir, 
+                               "$writableCacheDir/$dbLabel/$speciesWord/cutlib", 
+                               $species, 45, $searchEngine );
 
           unless ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
 
             # humsines.lib, rod1.lib, cetartio1.lib => shortlib
-            createLib( \%options, $db,
-                       "$writableCacheDir/$dbversion/$speciesWord/shortlib",
-                       $species, "50", $tax, $searchEngine );
+            &createLibFromFamdb( $rmLibDir, 
+                                 "$writableCacheDir/$dbLabel/$speciesWord/shortlib", 
+                                 $species, 50, $searchEngine );
 
             # humlines.lib, rod2.lib => longlib
-            createLib( \%options, $db,
-                       "$writableCacheDir/$dbversion/$speciesWord/longlib",
-                       $species, "55", $tax, $searchEngine );
+            &createLibFromFamdb( $rmLibDir, 
+                                 "$writableCacheDir/$dbLabel/$speciesWord/longlib", 
+                                 $species, 55, $searchEngine );
 
             # mirs.lib => mirslib
-            createLib( \%options, $db,
-                       "$writableCacheDir/$dbversion/$speciesWord/mirslib",
-                       $species, "60", $tax, $searchEngine );
+            &createLibFromFamdb( $rmLibDir, 
+                                 "$writableCacheDir/$dbLabel/$speciesWord/mirslib", 
+                                 $species, 60, $searchEngine );
 
             # mir.lib => mirlib
-            createLib( \%options, $db,
-                       "$writableCacheDir/$dbversion/$speciesWord/mirlib",
-                       $species, "65", $tax, $searchEngine );
+            &createLibFromFamdb( $rmLibDir, 
+                                 "$writableCacheDir/$dbLabel/$speciesWord/mirlib", 
+                                 $species, 65, $searchEngine );
 
             # retrovirus.lib => retrolib
-            createLib( \%options, $db,
-                       "$writableCacheDir/$dbversion/$speciesWord/retrolib",
-                       $species, "70", $tax, $searchEngine );
-
+            &createLibFromFamdb( $rmLibDir, 
+                                 "$writableCacheDir/$dbLabel/$speciesWord/retrolib", 
+                                 $species, 70, $searchEngine );
           }
           else {
-
-            createLib( \%options, $db,
-                       "$writableCacheDir/$dbversion/$speciesWord/masklib",
-                       $species, "95", $tax, $searchEngine );
-
+            # HMM search combines 35,50,60,65,70 into one search lib
+            &createLibFromFamdb( $rmLibDir, 
+                                 "$writableCacheDir/$dbLabel/$speciesWord/masklib", 
+                                 $species, 95, $searchEngine );
           }
 
           # refinelib
-          createLib( \%options, $db,
-                     "$writableCacheDir/$dbversion/$speciesWord/refinelib",
-                     $species, "85", $tax, $searchEngine );
-
+          &createLibFromFamdb( $rmLibDir, 
+                               "$writableCacheDir/$dbLabel/$speciesWord/refinelib", 
+                               $species, 85, $searchEngine );
         }
         else {
-
           # Need to separate into a species.lib
-          createLib( \%options, $db,
-                     "$writableCacheDir/$dbversion/$speciesWord/specieslib",
-                     $species, "80", $tax, $searchEngine );
+          &createLibFromFamdb( $rmLibDir, 
+                               "$writableCacheDir/$dbLabel/$speciesWord/specieslib", 
+                               $species, 80, $searchEngine );
         }
 
-        $speciesCacheDir = "$writableCacheDir/$dbversion/$speciesWord";
-
+        $speciesCacheDir = "$writableCacheDir/$dbLabel/$speciesWord";
       }
       else {
         print STDERR "Using species libraries in:\n  $speciesCacheDir\n"
             if ( $DEBUG );
       }
-
-      undef $db;
     }
   }
 
-  return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir );
+  return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir, $dbLabel );
 
+}
+
+##-------------------------------------------------------------------------##
+## Use:  createLibFromFamdb( $rmLibDir, $libName, $species,
+##                           $stageNum, $searchEngine );
+##
+##         $rmLibDir     :
+##         $libName      :  The name of the library to create.
+##         $species      :  The name of the species to include seqs for.
+##         $stageNum     :  The name of the old RM database.  Used to
+##                          screen the repeats ( will generalize in the
+##                          future ).
+##         $searchEngine :
+##
+##  Returns
+##
+##     Creates a library by filtering the RepeatMasker.lib file
+##     given specific filtering parameters ( species and stageNum).
+##     If wublast is being used it also creates the binary versions
+##     of the fasta library. Removes the library file if there are no
+##     matching sequences.
+##
+##  Globals Used: None
+##-------------------------------------------------------------------------##·
+sub createLibFromFamdb {
+  my $rmLibDir     = shift;
+  my $libName      = shift;
+  my $species      = shift;
+  my $stageNum     = shift;
+  my $searchEngine = shift;
+
+  print "RepeatMasker::createLib( "
+      . "$libName, $species, $stageNum );\n"
+      if ( $DEBUG );
+
+  my $outFile = $libName;
+  my $format = "fasta_name";
+  if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+    $outFile .= ".hmm";
+    $format = "hmm_species";
+  }elsif ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+    $outFile = "$libName-wublast";
+  }
+
+  # NOTE: Stage 95 is a catch all for 35 50 55 60 65 70 75....basically
+  #       excluding 25/40/45. Stage '80' is all stages.  Currently famdb.py handles these
+  #       special case selections internally.
+  my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" . 
+              $species . "' --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
+  if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+    $famdbCmd .= " --add-reverse-complement";
+  }
+  $famdbCmd .= " > $outFile";
+  system($famdbCmd);
+
+  if ( `grep -v -c "^#" $outFile` == 0 ) {
+    print "createLibFromFamdb: Removing empty library $outFile\n" if ( $DEBUG );
+    unlink( $outFile );
+  }
+  else {
+    my ( $outFileVol, $outFileDir, $outFileBasename ) =
+        File::Spec->splitpath( $outFile );
+    $outFileDir = "." if ( $outFileDir eq "" );
+
+    if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+      system(   "$SETDB_PRGM $outFile > "
+              . "$outFileDir/setdb.log 2>&1" ) == 0
+          or die "RepeatMasker::createLib(): Error invoking setdb on file "
+          . "$outFile.  We tried using the setdb program ( "
+          . "$SETDB_PRGM ).\n";
+      unlink( $outFile ) unless ( $DEBUG );
+      move( "$outFile.ahd", "$libName.ahd" );
+      move( "$outFile.atb", "$libName.atb" );
+      move( "$outFile.bsq", "$libName.bsq" );
+    }
+    elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
+      system(   "$NCBIBLASTDB_PRGM -dbtype nucl "
+              . "-in $outFile > $outFileDir/rmblastdb.log 2>&1" ) == 0
+          or die "RepeatMasker::createLib(): Error invoking "
+          . "$NCBIBLASTDB_PRGM"
+          . " on file $outFile.\n";
+    }
+    elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+      #
+      # With the addition of DR families we now have the potential of generating
+      # families without any thresholds set.  We can generate thresholds for a
+      # given genome size and E-Value using the HMM using the hmmstat program.
+      # Ideally the genome size and E-Value would be parameters for RepeatMasker
+      # but for now they are fixed at 3GB genome size ( typical for mammals ) and
+      # the Dfam theoretical FDR E-value threshold of 0.02.  Below we calculate
+      # this for all families in the library ( because it's fast ) and then 
+      # add them only if a family is missing a GA.
+      #
+
+      # hmmstat :: display summary statistics for a profile file
+      # # HMMER 3.2.1 (June 2018); http://hmmer.org/
+      # # Copyright (C) 2018 Howard Hughes Medical Institute.
+      # # Freely distributed under the BSD open source license.
+      # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      # # show score required to reach E-value:      0.02
+      # # using base count (search both strands):  3000 Mb
+      # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      # 
+      # #
+      # # idx  name                 accession        nseq eff_nseq      M relent   info p relE compKL sc for   0.02
+      # # ---- -------------------- ------------ -------- -------- ------ ------ ------ ------ ------ -------------
+      #    1      AluY#SINE/Alu        DF0000002.4      2000     2.52    311   0.62   0.62   0.47   0.02        23.92
+      #    2      ...
+      open IN,"$HMMSTAT_PRGM --eval2score --baseZ 3000 -E 0.02 $outFile|" or
+        die "Could not open hmmstat program ($HMMSTAT_PRGM)\n";
+      my %thresholds;
+      while ( <IN> ) {
+        if ( /\s*(\d+\s+\S+\s+D.\d+.*)/ )
+        {
+          my @flds = split(/\s+/, $1);
+          $thresholds{$flds[2]} = $flds[10];
+        }
+      }
+      close IN;
+
+      # Add threshold to any that are missing
+      system("mv $outFile $outFile.preThresh");
+      open IN,"<$outFile.preThresh" or die "Could not open library $outFile.preThresh for reading!\n";
+      open OUT,">$outFile" or die "Could not open library $outFile for writing!\n";
+      my $acc;
+      my $preHeader;
+      my $postHeader;
+      my $beforeChecksum = 1;
+      my $hasGA = 0;
+      while ( <IN> ) {
+        if ( /^ACC\s+(\S+)/ ) {
+          $acc = $1;
+        }
+        if ( /^GA\s+\d+\.\d+;/ ) {
+          $hasGA = 1;
+        }
+        if ( $beforeChecksum ) {
+          $preHeader .= $_;
+        }else {
+          $postHeader .= $_;
+        }
+        if ( /^CKSUM/ ) {
+          $beforeChecksum = 0;
+        }
+        if ( /^\/\// ) {
+          print OUT $preHeader;
+          if ( $hasGA == 0 ){
+            print OUT "GA    " . $thresholds{$acc} . ";\n";
+            print OUT "TC    " . $thresholds{$acc} . ";\n";
+            print OUT "NC    " . $thresholds{$acc} . ";\n";
+          }
+          print OUT $postHeader;
+          $hasGA = 0;
+          $acc = "";
+          $preHeader = "";
+          $postHeader = "";
+          $beforeChecksum = 1;
+        }
+      }
+      close IN;
+      close OUT;
+
+      if ( -s $outFile ) {
+        unlink("$outFile.preThresh");
+      }
+
+      system(   "$HMMPRESS_PRGM"
+              . " $outFile > $outFileDir/hmmPress.log 2>&1" ) == 0
+          or die "RepeatMasker::createLib(): Error invoking "
+          . "$HMMPRESS_PRGM on file "
+          . "$outFile.\n";
+    }
+  }
 }
 
 1;

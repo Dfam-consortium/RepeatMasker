@@ -8,6 +8,12 @@ Pre-requisites
 
   - Perl 5.8.0 or higher installed.
 
+  - Python 3.0 installed.
+
+  - h5py HDF5 library for Python
+      See https://docs.h5py.org/en/latest/build.html for installation
+      instructions.
+
   - TRF 4.09 or higher ( http://tandem.bu.edu/trf/trf.html )
   
   - A search engine.  We currently support:
@@ -19,20 +25,55 @@ Pre-requisites
               ( Dfam required )
        abblast/wublast : http://blast.advbiocomp.com/licensing/
 
-  - Dfam and/or RepeatMasker libraries.  Dfam 3.1 is
-    included in this release.
-    Updates can be found at: www.dfam.org.
-    The RepBase RepeatMasker Library can be obtained
-    at: http://www.girinst.org
+  - Dfam and/or RepeatMasker libraries.  The curated families from
+    Dfam 3.1 are included in this release. Updates and the complete
+    (curated & uncrated) Dfam libraries can be found at: www.dfam.org.
+    The RepBase RepeatMasker Library can be obtained at: 
+    http://www.girinst.org
        
 
 Installation 
 ------------
 
-  1. Unpack the files to the directory you wish to install
-     them in.
+  1. Unpack the distribution in your home directory or in a location where it 
+     may be shared with other users of your system ( ie. /usr/local/ ). Make 
+     sure you do not extract in a directory already containing a pre-existing
+     directory called "RepeatMasker" as it will attempt to overwrite files 
+     contained within.  For example:
 
-  2. Configure the distribution by invoking Perl on the
+         % cp RepeatMasker-open-4-#-#.tar.gz /usr/local
+         % cd /usr/local
+         % gunzip RepeatMasker-open-4-#-#.tar.gz
+         % tar xvf RepeatMasker-open-4-#-#.tar
+
+  2. RepeatMasker comes with a copy of the curated portion of 
+     Dfam ( Libraries/Dfam.h5 ).  This is a small library ( at 
+     this time ).  There are two options for supplementing the
+     main RepeatMasker library:
+
+       - The complete Dfam ( curated and uncurated families ) library
+         may be downloaded from www.dfam.org in famdb HDF5 format and
+         used to replace the distributed "Libraries/dfam.h5" file. For
+         example:
+
+             % wget https://www.dfam.org/releases/Dfam_3.2/families/Dfam.h5.gz
+             % gunzip Dfam.h5.gz
+             ## NOTE: This will overwrite the distributed Dfam.h5 file.
+             % mv Dfam.h5 /usr/local/RepeatMasker/Libraries
+
+     and/or
+
+       - The RepBase RepeatMasker Edition ( final version 10/26/2018 )
+         may be downloaded from www.girinst.org and unpaked in the
+         RepeatMasker directory.  For example:
+
+             % cp RepBaseRepeatMaskerEdition-20181026.tar.gz /usr/local/RepeatMasker/
+             % cd /usr/local/RepeatMasker
+             % gunzip RepBaseRepeatMaskerEdition-20181026.tar.gz
+             % tar xvf RepBaseRepeatMaskerEdition-20181026.tar
+             % rm RepBaseRepeatMaskerEdition-20181026.tar
+               
+  3. Configure the distribution by invoking Perl on the
      the "configure" script, i.e.:
   
             perl ./configure
@@ -40,6 +81,7 @@ Installation
      The configure script will prompt you for all the
      information needed to setup the RepeatMasker suite of
      programs.
+
 
 
 Library Cache Directories

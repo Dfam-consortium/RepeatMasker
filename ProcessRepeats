@@ -245,7 +245,7 @@ if ( $options{'species'} ) {
 
   # Need to set opt_species, opt_mammal, opt_mus
   $tax =
-      Taxonomy->new( taxonomyDataFile => "$LIBDIR/taxonomy.dat" );
+      Taxonomy->new( famdbfile => "$LIBDIR/RepeatMaskerLib.h5" );
 
   if ( $tax->isA( $options{'species'}, "primates" ) ) {
     $options{'primate'} = 1;
@@ -5111,7 +5111,7 @@ sub getEquivArray {
 
   if ( defined( my $refHashEntry = $refinementHash{ $annot->getLineageId() } ) )
   {
-    foreach my $key ( keys %{$refHashEntry} ) {
+    foreach my $key ( sort keys %{$refHashEntry} ) {
       push @annots, ( @{ $refHashEntry->{$key} } );
     }
   }

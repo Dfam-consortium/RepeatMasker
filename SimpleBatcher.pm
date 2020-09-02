@@ -77,6 +77,7 @@ package SimpleBatcher;
 use strict;
 use Carp;
 use Data::Dumper;
+use SeqDBI;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
 
 require Exporter;

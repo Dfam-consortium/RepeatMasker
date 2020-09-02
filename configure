@@ -58,8 +58,11 @@ use FindBin;
 use Getopt::Long;
 use Pod::Text;
 use lib $FindBin::Bin;
-use LibraryUtils;
 use RepeatMaskerConfig;
+use POSIX qw(:sys_wait_h);
+
+# No output buffering
+$|=1;
 
 #
 # Release Version
@@ -242,11 +245,10 @@ my @progFiles = (
                   "ProcessRepeats",
                   "RepeatProteinMask",
                   "DupMasker",
+                  "addRepBase.pl",
                   "util/calcDivergenceFromAlign.pl",
                   "util/createRepeatLandscape.pl",
-                  "util/queryRepeatDatabase.pl",
                   "util/maskFile.pl",
-                  "util/queryTaxonomyDatabase.pl",
                   "util/rmOutToGFF3.pl",
                   "util/buildRMLibFromEMBL.pl",
                   "util/rmToUCSCTables.pl"
@@ -286,20 +288,43 @@ if ( ! RepeatMaskerConfig::validateParam('LIBDIR') ) {
 }
 my $LIBDIR = $config->{'LIBDIR'}->{'value'};
 
-my ( $combLib, $tag1, $rmLibraryVersion ) =
-    LibraryUtils::validateLibraries( $LIBDIR, "CONSENSUS" );
-
-my ( $na, $tag2, $dfamLibraryVersion ) =
-    LibraryUtils::validateLibraries( $LIBDIR, "HMM" );
-
-## Deprecated -- this was compressed so that it would 
-## fit into github....this was unfortunately not scalable this way so
-## we had to remove it from github.
-## Uncompress taxonomy.dat
-if ( -s "$LIBDIR/taxonomy.dat.gz" ) {
-  print "\n  -- Uncompressing taxonomy.dat...";
-  system( "gunzip $LIBDIR/taxonomy.dat.gz" );
+print "\n\nChecking for libraries...\n\n";
+# Installation scenarios
+#  1: Both Dfam *and* RepBase RepeatMasker Edition
+if ( -s "$LIBDIR/Dfam.h5" && -s "$LIBDIR/RMRBSeqs.embl" ) {
+  unlink("$LIBDIR/RepeatMaskerLib.h5") if ( -e "$LIBDIR/RepeatMaskerLib.h5" );
+  defined(my $pid = fork) or die "Couldn't fork: $!";
+  if (!$pid) { # Child
+    system("$FindBin::RealBin/addRepBase.pl -libdir $LIBDIR");
+    exit;
+  } else { # Parent
+    while (! waitpid($pid, WNOHANG)) {
+      sleep 2;
+      print ".";
+    }
+  }
+  print "\n";
+#  2: Just a form of Dfam ( curated or curated+uncurated )
+}elsif ( -s "$LIBDIR/Dfam.h5" ) {
+  print "  - Found Dfam\n";
+  unlink("$LIBDIR/RepeatMaskerLib.h5") if ( -e "$LIBDIR/RepeatMaskerLib.h5" );
+  system("ln -s $LIBDIR/Dfam.h5 $LIBDIR/RepeatMaskerLib.h5");
+#  3: What...nothing?
+}else {
+  die "\nCould not find $LIBDIR/Dfam.h5!\n" .
+      "Please download a copy of the Dfam library ( famdb HDF5 format )\n" . 
+      "from:\n\n" . 
+      "  https://www.dfam.org/releases/Dfam_#.#/families/Dfam.h5.gz\n" .
+      "or\n" . 
+      "  https://www.dfam.org/releases/Dfam_#.#/families/Dfam_curatedonly.h5.gz\n\n" .
+      "uncompress it ( gunzip ), store in $LIBDIR,\n" . 
+      "and rerun the configure program.\n\n\n";
 }
+#print "<PRESS ENTER TO CONTINUE>\n";
+#$answer = <STDIN>;
+
+
+my $dbInfo = `$rmLocation/famdb.py -i $LIBDIR/RepeatMaskerLib.h5 info`;
 
 if ( ! $options{'trf_prgm'} ) {
   RepeatMaskerConfig::promptForParam('TRF_PRGM');
@@ -315,6 +340,20 @@ if ( ! ( $options{'abblast_dir'} || $options{'rmblast_dir'} || $options{'hmmer_d
   # Assumption: if at least one engine is specified on the command line then the intention
   #             is to not prompt for any engines.
 }
+
+print "Building FASTA version of RepeatMasker.lib ...";
+
+defined(my $pid = fork) or die "Couldn't fork: $!";
+if (!$pid) { # Child
+  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated --format fasta_name > $rmLocation/Libraries/RepeatMasker.lib");
+  exit;
+} else { # Parent
+  while (! waitpid($pid, WNOHANG)) {
+    sleep 2;
+    print ".";
+  }
+}
+print "\n";
 
 #
 # Freeze RM and RMPep libraries for RepeatModeler use among others
@@ -342,12 +381,7 @@ if ( RepeatMaskerConfig::validateParam('ABBLAST_DIR') )
 RepeatMaskerConfig::updateConfigFile();
 
 print "The program is installed with a the following repeat libraries:\n";
-if ( $dfamLibraryVersion ne "" ) {
-  print "  $dfamLibraryVersion\n";
-}
-if ( $rmLibraryVersion ne "" ) {
-  print "  $rmLibraryVersion\n";
-}
+print "$dbInfo\n";
 
 print "Further documentation on the program may be found here:\n";
 print "  $rmLocation/repeatmasker.help\n\n";
@@ -373,7 +407,7 @@ sub searchEngineMenu {
     {
       name         => "HMMER_DIR",
       desc         => "HMMER3.1 & DFAM",
-      defname      => "nhmmer",
+      defname      => "hmmer",
       status       => 0,
     },
     {
