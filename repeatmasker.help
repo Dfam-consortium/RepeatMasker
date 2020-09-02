@@ -173,21 +173,20 @@ example, "chimp", "squirrels", "grasses", or "carnivores" are not
 present. The program will suggest functional names using Soundex, with
 oftentimes unexpected results. Using Latin names is always safest.
 
+famdb.py
 
-util/queryRepeatDatabase.pl
+famdb.py provides an interface to the Dfam and RepeatMasker libraries
+in FamDB format, and allows you to see what species are covered and
+how many repeats are assigned to them. For example:
 
-The script queryRepeatDatabase.pl in the util subdirectory of the
-RepeatMasker directory allows you to check if a species is covered and
-which repeats the query will be compared to if the species indication
-is used. For example, 
+`./famdb.py -i Libraries/Dfam.h5 lineage --ancestors --descendants human --format totals`
 
-util/queryRepeatDatabase.pl -species sorghum -stat
+shows that there are 8 lineage-specific repeats and 1337 ancestral
+(e.g. hominids, primates, mammals, and insertion artifacts).
 
-shows that, besides the universal simple repeat and bacterial
-insertion elements contamination checks the query will be compared to
-only 4 sorghum specific repeats (some of the many maize/corn specific
-repeats may also occur in sorghum, but this has not yet been studied).
-Type queryRepeatDatabase.pl for further options with this script.
+You can run `./famdb.py --help` for more information about the available
+commands.
+
 
 These are the numbers and bp of repeat consensus sequences (excluding
 simple repeats and RNAs) as of May 2009 for the best represented clades
@@ -256,11 +255,12 @@ file for names that can be parsed into the .tbl file.
 
 You can combine the repeats available in the RepeatMasker library 
 with a custom set of consensus sequences.  To accomplish this 
-use the queryRepeatDatabase.pl tool provided in the util 
-directory of the RepeatMasker distribution.  [ Running the program
-without any options will print the documentation to the screen. ]
-Use this tool to extract RepeatMasker sequences and concatenate
-them to your custom sequences in a new library file.
+use the famdb.py tool:
+
+`./famdb.py -i Libraries/RepeatMaskerLib.h5 families --format fasta_name --ancestors --descendants 'species name'`
+
+The resulting sequences can be concatenated to your own set of sequences in a
+new library file.
  
 
 1.2 Masking options (options that determine what kind of repeats are masked)

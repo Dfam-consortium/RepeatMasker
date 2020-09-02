@@ -247,9 +247,7 @@ my @progFiles = (
                   "DupMasker",
                   "util/calcDivergenceFromAlign.pl",
                   "util/createRepeatLandscape.pl",
-                  "util/queryRepeatDatabase.pl",
                   "util/maskFile.pl",
-                  "util/queryTaxonomyDatabase.pl",
                   "util/rmOutToGFF3.pl",
                   "util/buildRMLibFromEMBL.pl",
                   "util/rmToUCSCTables.pl"
