@@ -1202,17 +1202,17 @@ up with the 'names' command."""
         # HMM only: add a search stage filter to "un-list" families that were
         # allowed through only because they match in buffer stage
         if kwargs.get("is_hmm") and filter_stages:
-            filters += [lambda a, f: self.__filter_search_stages(f, filter_stages)]
+            filters += [lambda a, f: self.__filter_search_stages(f(), filter_stages)]
 
         filter_repeat_type = kwargs.get("repeat_type")
         if filter_repeat_type:
             filter_repeat_type = filter_repeat_type.lower()
-            filters += [lambda a, f: self.__filter_repeat_type(f, filter_repeat_type)]
+            filters += [lambda a, f: self.__filter_repeat_type(f(), filter_repeat_type)]
 
         filter_name = kwargs.get("name")
         if filter_name:
             filter_name = filter_name.lower()
-            filters += [lambda a, f: self.__filter_name(f, filter_name)]
+            filters += [lambda a, f: self.__filter_name(f(), filter_name)]
 
         # Recursive iterator flattener
         def walk_tree(tree):
@@ -1237,6 +1237,11 @@ up with the 'names' command."""
                     grp = self.file[FamDB.GROUP_FAMILIES_BYSTAGE].get(stage)
                     if grp:
                         yield from grp.keys()
+
+            # special case: Searching the whole database, going directly via
+            # Families/ is faster than repeatedly traversing the tree
+            elif tax_id == 1 and descendants:
+                yield from self.file[FamDB.GROUP_FAMILIES_BYACC].keys()
             else:
                 lineage = self.get_lineage(tax_id, ancestors=ancestors, descendants=descendants)
                 for node in walk_tree(lineage):
@@ -1248,10 +1253,16 @@ up with the 'names' command."""
                 continue
             seen.add(accession)
 
-            family = self.file["Families"].get(accession)
+            cached_family = None
+            def family_getter():
+                nonlocal cached_family
+                if not cached_family:
+                    cached_family = self.file["Families"].get(accession)
+                return cached_family
+
             match = True
             for filt in filters:
-                if not filt(accession, family):
+                if not filt(accession, family_getter):
                     match = False
             if match:
                 yield accession
@@ -1262,7 +1273,7 @@ up with the 'names' command."""
 
     def get_family_accessions(self):
         """Returns a list of accessions for families in the database."""
-        return sorted(self.file[FamDB.GROUP_FAMILIES_BYACCESSION].keys(), key=str.lower)
+        return sorted(self.file[FamDB.GROUP_FAMILIES_BYACC].keys(), key=str.lower)
 
     @staticmethod
     def __get_family(entry):
@@ -1461,6 +1472,14 @@ def print_families(args, families, header, species=None):
     GA, NC, and TC lines of the HMM.
     """
 
+    # These args are only available with the "families" command. When
+    # print_families is called by the "family" command, accessing e.g.
+    # args.stage directly raises an AttributeError
+    # TODO: consider reworking argument passing to avoid this workaround
+    add_reverse_complement = getattr(args, "add_reverse_complement", False)
+    include_class_in_name = getattr(args, "include_class_in_name", False)
+    stage = getattr(args, "stage", None)
+
     if header:
         db_info = args.file.get_db_info()
         if db_info:
@@ -1479,25 +1498,25 @@ def print_families(args, families, header, species=None):
         if args.format == "summary":
             entry = str(family) + "\n"
         elif args.format == "hmm":
-            entry = family.to_dfam_hmm(args.file, include_class_in_name=args.include_class_in_name)
+            entry = family.to_dfam_hmm(args.file, include_class_in_name=include_class_in_name)
         elif args.format == "hmm_species":
-            entry = family.to_dfam_hmm(args.file, species, include_class_in_name=args.include_class_in_name)
+            entry = family.to_dfam_hmm(args.file, species, include_class_in_name=include_class_in_name)
         elif args.format == "fasta" or args.format == "fasta_name" or args.format == "fasta_acc":
             use_accession = (args.format == "fasta_acc")
 
             buffers = []
-            if args.stage and family.buffer_stages:
+            if stage and family.buffer_stages:
                 for spec in family.buffer_stages.split(","):
                     if "[" in spec:
                         matches = re.match(r'(\d+)\[(\d+)-(\d+)\]', spec.strip())
                         if matches:
-                            if args.stage == int(matches.group(1)):
+                            if stage == int(matches.group(1)):
                                 buffers += [[int(matches.group(2)), int(matches.group(3))]]
                         else:
                             LOGGER.warning("Ingored invalid buffer specification: '%s'",
                                            spec.strip())
                     else:
-                        buffers += [args.stage == int(spec)]
+                        buffers += [stage == int(spec)]
 
             if not buffers:
                 buffers += [None]
@@ -1507,14 +1526,14 @@ def print_families(args, families, header, species=None):
                 entry += family.to_fasta(
                     args.file,
                     use_accession=use_accession,
-                    include_class_in_name=args.include_class_in_name,
+                    include_class_in_name=include_class_in_name,
                     buffer=buffer_spec
                 ) or ""
 
-                if args.add_reverse_complement:
+                if add_reverse_complement:
                     entry += family.to_fasta(args.file,
                                              use_accession=use_accession,
-                                             include_class_in_name=args.include_class_in_name,
+                                             include_class_in_name=include_class_in_name,
                                              do_reverse_complement=True,
                                              buffer=buffer_spec) or ""
         elif args.format == "embl":
