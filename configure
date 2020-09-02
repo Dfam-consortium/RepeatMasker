@@ -294,7 +294,17 @@ print "\n\nChecking for libraries...\n\n";
 #  1: Both Dfam *and* RepBase RepeatMasker Edition
 if ( -s "$LIBDIR/Dfam.h5" && -s "$LIBDIR/RMRBSeqs.embl" ) {
   unlink("$LIBDIR/RepeatMaskerLib.h5") if ( -e "$LIBDIR/RepeatMaskerLib.h5" );
-  system("$FindBin::RealBin/addRepBase.pl -libdir $LIBDIR");
+  defined(my $pid = fork) or die "Couldn't fork: $!";
+  if (!$pid) { # Child
+    system("$FindBin::RealBin/addRepBase.pl -libdir $LIBDIR");
+    exit;
+  } else { # Parent
+    while (! waitpid($pid, WNOHANG)) {
+      sleep 2;
+      print ".";
+    }
+  }
+  print "\n";
 #  2: Just a form of Dfam ( curated or curated+uncurated )
 }elsif ( -s "$LIBDIR/Dfam.h5" ) {
   print "  - Found Dfam\n";
@@ -336,11 +346,12 @@ print "Building FASTA version of RepeatMasker.lib ...";
 
 defined(my $pid = fork) or die "Couldn't fork: $!";
 if (!$pid) { # Child
-  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated > $rmLocation/Libraries/RepeatMasker.lib");
+  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated --format fasta_name > $rmLocation/Libraries/RepeatMasker.lib");
+  exit;
 } else { # Parent
   while (! waitpid($pid, WNOHANG)) {
-    print ".";
     sleep 2;
+    print ".";
   }
 }
 print "\n";
