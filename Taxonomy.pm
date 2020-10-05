@@ -69,7 +69,6 @@ use FindBin;
 use Data::Dumper;
 use FastaDB;
 use EMBL;
-use Text::Soundex;
 use Carp;
 
 use Storable qw(nstore retrieve);
