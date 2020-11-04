@@ -742,7 +742,7 @@ foreach my $file ( @ARGV ) {
   ## errors, and create a byte index for all parseable sequences
   ## in the file.  Copy the file so we don't mess with the
   ## original.
-  system( " cp $fileori $file " );
+  systemF( " cp $fileori $file " );
   my $db = FastaDB->new(
                          fileName    => $file,
                          openMode    => SeqDBI::ReadWrite,
@@ -848,11 +848,11 @@ JOBLOOP:
               if ( $DEBUG );
           ## Child completed ok.
           ## Append log, and stderrs
-          system( "cat $batchFile.masked.log >> $fullLogFile" )
+          systemF( "cat $batchFile.masked.log >> $fullLogFile" )
               if ( -e "$batchFile.masked.log" );
-          system( "cat $batchFile.masked.stderr >> $fullErrFile" )
+          systemF( "cat $batchFile.masked.stderr >> $fullErrFile" )
               if ( -e "$batchFile.masked.stderr" );
-          system( "touch $batchFile.cat" ) if ( !-e "$batchFile.cat" );
+          systemF( "touch $batchFile.cat" ) if ( !-e "$batchFile.cat" );
 
           # Now remove them
           unlink( "$batchFile.masked", "$batchFile.masked.log",
@@ -948,13 +948,13 @@ JOBLOOP:
            && -e "$file" . "_batch-" . "$nextBatchToConcatenate.cat" )
       {
         if ( $compressCatFile ) {
-          system(   "gzip -c $file"
+          systemF(   "gzip -c $file"
                   . "_batch-"
                   . "$nextBatchToConcatenate.cat "
                   . ">> $fullcatfile.gz" );
         }
         else {
-          system(   "cat $file"
+          systemF(   "cat $file"
                   . "_batch-"
                   . "$nextBatchToConcatenate.cat "
                   . ">> $fullcatfile" );
@@ -1111,14 +1111,14 @@ JOBLOOP:
           ## The rule of thumb is that if we didn't return
           ## results we at least have an empty *.cat file.
           if ( !-e "$batchSeqFile.cat" ) {
-            system( "touch $batchSeqFile.cat" );
+            systemF( "touch $batchSeqFile.cat" );
           }
           unlink( <$batchSeqFile.tmp.* $batchSeqFile.temp.*> );
         }
         else {
 
           # Create an emtpy cat file.
-          system( "touch $batchSeqFile.cat" );
+          systemF( "touch $batchSeqFile.cat" );
         }
 
         if ( $batcher->isBatchFragmented( $batchNums[ $k ] ) ) {
@@ -1173,22 +1173,27 @@ JOBLOOP:
   my $overlapBoundariesHashRef = $batcher->getOverlapBoundaries();
   if ( keys( %{$overlapBoundariesHashRef} ) > 0 ) {
     if ( $compressCatFile ) {
-      system(
+      systemF(
          "echo \"## Batch Overlap Boundaries\" | gzip -c  >> $fullcatfile.gz" );
     }
     else {
-      system( "echo \"## Batch Overlap Boundaries\" >> $fullcatfile" );
+      systemF( "echo \"## Batch Overlap Boundaries\" >> $fullcatfile" );
     }
     foreach my $fragSeqName ( keys( %{$overlapBoundariesHashRef} ) ) {
       my $overlapList =
           join( ", ", @{ $overlapBoundariesHashRef->{$fragSeqName} } );
+
+      my $append_fullcatfile=">>$fullcatfile";
       if ( $compressCatFile ) {
-        system(   "echo \"##   $fragSeqName  $overlapList\" | "
-                . "gzip -c  >>  $fullcatfile.gz" );
+        #systemF(   "echo \"##   $fragSeqName  $overlapList\" | "
+        #        . "gzip -c  >>  $fullcatfile.gz" );
+        $append_fullcatfile="|gzip -c>>$fullcatfile.gz";
       }
-      else {
-        system( "echo \"##   $fragSeqName  $overlapList\" >>  $fullcatfile" );
-      }
+      # else { systemF( "echo \"##   $fragSeqName  $overlapList\" >>  $fullcatfile" ); }
+      open(FULLCATFILE, $append_fullcatfile) or die "Error - cannot write to $append_fullcatfile";
+      print FULLCATFILE "##   $fragSeqName  $overlapList\n";
+      close(FULLCATFILE);($? >> 8) and die
+        "Error -- command returned nonzero status code:\n$append_fullcatfile\nDied ";
     }
   }
 
@@ -1246,10 +1251,10 @@ JOBLOOP:
 
   if ( -s "$fileori.alert" && !$options{'is_clip'} ) {
     if ( $compressCatFile ) {
-      &systemint( "gzip -c $fileori.alert >> $file.cat.gz" );
+      &systemint( "gzip -c $fileori.alert >> $file.cat.gz" ) and die;
     }
     else {
-      &systemint( "cat $fileori.alert >> $file.cat" );
+      &systemint( "cat $fileori.alert >> $file.cat" ) and die;
     }
   }
 
@@ -1821,7 +1826,7 @@ sub locateISElements {
     }
     print "$ISreport\n";
     if ( $options{'is_only'} || $options{'is_clip'} ) {
-      system( "cat $file >> $outFilesPrefix.withoutIS" );
+      systemF( "cat $file >> $outFilesPrefix.withoutIS" );
       if ( $qualname ) {
         my $qualout = "$outFilesPrefix.qual.withoutIS";
         $qualout =~ s/.seq.qual.withoutIS/.qual.withoutIS/;
@@ -2870,7 +2875,7 @@ sub runStage {
 
   if ( $DEBUG ) {
     print "Saving pre-stage maskfile to: $maskfile-$stage\n";
-    system( "cp $maskfile $maskfile-$stage" );
+    systemF( "cp $maskfile $maskfile-$stage" );
   }
 
   my ( $minmatch, $bandwidth, $resultsCollection ) = &search(
@@ -3405,7 +3410,12 @@ sub runLowComplexTests {
   }
 
   if ( <$file.tmp.t*> ) {
-    systemint( "cat $file.tmp.t* > $file.cat" );
+    #systemint( "cat $file.tmp.t* > $file.cat" ) and die;
+    unlink "$file.cat";
+    my $i = rindex($file,"/");
+    my $d = substr($file,0,$i);
+    my $f = substr($file,$i+1);
+    systemint( "find $d -name '$f.tmp.t*' -type f -print0| xargs -0 cat >> $file.cat" ) and die;
   }
 
   return;
@@ -3942,7 +3952,12 @@ sub runHMMERSearchStages {
   }
 
   if ( <$file.tmp.*> ) {
-    systemint( "cat $file.tmp.* > $file.cat" );
+    #systemint( "cat $file.tmp.* > $file.cat" ) and die;
+    unlink "$file.cat";
+    my $i = rindex($file,"/");
+    my $d = substr($file,0,$i);
+    my $f = substr($file,$i+1);
+    systemint( "find $d -name '$f.tmp.t*' -type f -print0| xargs -0 cat >> $file.cat" ) and die;
   }
 
   if ( -s "$file.cat" ) {
@@ -4698,7 +4713,12 @@ sub runSearchStages {
   }
 
   if ( <$file.tmp.*> ) {
-    systemint( "cat $file.tmp.* > $file.cat" );
+    #systemint( "cat $file.tmp.* > $file.cat" ) and die;
+    unlink "$file.cat";
+    my $i = rindex($file,"/");
+    my $d = substr($file,0,$i);
+    my $f = substr($file,$i+1);
+    systemint( "find $d -name '$f.tmp.*' -type f -print0| xargs -0 cat >> $file.cat" ) and die;
   }
 
   # Once and for all let's create a sorted cat file...what do you say?
@@ -6874,7 +6894,13 @@ FORK:
     else {
       die "Can't fork!  Errorcode: $!\n";
     }
+    return 0; # success
   }
+}
+
+sub systemF {
+  my ( $cmd ) = @_;
+  system( @_ ) and die "Exec $cmd failed\n";
 }
 
 ##-------------------------------------------------------------------------##
@@ -6933,8 +6959,12 @@ sub cleanUp {
   }
 
   if ( $compressed ) {
-    &systemint( "gzip $fileori" )     if $compressed eq 'zipped';
-    &systemint( "compress $fileori" ) if $compressed eq 'Zed';
+    if( $compressed eq 'zipped') {
+      &systemint( "gzip $fileori" ) and die;
+    }
+    elsif( $compressed eq 'Zed' ) {
+      &systemint( "compress $fileori" ) and die;
+    }
   }
 }
 
