@@ -345,7 +345,7 @@ print "Building FASTA version of RepeatMasker.lib ...";
 
 defined(my $pid = fork) or die "Couldn't fork: $!";
 if (!$pid) { # Child
-  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated --format fasta_name > $rmLocation/Libraries/RepeatMasker.lib");
+  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated --format fasta_name --include-class-in-name > $rmLocation/Libraries/RepeatMasker.lib");
   exit;
 } else { # Parent
   while (! waitpid($pid, WNOHANG)) {
