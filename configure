@@ -235,6 +235,16 @@ if ( $storableVersion < 2.06 ) {
   exit;
 }
 
+#
+# Test python3 and h5py
+#
+system('python3 -c "import h5py"');
+if ( $? ) {
+  print "\nPython3 and the h5py module is a pre-requisite for RepeatMasker.\n" 
+      . "Either python3 could not be found in your path or h5py is not installed.\n"
+      . "Please very both before rerunning configure.\n\n";
+}
+
 ##
 ## Alter perl invocation headers
 ##
@@ -345,7 +355,7 @@ print "Building FASTA version of RepeatMasker.lib ...";
 
 defined(my $pid = fork) or die "Couldn't fork: $!";
 if (!$pid) { # Child
-  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated --format fasta_name > $rmLocation/Libraries/RepeatMasker.lib");
+  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated --format fasta_name --include-class-in-name > $rmLocation/Libraries/RepeatMasker.lib");
   exit;
 } else { # Parent
   while (! waitpid($pid, WNOHANG)) {

@@ -66,7 +66,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => ''
+                             'value' => '/usr/local/abblast'
                            },
           'CROSSMATCH_DIR' => {
                                 'command_line_override' => 'crossmatch_dir',
@@ -78,14 +78,14 @@ BEGIN {
                                 'expected_files' => [],
                                 'param_type' => 'directory',
                                 'required' => 0,
-                                'value' => ''
+                                'value' => '/usr/local/bin'
                               },
           'DEFAULT_SEARCH_ENGINE' => {
                                        'command_line_override' => 'default_search_engine',
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => ''
+                                       'value' => 'rmblast'
                                      },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
@@ -97,7 +97,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => ''
+                           'value' => '/usr/local/hmmer/bin'
                          },
           'LIBDIR' => {
                         'command_line_override' => 'libdir',
@@ -111,7 +111,7 @@ BEGIN {
                                             ],
                         'param_type' => 'directory',
                         'required' => 0,
-                        'value' => ''
+                        'value' => '/u1/home/rhubley/projects/RepeatMasker/Libraries'
                       },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
@@ -128,7 +128,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => ''
+                             'value' => '/usr/local/rmblast/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',
@@ -136,7 +136,7 @@ BEGIN {
                           'environment_override' => 'TRF_PRGM',
                           'param_type' => 'program',
                           'required' => 1,
-                          'value' => ''
+                          'value' => '/usr/local/bin/trf'
                         }
         };
 
