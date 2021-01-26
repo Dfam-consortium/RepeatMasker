@@ -284,7 +284,7 @@ sub setPathToEngine {
   my $result = `$value 2>&1`;
 
   # BLASTN 3.0-SE [2009-05-25] [linux26-x64-I32LPF64 2009-05-25T22:58:29]
-  if ( $result =~ /^(BLAST[PN]) (\S+ \[.*\])/ ) {
+  if ( $result =~ /^(BLAST[PN]) (\S+ \[.*\])/m ) {
     $this->{'version'}    = $2;
     $this->{'engineName'} = $1;
   }
