@@ -372,7 +372,7 @@ sub _invokeFamDB {
 
   my $args_quoted = "";
   for my $arg (@{$args}) {
-    $args_quoted .= " '" . ( $arg =~ s/'/'"'"'/r ) . "'";
+    $args_quoted .= " '" . ( $arg =~ s/'/'"'"'/rg ) . "'";
   }
 
   my $result = `$FAMDB --file $dbfile $args_quoted 2>&1`;
