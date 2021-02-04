@@ -1363,7 +1363,7 @@ exit( 0 );
 ##
 ##    Globals Used: None
 ##
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub adjustFragmentPositions {
   my $batcher = shift;
   my $catfile = shift;
@@ -1472,7 +1472,7 @@ sub adjustFragmentPositions {
 ##         to decypher this subroutine.
 ##
 ##   Globals Used: none
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub locateISElements {
   my %options        = %{ shift() };
   my $batcher        = shift;
@@ -2968,7 +2968,7 @@ sub runStage {
 ##
 ##    Globals Used: None
 ##    Globals Modified: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub runLowComplexTests {
   my %options   = %{ shift() };    # The RepeatMasker option hashtable
   my $DIRECTORY = shift;
@@ -4005,7 +4005,7 @@ sub runHMMERSearchStages {
 ##
 ##    Globals Used: None
 ##    Globals Modified: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub runSearchStages {
   my %options   = %{ shift() };    # The RepeatMasker option hashtable
   my $DIRECTORY = shift;
@@ -4724,7 +4724,7 @@ sub runSearchStages {
 ##  Returns
 ##
 ##   Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub chooseMatrices {
   my $GC_frac = shift;
 
@@ -4927,7 +4927,7 @@ sub isRefineable {
 ##
 ##    Globals Used: None
 ##
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub preMaskLevelFilter {
   my $searchResults = shift;
 
@@ -5016,7 +5016,7 @@ sub preMaskLevelFilter {
 ##
 ##    Globals Used: None
 ##
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub filterResults {
   my %options       = %{ shift() };
   my $chooseClass   = shift;
@@ -5877,7 +5877,7 @@ sub filterResults {
 ##  Returns
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub calcSimpleRepeatComplexityFromName {
   my %num = ( "A", 0, "C", 0, "G", 0, "T", 0 );
   my %log = ( "A", 0, "C", 0, "G", 0, "T", 0 );
@@ -5919,7 +5919,7 @@ sub calcSimpleRepeatComplexityFromName {
 ##     revamped to use a SearchResultCollection.
 ##
 ##  NO Globals Used
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub getSegments {
   my $resultsCollection = shift;
 
@@ -6678,7 +6678,7 @@ sub createSubElements {
 ##  Returns
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub saveOldFiles {
   my $fijl        = shift;
   my $fileend     = shift;
@@ -6725,7 +6725,7 @@ in order not to overwrite them.\n\n";
 ##  Returns
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub SkipFile {
   my $file = shift;
 
@@ -6751,7 +6751,7 @@ To accomodate automated processes the file has been copied to $tempfile.masked a
 ##         about how files are passed to repeatmasker etc..
 ##
 ##   Globals Used: ARGV[0]
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub createTempDir {
   my %options = %{ shift() };
   my $date    = shift;
@@ -6809,7 +6809,7 @@ sub createTempDir {
 ##  Returns
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 ###  Interrupt handler used by systemint() ###
 sub handler {
   my ( $sig ) = @_;
@@ -6825,7 +6825,7 @@ sub handler {
 ##  Returns
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 ###  systemint -- Interruptible system call routine.  ###
 sub systemint {
   my ( $cmd ) = @_;
@@ -6886,7 +6886,7 @@ FORK:
 ##       Expects $options{'dir'} ( if set ) to already exist.
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub cleanUp {
   my %options     = %{ shift() };
   my $runnumber   = shift;
@@ -7007,7 +7007,7 @@ sub cleanUp {
 ##     matching sequences.
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 #sub createLib {
 #  my $options      = %{ shift() };
 #  my $db           = shift;
@@ -7342,7 +7342,7 @@ sub cleanUp {
 ##     will create the frozen databases for WUBlast.
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub processCustomLib {
   my $libFile      = shift;
   my $tempdir      = shift;
@@ -7436,7 +7436,7 @@ sub processCustomLib {
 ##            refined.
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub buildRefineableHash {
   my $db = shift;
 
@@ -7467,7 +7467,7 @@ sub buildRefineableHash {
 ##  Returns
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 #sub initLibraries {
 #  my %options      = %{ shift() };
 #  my $rmLibDir     = shift;
@@ -7899,7 +7899,7 @@ sub commify {
 ##     Or it fails validation and exits the program.
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub initLibrariesFromFamdb {
   my $species       = shift;
   my $customLibFile = shift;
@@ -8415,7 +8415,7 @@ sub initLibrariesFromFamdb {
 ##     matching sequences.
 ##
 ##  Globals Used: None
-##-------------------------------------------------------------------------##·
+##-------------------------------------------------------------------------##
 sub createLibFromFamdb {
   my $rmLibDir     = shift;
   my $libName      = shift;
