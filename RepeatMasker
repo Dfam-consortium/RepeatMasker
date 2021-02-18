@@ -668,6 +668,11 @@ $options{'species'} = $resolvedSpecies;
 #    );
 #FAMDB_WORK
 
+# Call isA a few times to populate the isACache. This must be done before
+# forking so that each fork sees the cached value instead of re-checking
+$tax->isA($options{'species'}, 'primates');
+$tax->isA($options{'species'}, 'rodentia');
+
 # Read in a frozen hash of element id's which are refineable.  This
 # hash is created by initLibraries the first time a library is initialized.
 my $refineableHashRef;
