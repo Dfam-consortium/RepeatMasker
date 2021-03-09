@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-    famdb.py
-    Usage: famdb.py [-h] [-l LOG_LEVEL] command ...
+    famdb.py, version 0.4.1
+    Usage: famdb.py [-h] [-l LOG_LEVEL] [-i FILE] command ...
 
+    Queries or modifies the contents of a famdb file. For more detailed help
+    and information about program options, run `famdb.py --help` or
+    `famdb.py <command> --help`.
 
-    This module provides classes and methods for working with FamDB files,
-    which contain Transposable Element (TE) families and associated taxonomy data.
+    This program can also be used as a module. It provides classes and methods
+    for working with FamDB files, which contain Transposable Element (TE)
+    families and associated taxonomy data.
 
     # Classes
         Family: Metadata and model of a TE family.
         FamDB: HDF5-based format for storing Family objects.
-
 
 SEE ALSO:
     Dfam: http://www.dfam.org
@@ -43,6 +46,7 @@ import collections
 import datetime
 import json
 import logging
+import os
 import re
 import sys
 import textwrap
@@ -676,14 +680,24 @@ class FamDB:
     GROUP_NODES = "Taxonomy/Nodes"
 
     def __init__(self, filename, mode="r"):
-        if mode not in ["r", "w", "a"]:
+        if mode == "r":
+            reading = True
+
+            # If we definitely will not be writing to the file, optimistically assume
+            # nobody else is writing to it and disable file locking. File locking can
+            # be a bit flaky, especially on NFS, and is unnecessary unless there is
+            # a parallel writer (which is unlikely for famdb files).
+            os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+
+        elif mode == "w":
+            reading = False
+        elif mode == "a":
+            reading = True
+        else:
             raise ValueError("Invalid file mode. Expected 'r' or 'w' or 'a', got '{}'".format(mode))
 
-        reading = True
-        if mode == "w":
-            reading = False
 
-
+        self.filename = filename
         self.file = h5py.File(filename, mode)
         self.mode = mode
 
@@ -1123,29 +1137,39 @@ up with the 'names' command."""
 
     @staticmethod
     def __filter_repeat_type(family, rtype):
-        """Returns True if the family's RepeatMasker Type starts with 'rtype'."""
+        """
+        Returns True if the family's RepeatMasker Type plus SubType
+        (e.g. "DNA/CMC-EnSpm") starts with 'rtype'.
+        """
         if family.attrs.get("repeat_type"):
-            if family.attrs["repeat_type"].lower().startswith(rtype):
+            full_type = family.attrs["repeat_type"]
+            if family.attrs.get("repeat_subtype"):
+                full_type = full_type + "/" + family.attrs["repeat_subtype"]
+
+            if full_type.lower().startswith(rtype):
                 return True
 
         return False
 
     @staticmethod
-    def __filter_curated(accession):
+    def __filter_curated(accession, curated):
         """
-        Returns True if the family is "curated".
+        Returns True if the family's curatedness is the same as 'curated'. In
+        other words, 'curated=True' includes only curated familes and
+        'curated=False' includes only uncurated families.
 
         Families are currently assumed to be curated unless their name is of the
-        form DR<7 digits> and have a version.
+        form DR<7 digits>.
 
         TODO: perhaps this should be a dedicated 'curated' boolean field on Family
         """
 
-        if len(accession) == 9 and accession.startswith("DR"):
-            # any non-digit makes this "curated"
-            return any([ch not in "0123456789" for ch in accession[2:]])
+        is_curated = not (
+            accession.startswith("DR") and
+            len(accession) == 9 and
+            all((c >= "0" and c <= "9" for c in accession[2:])))
 
-        return True
+        return is_curated == curated
 
     def get_accessions_filtered(self, **kwargs):
         """
@@ -1158,6 +1182,7 @@ up with the 'names' command."""
                 If none of (tax_id, ancestors, descendants) are
                 specified, *all* families will be checked.
             curated_only = boolean
+            uncurated_only = boolean
             stage = int
             is_hmm = boolean
             repeat_type = string (prefix)
@@ -1183,7 +1208,9 @@ up with the 'names' command."""
         filters = []
 
         if kwargs.get("curated_only"):
-            filters += [lambda a, f: self.__filter_curated(a)]
+            filters += [lambda a, f: self.__filter_curated(a, True)]
+        if kwargs.get("uncurated_only"):
+            filters += [lambda a, f: self.__filter_curated(a, False)]
 
         filter_stage = kwargs.get("stage")
         filter_stages = None
@@ -1309,6 +1336,7 @@ def command_info(args):
     counts = args.file.get_counts()
 
     print("""\
+File: {}
 Database: {}
 Version: {}
 Date: {}
@@ -1318,6 +1346,7 @@ Date: {}
 Total consensus sequences: {}
 Total HMMs: {}
 """.format(
+    os.path.realpath(args.file.filename),
     db_info["name"], db_info["version"],
     db_info["date"], db_info["description"],
     counts["consensus"], counts["hmm"]))
@@ -1577,6 +1606,7 @@ def command_families(args):
                                                           descendants=args.descendants,
                                                           ancestors=args.ancestors,
                                                           curated_only=args.curated,
+                                                          uncurated_only=args.uncurated,
                                                           is_hmm=is_hmm,
                                                           stage=args.stage,
                                                           repeat_type=args.repeat_type,
@@ -1643,19 +1673,49 @@ def main():
 
     logging.basicConfig()
 
-    parser = argparse.ArgumentParser(description="Queries the contents of a famdb file.")
+    parser = argparse.ArgumentParser(description="""This is famdb.py version 0.4.1.
+
+example commands, including the most commonly used options:
+
+  famdb.py [-i FILE] info
+    Prints information about the file including database name and date.
+
+  famdb.py [-i FILE] names 'mus' | head
+    Prints taxonomy nodes that include 'mus', and the corresponding IDs.
+    The IDs and names are stored in the FamDB file, and are based
+    on the NCBI taxonomy database (https://www.ncbi.nlm.nih.gov/taxonomy).
+
+  famdb.py [-i FILE] lineage -ad 'Homo sapiens'
+  famdb.py [-i FILE] lineage -ad --format totals 9606
+    Prints a taxonomic tree including the given clade and optionally ancestors
+    and/or descendants, with the number of repeats indicated at each level of
+    the hierarchy. With the 'totals' format, prints the number of matching
+    ancestral and lineage-specific entries.
+
+  famdb.py [-i FILE] family --format fasta_acc MIR3
+    Exports a single family from the database in one of several formats.
+
+  famdb.py [-i FILE] families -f embl_meta -ad --curated 'Drosophila melanogaster'
+  famdb.py [-i FILE] families -f hmm -ad --curated --class LTR 7227
+    Searches and exports multiple families from the database, in one of several formats.
+
+""", formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-l", "--log-level", default="INFO")
 
     parser.add_argument("-i", "--file", help="specifies the file to query")
 
-    subparsers = parser.add_subparsers(help="Specifies the kind of query to perform. For more information, run e.g. famdb.py lineage --help")
+    subparsers = parser.add_subparsers(description="""Specifies the kind of query to perform.
+For more information on all the possible options for a command, add the --help option after it:
+famdb.py families --help
+""")
 
     p_info = subparsers.add_parser("info", description="List general information about the file.")
     p_info.set_defaults(func=command_info)
 
     p_names = subparsers.add_parser("names", description="List the names and taxonomy identifiers of a clade.")
     p_names.add_argument("-f", "--format", default="pretty", choices=["pretty", "json"],
-                         help="choose output format. json is more appropriate for scripts.")
+                         metavar="<format>",
+                         help="choose output format. The default is 'pretty'. 'json' is more appropriate for scripts.")
     p_names.add_argument("term", help="search term. Can be an NCBI taxonomy identifier or part of a scientific or common name")
     p_names.set_defaults(func=command_names)
 
@@ -1665,14 +1725,37 @@ def main():
     p_lineage.add_argument("-d", "--descendants", action="store_true",
                            help="include all descendants of the given clade")
     p_lineage.add_argument("-f", "--format", default="pretty", choices=["pretty", "semicolon", "totals"],
-                           help="choose output format. semicolon-delimited is more appropriate for scripts")
+                           metavar="<format>",
+                           help="choose output format. The default is 'pretty'. 'semicolon' is more appropriate for scripts. 'totals' displays the number of ancestral and lineage-specific families found.")
     p_lineage.add_argument("term", help="search term. Can be an NCBI taxonomy identifier or an unambiguous scientific or common name")
     p_lineage.set_defaults(func=command_lineage)
 
     family_formats = ["summary", "hmm", "hmm_species", "fasta_name", "fasta_acc", "embl", "embl_meta", "embl_seq"]
+    family_formats_epilog = """
+Supported formats:
+  * 'summary'     : (default) A human-readable summary format. Currently includes
+                    accession, name, classification, and length.
 
-    p_families = subparsers.add_parser("families", description="Retrieve the families associated\
-                                       with a given clade, optionally filtered by other additional criteria")
+  * 'hmm'         : The family's HMM, including some additional metadata such as
+                    species and RepeatMasker classification.
+  * 'hmm_species' : Same as 'hmm', but with a species-specific TH line extracted
+                    into the GA/TC/NC values. This format is only useful for the
+                    families command when querying within a species for which such
+                    thresholds have been determined.
+
+  * 'fasta_name'  : FASTA, with the following header format:
+                    >MIR @Mammalia [S:40,60,65]
+  * 'fasta_acc'   : FASTA, with the following header format:
+                    >DF0000001.4 @Mammalia [S:40,60,65]
+
+  * 'embl'        : EMBL, including all metadata and the consensus sequence.
+  * 'embl_meta'   : Same as 'embl', but with only the metadata included.
+  * 'embl_seq'    : Same as 'embl', but with only the sequences included.
+"""
+
+    p_families = subparsers.add_parser("families", description="Retrieve the families associated \
+with a given clade, optionally filtered by additional criteria",
+                                       epilog=family_formats_epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
     p_families.add_argument("-a", "--ancestors", action="store_true",
                             help="include all ancestors of the given clade")
     p_families.add_argument("-d", "--descendants", action="store_true",
@@ -1680,21 +1763,24 @@ def main():
     p_families.add_argument("--stage", type=int,
                             help="include only families that should be searched in the given stage")
     p_families.add_argument("--class", dest="repeat_type", type=str,
-                            help="include only families that have the specified repeat type")
+                            help="include only families that have the specified repeat Type/SubType")
     p_families.add_argument("--name", type=str,
                             help="include only families whose name begins with this search term")
+    p_families.add_argument("--uncurated", action="store_true",
+                            help="include only 'uncurated' families (i.e. named DRXXXXXXX)")
     p_families.add_argument("--curated", action="store_true",
-                            help="include only 'curated' families (those not named DRXXXXXXX)")
+                            help="include only 'curated' families (i.e. not named DRXXXXXXX)")
     p_families.add_argument("-f", "--format", default="summary", choices=family_formats,
-                            help="choose output format")
-    p_families.add_argument("--add-reverse-complement", action="store_true", help=argparse.SUPPRESS)
-    p_families.add_argument("--include-class-in-name", action="store_true", help=argparse.SUPPRESS)
+                            metavar="<format>", help="choose output format.")
+    p_families.add_argument("--add-reverse-complement", action="store_true", help="include a reverse-complemented copy of each matching family; only suppported for fasta formats")
+    p_families.add_argument("--include-class-in-name", action="store_true", help="include the RepeatMasker type/subtype after the name (e.g. HERV16#LTR/ERVL); only supported for hmm and fasta formats")
     p_families.add_argument("term", help="search term. Can be an NCBI taxonomy identifier or an unambiguous scientific or common name")
     p_families.set_defaults(func=command_families)
 
-    p_family = subparsers.add_parser("family", description="Retrieve details of a single family.")
+    p_family = subparsers.add_parser("family", description="Retrieve details of a single family.",
+                                     epilog=family_formats_epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
     p_family.add_argument("-f", "--format", default="summary", choices=family_formats,
-                          help="choose output format")
+                          metavar="<format>", help="choose output format.")
     p_family.add_argument("term", help="the accession of the family to be retrieved")
     p_family.set_defaults(func=command_family)
 
@@ -1706,6 +1792,16 @@ def main():
 
     args = parser.parse_args()
     logging.getLogger().setLevel(getattr(logging, args.log_level.upper()))
+
+    # For RepeatMasker: Try Libraries/RepeatMaskerLib.h5, if no file was specified
+    # in the arguments and that file exists.
+    if not args.file:
+        # sys.path[0], if non-empty, is initially set to the directory of the
+        # originally-invoked script.
+        if sys.path[0]:
+            default_file = os.path.join(sys.path[0], "Libraries/RepeatMaskerLib.h5")
+            if os.path.exists(default_file):
+                args.file = default_file
 
     if args.file:
         try:
@@ -1735,4 +1831,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except BrokenPipeError:
+        # This workaround is from
+        # https://docs.python.org/3/library/signal.html#note-on-sigpipe
+
+        # Python flushes standard streams on exit; redirect remaining output
+        # to devnull to avoid another BrokenPipeError at shutdown
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stdout.fileno())
+        sys.exit(1)  # Python exits with error code 1 on EPIPE
