@@ -81,6 +81,12 @@ NOTE: This program relies on the UCSC program twoBitInfo when you
 use 2bit files.  Please make sure this program is in your path if
 you plan to use this type of file.
 
+=item -useAbsoluteGenomeSize
+
+If the -genome option is used, this additional option will skip
+the filtering step and instead use the sum of all sequence lengths
+present in the provided genome file.
+
 =item -libdir [path_to_library_directory]
 
 Use an alternate library directory to for the primary repeat libraries.
@@ -310,6 +316,7 @@ while ( <IN> ) {
             . " to size = "
             . $seqLen
             . "\nThis out line is the first instance of the change:\n$_";
+        $seqs{$seqName} = $seqLen if ( $seqLen > $seqs{$seqName} );
       }
     }
     else {
@@ -455,6 +462,8 @@ close IN;
 my $totalSeqLen = 0;
 if ( defined $options{'genome'} ) {
   if ( defined $options{'useAbsoluteGenomeSize'} ) {
+    # The total sequence size is the sum of the sequence lengths
+    # provided by the twoBit file (excluding Ns) or the *.tsv file.
     foreach my $seq ( keys( %seqUnambigSizes ) ) {
       if ( defined $seqs{$seq} && $seqUnambigSizes{$seq} > $seqs{$seq} ) {
         die "Error: sequence $seq is larger in the genome than is"
@@ -464,6 +473,9 @@ if ( defined $options{'genome'} ) {
     }
   }
   else {
+    # The total sequence size is the sum of the sequence lengths
+    # from the twoBit file (excluding Ns) or the *.tsv file *iff*
+    # the sequence appears at least once in the RepeatMasker results.
     foreach my $seq ( keys( %seqs ) ) {
       if ( $seqUnambigSizes{$seq} > $seqs{$seq} ) {
         die "Error: sequence $seq is larger in the genome than is"
