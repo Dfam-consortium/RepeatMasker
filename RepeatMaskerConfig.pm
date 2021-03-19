@@ -111,7 +111,7 @@ BEGIN {
                                             ],
                         'param_type' => 'directory',
                         'required' => 0,
-                        'value' => '/u1/home/rhubley/projects/RepeatMasker/Libraries'
+                        'value' => ''
                       },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
