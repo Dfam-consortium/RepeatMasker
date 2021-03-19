@@ -332,7 +332,7 @@ sub setPathToEngine {
       if ( not -x $value || `which $value` );
 
   my $result = `$value 2>&1`;
-  if ( $result =~ /^(BLASTX) (\S+ \[.*\])/ ) {
+  if ( $result =~ /^(BLASTX) (\S+ \[.*\])/m ) {
     $this->{'version'}    = $2;
     $this->{'engineName'} = $1;
   }

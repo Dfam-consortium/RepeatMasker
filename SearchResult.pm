@@ -2046,7 +2046,9 @@ sub rescoreAlignment {
       }
     }
 
-    $t_factor -= $t_counts * log( $t_counts );
+    if ( $t_counts != 0 ) {
+      $t_factor -= $t_counts * log( $t_counts );
+    }
     $t_sum    -= $t_factor;
 
     my $matLambda = $matrix->getLambda();

@@ -257,7 +257,7 @@ You can combine the repeats available in the RepeatMasker library
 with a custom set of consensus sequences.  To accomplish this 
 use the famdb.py tool:
 
-`./famdb.py -i Libraries/RepeatMaskerLib.h5 families --format fasta_name --ancestors --descendants 'species name'`
+`./famdb.py -i Libraries/RepeatMaskerLib.h5 families --format fasta_name --ancestors --descendants 'species name' --include-class-in-name`
 
 The resulting sequences can be concatenated to your own set of sequences in a
 new library file.

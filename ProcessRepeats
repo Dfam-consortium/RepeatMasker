@@ -336,11 +336,15 @@ foreach my $file ( @ARGV ) {
     elsif ( /^##\s*Total\s+NonSub.*:\s*(\d+)/i ) {
       $lenSearchedSeqsExcludingAmbig = $1;
     }
-    elsif ( /^RepeatMasker|run|RepBase/ ) {
+    elsif ( /^RepeatMasker|run|RepBase|RM/ ) {
       my @bit = split;
       $versionmode = $_ if $bit[ 0 ] eq 'RepeatMasker';
       $engine = $1 if /^(run with.*)/;
-      if ( /^(RepBase.*)/ ) {
+      # Since 4.1.1 we are now using famdb.  The version is reported a bit
+      # differently.
+      #     RM Library: CONS-Dfam_withRBRM_3.3
+      #     
+      if ( /^(RepBase.*)/ || /^RM Library:\s+(\S.*)/ ) {
         $dbversion = $1;
         last;
       }
@@ -5761,7 +5765,7 @@ sub generateOutput {
     printf $OUT "%-82s\n", substr( $versionmode, 0, 82 );
     printf $OUT "$engine\n";
     printf $OUT "$customLib\n" if ( $customLib ne "" );
-    printf $OUT "$dbversion\n";
+    printf $OUT "FamDB: $dbversion\n";
     close $OUT;
   }
   elsif ( $options{'mus'} ) {
@@ -5871,7 +5875,7 @@ sub generateOutput {
     printf $OUT "%-82s\n", substr( $versionmode, 0, 82 );
     printf $OUT "$engine\n";
     printf $OUT "$customLib\n" if ( $customLib ne "" );
-    printf $OUT "$dbversion\n";
+    printf $OUT "FamDB: $dbversion\n";
     close $OUT;
   }
   elsif ( $options{'mammal'} ) {
@@ -5977,7 +5981,7 @@ sub generateOutput {
     printf $OUT "%-82s\n", substr( $versionmode, 0, 82 );
     printf $OUT "$engine\n";
     printf $OUT "$customLib\n" if ( $customLib ne "" );
-    printf $OUT "$dbversion\n";
+    printf $OUT "FamDB: $dbversion\n";
     close $OUT;
   }
   else {
@@ -6125,7 +6129,7 @@ sub generateOutput {
     printf $OUT "%-82s\n", substr( $versionmode, 0, 82 );
     printf $OUT "$engine\n";
     printf $OUT "$customLib\n" if ( $customLib ne "" );
-    printf $OUT "$dbversion\n";
+    printf $OUT "FamDB: $dbversion\n";
     close $OUT;
   }
 }    # sub generateOutput();

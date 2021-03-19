@@ -81,6 +81,12 @@ NOTE: This program relies on the UCSC program twoBitInfo when you
 use 2bit files.  Please make sure this program is in your path if
 you plan to use this type of file.
 
+=item -useAbsoluteGenomeSize
+
+If the -genome option is used, this additional option will skip
+the filtering step and instead use the sum of all sequence lengths
+present in the provided genome file.
+
 =item -libdir [path_to_library_directory]
 
 Use an alternate library directory to for the primary repeat libraries.
@@ -96,7 +102,7 @@ libraries in the same place as the program.
 
 =head1 COPYRIGHT
 
-Copyright 2008-2012 Robert Hubley, Institute for Systems Biology
+Copyright 2008-2021 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -181,7 +187,7 @@ $minDiv = $options{'minDiv'} if ( defined $options{'minDiv'} );
 $maxDiv = $options{'maxDiv'} if ( defined $options{'maxDiv'} );
 
 # Allow the user to override the default library directory ( currently only by the command line )
-my $LIBDIR = "$FindBin::Bin/../Libraries";
+my $LIBDIR = "$FindBin::RealBin/../Libraries";
 if ( $options{'libdir'} ) {
   $LIBDIR = $options{'libdir'};
   if ( ! -d $LIBDIR ) {
@@ -189,15 +195,30 @@ if ( $options{'libdir'} ) {
   }
 }
 
-my $taxDB;
-my $repDB;
+my %taxaFamIDs = ();
 if ( defined $options{'species'} ) {
-  $taxDB =
-      Taxonomy->new(
-                taxonomyDataFile => "$LIBDIR/taxonomy.dat" );
-  $repDB =
-      EMBL->new(
-                fileName => "$LIBDIR/RepeatMaskerLib.embl" );
+  my $famdbCmd = "$FindBin::RealBin/../famdb.py -i $LIBDIR/RepeatMaskerLib.h5 families '" .
+                       $options{'species'} . "' --descendants -f embl_meta";
+  #print "Running $famdbCmd\n";
+  open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
+  my $acc;
+  my $name;
+  while ( <IN> ) {
+     if ( /^\/\// ) {
+       if ( $name ) {
+         $taxaFamIDs{ lc( $name ) } = 1;
+       }else {
+         $taxaFamIDs{ lc( $acc ) } = 1;
+       }
+       $acc = undef;
+       $name = undef;
+     }
+     #ID   DF0000003; SV 4; linear; DNA; STD; UNC; 309 BP.
+     $acc = $1 if ( /^ID\s+(\S+)\;/ );
+     #NM   AluSc
+     $name = $1 if ( /^NM\s+(\S+)/ );
+  }
+  close IN;
 }
 
 my %seqUnambigSizes = ();
@@ -248,6 +269,7 @@ my $lastSeqEnd    = 0;
 my $lastSeq1Name  = "";
 my $countOUTFiles = 0;
 my $warnOnce      = 0;
+my $warnSizeChange = 0;
 
 if ( !@ARGV ) {
   usage();
@@ -304,12 +326,15 @@ while ( <IN> ) {
     my ( $left ) = ( $fields[ 7 ] =~ /(\d+)/ );
     my $seqLen = $fields[ 6 ] + $left;
     if ( defined $seqs{$seqName} ) {
-      if ( $seqs{$seqName} != $seqLen ) {
-        warn "Sequence $seqName has changed from size = "
-            . $seqs{$seqName}
-            . " to size = "
-            . $seqLen
-            . "\nThis out line is the first instance of the change:\n$_";
+      if ( $seqs{$seqName} != $seqLen && !$warnSizeChange ) {
+        warn "\n***\n" .
+             "*** Sequence length conflicts!  Final coverage percentages will be suspect.\n" .
+             "***   E.g The length of $seqName is reported to be " . $seqs{$seqName} . " bp and $seqLen bp\n" .
+             "***       in separate records of this file.  This can happen if the original sequences were\n" .
+             "***       batched outside of RepeatMasker and not completely adjusted when recombined.\n".
+             "*** To correct this, supply sequence length details using the -genome parameter.\n".
+             "***\n\n";
+        $warnSizeChange = 1;
       }
     }
     else {
@@ -455,6 +480,8 @@ close IN;
 my $totalSeqLen = 0;
 if ( defined $options{'genome'} ) {
   if ( defined $options{'useAbsoluteGenomeSize'} ) {
+    # The total sequence size is the sum of the sequence lengths
+    # provided by the twoBit file (excluding Ns) or the *.tsv file.
     foreach my $seq ( keys( %seqUnambigSizes ) ) {
       if ( defined $seqs{$seq} && $seqUnambigSizes{$seq} > $seqs{$seq} ) {
         die "Error: sequence $seq is larger in the genome than is"
@@ -464,6 +491,9 @@ if ( defined $options{'genome'} ) {
     }
   }
   else {
+    # The total sequence size is the sum of the sequence lengths
+    # from the twoBit file (excluding Ns) or the *.tsv file *iff*
+    # the sequence appears at least once in the RepeatMasker results.
     foreach my $seq ( keys( %seqs ) ) {
       if ( $seqUnambigSizes{$seq} > $seqs{$seq} ) {
         die "Error: sequence $seq is larger in the genome than is"
@@ -483,39 +513,13 @@ else {
 #
 # Lineage Specific Flag
 #
-if ( $taxDB ) {
-  my %idSpecies = ();
-  for ( my $i = 0 ; $i < $repDB->getRecordCount() ; $i++ ) {
-    my $record = $repDB->getRecord( $i );
-    $idSpecies{ $record->getId() } = [ $record->getRMSpeciesArray() ];
-  }
-  undef $repDB;
-
+if ( $options{'species'} ) {
   foreach my $idKey ( sort keys %eleStats ) {
-
-    #  Names like AluSg/q are made up ( ie. not in the database ).  So
-    #  to correctly match these we should remove the suffix "/q" first.
-    my $id = $idKey;
-    $id =~ s/\/.*//;
-
-    #
-    # If both of these conditions are true then the repeat is a direct
-    # match for the species queried.
-    #
-    my $isDescendant = 0;
-    my $isAncestor   = 0;
-    foreach my $name ( @{ $idSpecies{$id} } ) {
-      $name =~ s/_/ /g;
-      $isDescendant = $taxDB->isA( $name, $options{'species'} );
-      $isAncestor = $taxDB->isA( $options{'species'}, $name );
-    }
-    if ( $isDescendant > 0 ) {
+    if ( $taxaFamIDs{lc($idKey)} ) {
       $eleStats{$idKey}->{'lineageSpecific'} = 1;
+      #print "******id = $idKey is descendant!!!!\n";
     }
-
-   #print "id = $id, isDescendant = $isDescendant, isAncestral = $isAncestor\n";
   }
-  undef %idSpecies;
 }
 
 #
@@ -525,7 +529,7 @@ my $lineageSpecificCount    = 0;
 my $lineageSpecificBPMasked = 0;
 my $ancestralCount          = 0;
 my $ancestralBPMasked       = 0;
-if ( $taxDB ) {
+if ( $options{'species'} ) {
   foreach my $ele ( sort keys( %eleCount ) ) {
     if ( $eleStats{$ele}->{'lineageSpecific'} ) {
       $lineageSpecificCount    += $eleStats{$ele}->{'count'};
@@ -559,7 +563,7 @@ print "Repeat Classes\n";
 print "==============\n";
 print "Total Sequences: " . scalar( keys( %seqs ) ) . "\n";
 print "Total Length: $totalSeqLen bp\n";
-if ( $taxDB ) {
+if ( $options{'species'} ) {
   print "Ancestral Repeats: $ancestralCount ( $ancestralBPMasked bp )\n";
   print
 "Lineage Specific Repeats: $lineageSpecificCount ( $lineageSpecificBPMasked bp )\n";
@@ -703,7 +707,7 @@ print "Repeat Stats\n";
 print "============\n";
 print "Total Sequences: " . scalar( keys( %seqs ) ) . "\n";
 print "Total Length: $totalSeqLen bp\n";
-if ( $taxDB ) {
+if ( $options{'species'} ) {
   print "Ancestral Repeats: $ancestralCount ( $ancestralBPMasked bp )\n";
   print
 "Lineage Specific Repeats: $lineageSpecificCount ( $lineageSpecificBPMasked bp )\n";
