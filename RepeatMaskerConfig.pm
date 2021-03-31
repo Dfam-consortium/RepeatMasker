@@ -78,7 +78,7 @@ BEGIN {
                                 'expected_files' => [],
                                 'param_type' => 'directory',
                                 'required' => 0,
-                                'value' => '/usr/local/bin'
+                                'value' => '/usr/local/phrap'
                               },
           'DEFAULT_SEARCH_ENGINE' => {
                                        'command_line_override' => 'default_search_engine',
@@ -153,7 +153,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.2";
+$VERSION = "4.1.2-p1";
 
 #
 # Set this flag to default to debug mode for the entire package
