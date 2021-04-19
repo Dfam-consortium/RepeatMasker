@@ -8067,34 +8067,6 @@ sub createLibFromFamdb {
       # this for all families in the library ( because it's fast ) and then 
       # add them only if a family is missing a GA.
       #
-
-      # hmmstat :: display summary statistics for a profile file
-      # # HMMER 3.2.1 (June 2018); http://hmmer.org/
-      # # Copyright (C) 2018 Howard Hughes Medical Institute.
-      # # Freely distributed under the BSD open source license.
-      # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      # # show score required to reach E-value:      0.02
-      # # using base count (search both strands):  3000 Mb
-      # # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      # 
-      # #
-      # # idx  name                 accession        nseq eff_nseq      M relent   info p relE compKL sc for   0.02
-      # # ---- -------------------- ------------ -------- -------- ------ ------ ------ ------ ------ -------------
-      #    1      AluY#SINE/Alu        DF0000002.4      2000     2.52    311   0.62   0.62   0.47   0.02        23.92
-      #    2      ...
-      open IN,"$HMMSTAT_PRGM --eval2score --baseZ 3000 -E 0.02 $outFile|" or
-        die "Could not open hmmstat program ($HMMSTAT_PRGM)\n";
-      my %thresholds;
-      while ( <IN> ) {
-        if ( /\s*(\d+\s+\S+\s+D.\d+.*)/ )
-        {
-          my @flds = split(/\s+/, $1);
-          $thresholds{$flds[2]} = $flds[10];
-        }
-      }
-      close IN;
-
-      # Add threshold to any that are missing
       system("mv $outFile $outFile.preThresh");
       open IN,"<$outFile.preThresh" or die "Could not open library $outFile.preThresh for reading!\n";
       open OUT,">$outFile" or die "Could not open library $outFile for writing!\n";
@@ -8102,10 +8074,25 @@ sub createLibFromFamdb {
       my $preHeader;
       my $postHeader;
       my $beforeChecksum = 1;
+      my $hmm_maxl = 0;
+      my $hmm_tau = 0;
+      my $hmm_lambda = 0;
       my $hasGA = 0;
+      my $Zval = 3000;
+      my $evalue = 0.02;
       while ( <IN> ) {
         if ( /^ACC\s+(\S+)/ ) {
           $acc = $1;
+          $hmm_maxl = 0;
+          $hmm_tau = 0;
+          $hmm_lambda = 0;
+        }
+        if ( /^MAXL\s+(\d+)/ ) {
+          $hmm_maxl = $1;
+        }
+        if ( /^STATS\s+LOCAL\s+FORWARD\s+([\d\.]+)\s+([\d\.]+)/ ) {
+          $hmm_tau = $1;
+          $hmm_lambda = $2;
         }
         if ( /^GA\s+\d+\.\d+;/ ) {
           $hasGA = 1;
@@ -8121,9 +8108,13 @@ sub createLibFromFamdb {
         if ( /^\/\// ) {
           print OUT $preHeader;
           if ( $hasGA == 0 ){
-            print OUT "GA    " . $thresholds{$acc} . ";\n";
-            print OUT "TC    " . $thresholds{$acc} . ";\n";
-            print OUT "NC    " . $thresholds{$acc} . ";\n";
+            die "Could not find hmm MAXL value for $acc!\n" if ( $hmm_maxl == 0 );
+            # From eval2score() originally in hmmstat and now in dfthresh ( see dfthresh for details )
+            my $nseq = $Zval / $hmm_maxl;
+            my $sc = $hmm_tau - ((1/$hmm_lambda) * log($evalue/$nseq));
+            print OUT "GA    " . sprintf("0.2f",$sc) . ";\n";
+            print OUT "TC    " . sprintf("0.2f",$sc) . ";\n";
+            print OUT "NC    " . sprintf("0.2f",$sc) . ";\n";
           }
           print OUT $postHeader;
           $hasGA = 0;

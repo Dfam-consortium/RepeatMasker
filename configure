@@ -240,7 +240,7 @@ if ( $storableVersion < 2.06 ) {
 #
 system('python3 -c "import h5py"');
 if ( $? ) {
-  print "\nPython3 and the h5py module is a pre-requisite for RepeatMasker.\n" 
+  die "\nPython3 and the h5py module is a pre-requisite for RepeatMasker.\n" 
       . "Either python3 could not be found in your path or h5py is not installed.\n"
       . "Please very both before rerunning configure.\n\n";
 }
