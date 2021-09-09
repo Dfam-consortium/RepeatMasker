@@ -335,7 +335,7 @@ sub parseFromFile {
       $this->{'alphabetArrayRef'} = [ split( //, $_ ) ];
     }
     elsif ( $this->{'alphabetArrayRef'}
-            && /^\s*([^\d]\s+)?[\d-]+\s+[\d-]+\s+[\d-]+\s+[\d-]+\s+/ )
+            && /^\s*([^\d]\s+)?[\d-]+\s+[\d-]+\s+[\d-]+\s+[\d-]+/ )
     {
       my @rowValues = split;
       if ( $1 ) {
@@ -408,6 +408,7 @@ sub _calculateLambda {
   my $sum          = 0;
 
   do {
+    $sum = 0; # 9/8/2021 Fixed a major bug in lambda calculation
     my $check = 0;
     for ( my $i = 0 ; $i <= $#$matFreqsRef ; $i++ ) {
       for ( my $j = 0 ; $j <= $#$matFreqsRef ; $j++ ) {
@@ -428,7 +429,6 @@ sub _calculateLambda {
       $lambda *= 2.0;
     }
   } while ( $sum < 1.0 );
-
   $lambda_upper = $lambda;
 
   while ( $lambda_upper - $lambda_lower > .00001 ) {
