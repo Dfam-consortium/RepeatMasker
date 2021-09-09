@@ -409,6 +409,9 @@ sub _calculateLambda {
 
   do {
     $sum = 0; # 9/8/2021 Fixed a major bug in lambda calculation
+    # NOTE: This fix only had an impact on a single RM matrix
+    #       ( identity.matrix ) as this is the only RM matrix
+    #       that exceeded a lambda of 1.0.
     my $check = 0;
     for ( my $i = 0 ; $i <= $#$matFreqsRef ; $i++ ) {
       for ( my $j = 0 ; $j <= $#$matFreqsRef ; $j++ ) {
