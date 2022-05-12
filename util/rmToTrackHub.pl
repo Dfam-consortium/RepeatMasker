@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 ##---------------------------------------------------------------------------##
 ##  File:
-##      @(#) rmToUCSCTables.pl
+##      @(#) rmToTrackHub.pl
 ##  Author:
 ##      Robert M. Hubley   rhubley@systemsbiology.org
 ##  Description:
@@ -32,12 +32,12 @@
 
 =head1 NAME
 
-rmToUCSCTables.pl - 
+rmToTrackHub.pl - generate files for a bigRmsk track hub
 
 =head1 SYNOPSIS
 
-  rmToUCSCTables.pl [-version] -out <*.out[.gz]> 
-                               [-align <*.align[.gz]> ]
+  rmToTrackHub.pl [-version] -out <*.out[.gz]> 
+                             [-align <*.align[.gz]> ]
 
 =head1 DESCRIPTION
 
@@ -55,7 +55,7 @@ Displays the version of the program
 
 =head1 COPYRIGHT
 
-Copyright 2013 Robert Hubley, Institute for Systems Biology
+Copyright 2022 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -78,24 +78,7 @@ use CrossmatchSearchEngine;
 use SearchResultCollection;
 use SearchResult;
 
-# Version
-#
-#  This is a neat trick.  CVS allows you to tag
-#  files in a repository ( i.e. cvs tag "2003/12/03" ).
-#  If you check out that release into a new
-#  directory with "cvs co -r "2003/12/03" it will
-#  place this string into the $Name:  $ space below
-#  automatically.  This will help us keep track
-#  of which release we are using.  If we simply
-#  check out the code as "cvs co Program" the
-#  $Name:  $ macro will be blank so we should default
-#  to what the ID tag for this file contains.
-#
-my $CVSNameTag = '$Name:  $';
-my $CVSIdTag   =
-    '$Id: rmToUCSCTables.pl,v 1.24 2017/02/01 21:01:58 rhubley Exp $';
 my $Version = $CVSNameTag;
-$Version = $CVSIdTag if ( $Version eq "" );
 
 #
 # Option processing
@@ -127,8 +110,8 @@ if ( $options{'version'} ) {
   exit;
 }
 
-if ( !defined $options{'out'} || !-s $options{'out'} ) {
-  print "\n\nMissing a empty RepeatMasker *.out file\n\n";
+if ( ! exists $options{'out'} || ! -s $options{'out'} ) {
+  print "\n\nMissing or empty RepeatMasker *.out file\n\n";
   usage();
 }
 my $outFile = $options{'out'};
@@ -142,7 +125,7 @@ my $alignPos  = 0;
 if ( defined $options{'align'} ) {
   my $alignFile = $options{'align'};
 
-  my $alignTSVFile = $alignFile;
+  my $alignTSVFile = basename($alignFile);
   $alignTSVFile =~ s/\.align.*/.align.tsv/;
   open ALIGNTSV, ">$alignTSVFile" or die "Could not open $alignTSVFile\n";
 
@@ -165,7 +148,8 @@ if ( defined $options{'align'} ) {
       my ( $ID ) = ( /(\d+)\s*$/ );
       if ( $ID == 1 ) {
         if ( $prevIDLine && ( $lineIdx - $prevIDLine ) > 500 ) {
-
+          print "Hmmm...lineIdx = $lineIdx ID = $ID and prevIDLine = $prevIDLine\n";
+          print $_;
           # Not likely
           $oldFormat = 1;
           last;
@@ -279,13 +263,9 @@ if ( defined $options{'align'} ) {
 #   .  "description='Repeat Masker family graph' visibility=pack "
 #   .  "itemRgb='On' exonArrows='on'\n";
 
-my $outTSVFile = basename($outFile);
-$outTSVFile =~ s/\.(rm)?out.*/\.out\.tsv/;
 my $joinTSVFile = basename($outFile);
 $joinTSVFile =~ s/\.(rm)?out.*/\.join.tsv/;
 
-open OUTTSV, ">$outTSVFile"
-    or die "Could not open $outTSVFile for writing!\n";
 open JOINTSV, ">$joinTSVFile"
     or die "Could not open $joinTSVFile for writing!\n";
 
@@ -293,7 +273,7 @@ my @bedKeys = (
                 "chrom",   "chromStart", "chromEnd",   "name",
                 "score",   "strand",     "thickStart", "thickEnd",
                 "itemRgb", "blockCount", "blockSizes", "blockStarts",
-                "id"
+                "id", "description"
 );
 
 my %dataHash   = ();
@@ -313,9 +293,10 @@ else {
       or die "Could not open alignment file: $outFile!\n";
 }
 
-print "Writing out $joinTSVFile and $outTSVFile...\n";
+print "Writing out $joinTSVFile...\n";
 while ( <IN> ) {
   if ( /^\s*(\d+\s+\d+\.\d+.*)/ ) {
+    my $outLine = $1;
     my $leftUnalignedSize;
     my $rightUnalignedSize;
     my $rec    = $1;
@@ -343,6 +324,10 @@ while ( <IN> ) {
     my $sbjEnd       = $fields[ 12 ];
     my $sbjRemaining = $fields[ 13 ];
     my $id           = $fields[ 14 ];
+    if ( $id !~ /\d+/ || $id < 0 ) {
+      warn "Identifier in out file is invalid for: $_   - Setting value to 999999999\n";
+      $id = 999999999;
+    }
 
     if ( $orient eq "C" ) {
       $sbjRemaining = $fields[ 11 ];
@@ -350,22 +335,18 @@ while ( <IN> ) {
       $sbjStart     = $fields[ 13 ];
     }
     $sbjRemaining =~ s/[\(\)]//g;
-
-    ## Output
-    print OUTTSV "$score" . "\t" . "$div" . "\t" . "$pDel" . "\t" . "$pIns"
-        . "\t" . "$seq" . "\t"
-        . "$qStart" . "\t" . "$qEnd" . "\t"
-        . "$qRemaining" . "\t"
-        . "$orient" . "\t"
-        . "$sbjName" . "\t" . "$type" . "\t"
-        . "$subtype" . "\t"
-        . "$sbjStart" . "\t"
-        . "$sbjEnd" . "\t"
-        . "$sbjRemaining" . "\t" . "$id" . "\n";
+    # Work around some issues with ProcessRepeats
+    $sbjRemaining = 0 if ( $sbjRemaining < 0 );
+    $sbjStart = 1 if ( $sbjStart < 1 );
 
     if ( $seq ne $prevSeqName ) {
       %ids = ();
       foreach my $idKey ( sort { $a <=> $b } keys( %dataHash ) ) {
+        if ( $dataHash{$idKey}->{'chromStart'} > $dataHash{$idKey}->{'thickStart'} ||
+             $dataHash{$idKey}->{'chromEnd'} < $dataHash{$idKey}->{'thickEnd'} )
+        {
+          warn "WARNING chromStart/End does not bound thickStart/End: " . Dumper($dataHash{$idKey}) . "\n";
+        }
         foreach my $bedKey ( @bedKeys ) {
           if ( $bedKey eq "blockSizes" || $bedKey eq "blockStarts" ) {
             print JOINTSV ""
@@ -373,15 +354,19 @@ while ( <IN> ) {
           }
           elsif ( $bedKey eq "score" ) {
             my $avgDiv = sprintf(
-                                  "%0.2f",
+                                  "%0.1f",
                                   (
                                     $dataHash{$idKey}->{$bedKey} /
                                         $dataHash{$idKey}->{'divCount'}
                                   )
-            ) * 100;
+            ) * 10;
+            if ( $avgDiv > 1000 ) {
+              warn "WARNING:  $dataHash{$idKey}->{'id'} produced an div score of $avgDiv setting to 100%.\n";
+              $avgDiv = 1000;
+            }
             print JOINTSV "$avgDiv\t";
           }
-          elsif ( $bedKey eq "id" ) {
+          elsif ( $bedKey eq "description" ) {
             print JOINTSV "$dataHash{$idKey}->{$bedKey}\n";
           }
           else {
@@ -390,7 +375,7 @@ while ( <IN> ) {
         }
       }
       %dataHash = ();
-    }
+    } # if ( $seq ne $prevSeqName )
 
     ## ID Checks
     if ( exists $ids{$id} && $ids{$id} < ( $idx - $maxIDDelta ) ) {
@@ -441,7 +426,9 @@ while ( <IN> ) {
       push @{ $entry->{'blockSizes'} },  $rightUnalignedSize;
       push @{ $entry->{'blockStarts'} }, -1;
       $entry->{'blockCount'}++;
-
+      $outLine =~ s/[\n\r]+//g;
+      $outLine =~ s/\s+/ /g;
+      $entry->{'description'} .= ",".$outLine;
     }
     else {
 
@@ -488,13 +475,58 @@ while ( <IN> ) {
       push @{ $entry->{'blockStarts'} }, -1;
       $entry->{'blockCount'}++;
       $entry->{'id'} = $id;
+      $outLine =~ s/[\n\r]+//g;
+      $outLine =~ s/\s+/ /g;
+      $entry->{'description'} = $outLine;
       $dataHash{$id} = $entry;
     }
   }
 }
-close OUTTSV;
+## Trailing case...TODO: make this a subroutine to reduce the code duplication
+      %ids = ();
+      foreach my $idKey ( sort { $a <=> $b } keys( %dataHash ) ) {
+        if ( $dataHash{$idKey}->{'chromStart'} > $dataHash{$idKey}->{'thickStart'} ||
+             $dataHash{$idKey}->{'chromEnd'} < $dataHash{$idKey}->{'thickEnd'} )
+        {
+          warn "WARNING chromStart/End does not bound thickStart/End: " . Dumper($dataHash{$idKey}) . "\n";
+        }
+        foreach my $bedKey ( @bedKeys ) {
+          if ( $bedKey eq "blockSizes" || $bedKey eq "blockStarts" ) {
+            print JOINTSV ""
+                . join( ",", @{ $dataHash{$idKey}->{$bedKey} } ) . "\t";
+          }
+          elsif ( $bedKey eq "score" ) {
+            my $avgDiv = sprintf(
+                                  "%0.1f",
+                                  (
+                                    $dataHash{$idKey}->{$bedKey} /
+                                        $dataHash{$idKey}->{'divCount'}
+                                  )
+            ) * 10;
+            if ( $avgDiv > 1000 ) {
+              warn "WARNING:  $dataHash{$idKey}->{'id'} produced an div score of $avgDiv setting to 100%.\n";
+              $avgDiv = 1000;
+            }
+            print JOINTSV "$avgDiv\t";
+          }
+          elsif ( $bedKey eq "description" ) {
+            print JOINTSV "$dataHash{$idKey}->{$bedKey}\n";
+          }
+          else {
+            print JOINTSV "$dataHash{$idKey}->{$bedKey}\t";
+          }
+        }
+      }
+      %dataHash = ();
+## end trailing case
+
+
 close JOINTSV;
 
+
+##
+## Process an alignment record
+##
 sub procAlignResult {
   my $result = shift;
   my $id     = $result->getId();
@@ -522,14 +554,14 @@ sub procAlignResult {
   my $sequence  = $recFields[ 16 ];
 
   my $cRec =
-        $result->getScore() . "\t"
-      . ( $result->getPctDiverge() * 100 ) . "\t"
-      . ( $result->getPctDelete() * 100 ) . "\t"
-      . ( $result->getPctInsert() * 100 ) . "\t"
-      . $result->getQueryName() . "\t"
-      . ( $result->getQueryStart() - 1 ) . "\t"
-      . $result->getQueryEnd() . "\t"
-      . $result->getQueryRemaining() . "\t";
+      $result->getQueryName() . "\t"
+      . ( $result->getQueryStart() - 1 ) . "\t" # zero-based, half open
+      . $result->getQueryEnd() . "\t"           # zero-based, half open
+      . $result->getQueryRemaining() . "\t"
+      . $result->getScore() . "\t"
+      . $result->getPctDiverge() . "\t"
+      . $result->getPctDelete() . "\t"
+      . $result->getPctInsert() . "\t";
 
   if ( $result->getOrientation =~ /C|c/ ) {
     $cRec .= "-\t";

@@ -136,20 +136,24 @@ use Matrix;
 use Carp;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
 
-use constant NoAlign => 1;
+use constant N_NoAlign => 9;
+use constant NoAlign => 1;                      # Deprecated
 
 # Indicates that alignments should always be reported with
 # the query sequences all in the forward direction
-use constant AlignWithQuerySeq => 2;
+use constant N_AlignWithQuerySeq => 10;
+use constant AlignWithQuerySeq => 2;            # Deprecated
 
 # Indicates that alignments should always be reported with
 # the subj sequences all in the forward direction
-use constant AlignWithSubjSeq          => 3;
+use constant N_AlignWithSubjSeq          => 11;
+use constant AlignWithSubjSeq          => 3;    # Deprecated
 use constant OutFileFormat             => 4;
 use constant CompressedAlignCSV        => 5;    # Deprecated
 use constant CompressedAlignFormat     => 5;
 use constant PSL                       => 6;
-use constant RangeHighlightedAlignment => 7;
+use constant N_RangeHighlightedAlignment => 12;   
+use constant RangeHighlightedAlignment => 7;    # Deprecated
 use constant CIGARFormat               => 8;
 
 # Names to specify query/subject inputs
@@ -1137,13 +1141,13 @@ sub getSeedPatternCount {
 
   Use: toStringFormatted( $format );
 
-    $format        : SearchResult::NoAlign
-                     SearchResult::AlignWithQuerySeq
-                     SearchResult::AlignWithSubjSeq
+    $format        : SearchResult::N_NoAlign
+                     SearchResult::N_AlignWithQuerySeq
+                     SearchResult::N_AlignWithSubjSeq
                      SearchResult::OutFileFormat
                      SearchResult::CompressedAlignCSV #Deprecated
                      SearchResult::CompressedAlignFormat
-                     SearchResult::RangeHighlightedAlignment
+                     SearchResult::N_RangeHighlightedAlignment
                      SearchResult::CIGARFormat
 
   Create an string representation of a single result.
@@ -1158,10 +1162,15 @@ sub toStringFormatted {
 
   my $subroutine = ( caller( 0 ) )[ 0 ] . "::" . ( caller( 0 ) )[ 3 ];
 
-  $format = SearchResult::NoAlign
+  $format = SearchResult::N_NoAlign
       if ( !defined $format );
 
-  if (    $format == SearchResult::NoAlign
+  if (    $format == SearchResult::N_NoAlign
+       || $format == SearchResult::N_AlignWithQuerySeq
+       || $format == SearchResult::N_AlignWithSubjSeq
+       || $format == SearchResult::N_RangeHighlightedAlignment
+       # Deprecated
+       || $format == SearchResult::NoAlign
        || $format == SearchResult::AlignWithQuerySeq
        || $format == SearchResult::AlignWithSubjSeq
        || $format == SearchResult::RangeHighlightedAlignment )
@@ -1718,7 +1727,7 @@ sub rescoreAlignment {
 
   if ( $this->{'subjSeq'} eq "" || $this->{'querySeq'} eq "" ) {
     croak "$subroutine: Missing alignment data:\n" . ""
-        . $this->toStringFormatted( SearchResult::NoAlign ) . "\n";
+        . $this->toStringFormatted( SearchResult::N_NoAlign ) . "\n";
   }
 
   # Deletions ( Assuming Subject is conensus )
@@ -1754,7 +1763,7 @@ sub rescoreAlignment {
 
   if ( $DEBUG ) {
     print ""
-        . $this->toStringFormatted( SearchResult::AlignWithSubjSeq ) . "\n";
+        . $this->toStringFormatted( SearchResult::N_AlignWithSubjSeq ) . "\n";
   }
 
   my @sBases = split //, $this->{'subjSeq'};
@@ -1969,7 +1978,7 @@ sub rescoreAlignment {
   # an alignment is fragmented by RepeatMasker
   #if ( $sbjBases < 1 || $qryBases < 1 ) {
   #  croak "$subroutine: Error corrupt search result!:\n"
-  #      . $this->toStringFormatted( SearchResult::AlignWithQuerySeq ) . "\n";
+  #      . $this->toStringFormatted( SearchResult::N_AlignWithQuerySeq ) . "\n";
   #}
   my $qrySeq = $this->{'querySeq'};
   my $sbjSeq = $this->{'subjSeq'};
@@ -1987,7 +1996,7 @@ sub rescoreAlignment {
        || ( $gs > 0 && $gs != $sbjBases ) )
   {
     croak "$subroutine: Error corrupt search result!:\n"
-        . $this->toStringFormatted( SearchResult::AlignWithQuerySeq ) . "\n";
+        . $this->toStringFormatted( SearchResult::N_AlignWithQuerySeq ) . "\n";
   }
 
   my $percIns = 100.00;
@@ -2369,15 +2378,27 @@ sub _toCrossMatchFormat {
   my $alignmentMode = shift;
   my $displayParams = shift;
 
-  $alignmentMode = SearchResult::NoAlign
+  my %depModes = ( SearchResult::NoAlign => SearchResult::N_NoAlign,
+                   SearchResult::AlignWithQuerySeq => SearchResult::N_AlignWithQuerySeq,
+                   SearchResult::AlignWithSubjSeq => SearchResult::N_AlignWithSubjSeq,
+                   SearchResult::RangeHighlightedAlignment => SearchResult::N_RangeHighlightedAlignment);
+    
+
+  my $depIDOrder = 0;
+  if ( exists $depModes{$alignmentMode} ) {
+    $depIDOrder = 1;
+    $alignmentMode = $depModes{$alignmentMode};
+  }
+
+  $alignmentMode = SearchResult::N_NoAlign
       if ( !defined $alignmentMode );
   croak $CLASS
       . "::toStringFormatted: Unknown alignment mode "
       . "( $alignmentMode )\n"
-      if (    $alignmentMode != SearchResult::NoAlign
-           && $alignmentMode != SearchResult::AlignWithQuerySeq
-           && $alignmentMode != SearchResult::AlignWithSubjSeq
-           && $alignmentMode != SearchResult::RangeHighlightedAlignment );
+      if (    $alignmentMode != SearchResult::N_NoAlign
+           && $alignmentMode != SearchResult::N_AlignWithQuerySeq
+           && $alignmentMode != SearchResult::N_AlignWithSubjSeq
+           && $alignmentMode != SearchResult::N_RangeHighlightedAlignment );
 
   my $retStr = "";
   my $sbjDir;
@@ -2402,11 +2423,20 @@ sub _toCrossMatchFormat {
     $retStr .=
         "$sbjName $obj->{sbjBegin} $obj->{sbjEnd} " . "($obj->{sbjLeft})";
   }
-  if ( defined $obj->{id} ) {
-    $retStr .= " $obj->{id}";
-  }
-  if ( defined $obj->{lineageId} ) {
-    $retStr .= " $obj->{lineageId}";
+  if ( $depIDOrder ) {
+    if ( defined $obj->{id} ) {
+      $retStr .= " $obj->{id}";
+    }
+    if ( defined $obj->{lineageId} ) {
+      $retStr .= " $obj->{lineageId}";
+    }
+  }else {
+    if ( defined $obj->{lineageId} ) {
+      $retStr .= " $obj->{lineageId}";
+    }
+    if ( defined $obj->{id} ) {
+      $retStr .= " $obj->{id}";
+    }
   }
   if ( defined $obj->{overlap} ) {
     $retStr .= " $obj->{overlap}";
@@ -2416,7 +2446,7 @@ sub _toCrossMatchFormat {
   #
   # Build alignment data ( if requested )
   #
-  if (    $alignmentMode != SearchResult::NoAlign
+  if (    $alignmentMode != SearchResult::N_NoAlign
        && defined $obj->{'querySeq'}
        && $obj->{'querySeq'} ne "" )
   {
@@ -2432,7 +2462,7 @@ sub _toCrossMatchFormat {
     # Higlight alignment ( if requested )
     #
     if (
-         $alignmentMode == SearchResult::RangeHighlightedAlignment
+         $alignmentMode == SearchResult::N_RangeHighlightedAlignment
          && (    defined $displayParams->{'qryRangeList'}
               || defined $displayParams->{'sbjRangeList'} )
         )
@@ -2490,7 +2520,7 @@ sub _toCrossMatchFormat {
     $retStr .= "\n";
 
     if (    $obj->{'sbjOrient'} eq "C"
-         && $alignmentMode == SearchResult::AlignWithSubjSeq )
+         && $alignmentMode == SearchResult::N_AlignWithSubjSeq )
     {
       $query = reverse $query;
       $query =~
@@ -2502,14 +2532,14 @@ sub _toCrossMatchFormat {
 
     my $qStart = $obj->{'qryBegin'};
     if (    $obj->{'sbjOrient'} eq "C"
-         && $alignmentMode == SearchResult::AlignWithSubjSeq )
+         && $alignmentMode == SearchResult::N_AlignWithSubjSeq )
     {
       $qStart = $obj->{'qryEnd'};
     }
     my $qEnd   = 0;
     my $sStart = $obj->{'sbjBegin'};
     if (    $obj->{'sbjOrient'} eq "C"
-         && $alignmentMode == SearchResult::AlignWithQuerySeq )
+         && $alignmentMode == SearchResult::N_AlignWithQuerySeq )
     {
       $sStart = $obj->{'sbjEnd'};
     }
@@ -2533,7 +2563,7 @@ sub _toCrossMatchFormat {
         $qIncr = 1 if ( length( $qSeq ) > $insertions );
         $sIncr = 1 if ( length( $sSeq ) > $deletions );
         if ( $obj->{'sbjOrient'} eq "C" ) {
-          if ( $alignmentMode == SearchResult::AlignWithSubjSeq ) {
+          if ( $alignmentMode == SearchResult::N_AlignWithSubjSeq ) {
             $qStart = $qEnd - $qIncr;
             $sStart = $sEnd + $sIncr;
           }
@@ -2551,7 +2581,7 @@ sub _toCrossMatchFormat {
       # Indicate orientation in alignment data by placing a "C" in front
       # of sequences which have been reverse complemented
       if (    $obj->{'sbjOrient'} eq "C"
-           && $alignmentMode == SearchResult::AlignWithSubjSeq )
+           && $alignmentMode == SearchResult::N_AlignWithSubjSeq )
       {
         $qEnd = $qStart - length( $qSeq ) + 1 + $insertions;
         $retStr .= "C ";
@@ -2617,7 +2647,7 @@ sub _toCrossMatchFormat {
 
       # Subject orientation/name
       if (    $obj->{'sbjOrient'} eq "C"
-           && $alignmentMode == SearchResult::AlignWithQuerySeq )
+           && $alignmentMode == SearchResult::N_AlignWithQuerySeq )
       {
         $retStr .= "C ";
         $sEnd = $sStart - length( $sSeq ) + 1 + $deletions;
