@@ -78,7 +78,7 @@ use CrossmatchSearchEngine;
 use SearchResultCollection;
 use SearchResult;
 
-my $Version = $CVSNameTag;
+my $Version = "0.2";
 
 #
 # Option processing

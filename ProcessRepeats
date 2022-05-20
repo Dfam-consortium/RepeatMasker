@@ -1509,7 +1509,7 @@ CYCLE3:
       $i              = -1;
       $cycleAnnotIter = $sortedAnnotationsList->getIterator();
       $DEBUG          = 0;
-      my %conPosCorrection = ();
+      my %conPosCorrection = (); 
 
       ## Create a cycle data structure to hold last 21 join scores.
       ##  ie.   prevScoreHash{ ID }->{ HitName } = chainScore ( sum of score function )
@@ -2693,8 +2693,11 @@ CYCLE3:
                 . $highestConCorr . "\n";
           }
           push @elements, $nextInChain;
+          # 5/17/22: RMH - If correction is negative followed by null correction
+          #                entry, the null will be considered higher.  Added
+          #                check for empty string.
           $highestConCorr = $conPosCorrection{ $nextInChain->getPRID() }
-              if (
+              if ( $conPosCorrection{ $nextInChain->getPRID() } ne "" &&
                $conPosCorrection{ $nextInChain->getPRID() } > $highestConCorr );
           $nextInChain = $nextInChain->getRightLinkedHit();
         }
@@ -8251,7 +8254,7 @@ sub preProcessLINE {
   if ( $DEBUG ) {
     print "After preprocessing\n";
     $annot->print();
-    print "cons pos correction = " . $conPosCorrHash->{$ID} . "\n";
+    print "cons pos correction (ID=$ID) = " . $conPosCorrHash->{$ID} . "\n";
   }
 }
 
