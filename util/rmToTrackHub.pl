@@ -41,6 +41,10 @@ rmToTrackHub.pl - generate files for a bigRmsk track hub
 
 =head1 DESCRIPTION
 
+Output files names in the form *.out.tsv and *.align.tsv and will be stored by
+genomic location for direct conversion to bigBed format. These use the
+bigRmskBed.as and bigRmskAlignBed.as autoSql schemas in the UCSC Browser tree.
+
 The options are:
 
 =over 4
@@ -118,6 +122,10 @@ my $outFile = $options{'out'};
 
 print "\n\n";
 
+# need to set locale to C for output sort to work correctly.
+$ENV{'LC_COLLATE'} = "C";
+$ENV{'LC_ALL'} = "C";
+
 my $DEBUG     = 0;
 my @alignMap  = ();
 my $oldFormat = 0;
@@ -127,7 +135,7 @@ if ( defined $options{'align'} ) {
 
   my $alignTSVFile = basename($alignFile);
   $alignTSVFile =~ s/\.align.*/.align.tsv/;
-  open ALIGNTSV, ">$alignTSVFile" or die "Could not open $alignTSVFile\n";
+  open ALIGNTSV, "| sort -k1,1 -k2,2n >$alignTSVFile" or die "Could not open $alignTSVFile\n";
 
   ## Determine if the alignment file was lifted correctly.
   ##   - Old alignment files didn't have the ID field lifted
@@ -266,7 +274,7 @@ if ( defined $options{'align'} ) {
 my $joinTSVFile = basename($outFile);
 $joinTSVFile =~ s/\.(rm)?out.*/\.join.tsv/;
 
-open JOINTSV, ">$joinTSVFile"
+open JOINTSV, "| sort -k1,1 -k2,2n >$joinTSVFile"
     or die "Could not open $joinTSVFile for writing!\n";
 
 my @bedKeys = (
@@ -625,7 +633,7 @@ sub _rmToBedFile {
 
     my $recIndex = 0;
     if ( defined $parameters{'bedFile'} ) {
-      open BED, ">$parameters{'bedFile'}"
+      open BED, "| sort -k1,1 -k2,2n >$parameters{'bedFile'}"
           or die
           "$subroutine: Could not open output file $parameters{'bedFile'}!\n";
       while ( <RM> ) {
