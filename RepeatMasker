@@ -7839,8 +7839,14 @@ sub initLibrariesFromFamdb {
       &createLibFromFamdb( $rmLibDir, 
                            "$writableCacheDir/$dbLabel/general/is.lib", 
                            'root', 10, $searchEngine );
-      # Rename upon successful completion
-      rename("$writableCacheDir/$dbLabel/general.working", "$writableCacheDir/$dbLabel/general");
+      # Rename or copy upon successful completion
+      if ( -d "$writableCacheDir/$dbLabel/general" ) {
+        # Directory exists but setup for a different search engine - copy files over
+        system("mv $writableCacheDir/$dbLabel/general.working/* $writableCacheDir/$dbLabel/general");
+        rmtree("$writableCacheDir/$dbLabel/general.working",0,1);
+      }else {
+        rename("$writableCacheDir/$dbLabel/general.working", "$writableCacheDir/$dbLabel/general");
+      }
       $generalCacheDir = "$writableCacheDir/$dbLabel/general";
     }
     else {
@@ -7985,9 +7991,14 @@ sub initLibrariesFromFamdb {
                                "$writableCacheDir/$dbLabel/$speciesWord.working/specieslib", 
                                $species, 80, $searchEngine );
         }
-
-        # Rename upon successful completion
-        rename("$writableCacheDir/$dbLabel/$speciesWord.working", "$writableCacheDir/$dbLabel/$speciesWord");
+        # Rename or copy upon successful completion
+        if ( -d "$writableCacheDir/$dbLabel/$speciesWord" ) {
+          # Directory exists but setup for a different search engine - copy files over
+          system("mv $writableCacheDir/$dbLabel/$speciesWord.working/* $writableCacheDir/$dbLabel/$speciesWord");
+          rmtree("$writableCacheDir/$dbLabel/$speciesWord.working",0,1);
+        }else {
+          rename("$writableCacheDir/$dbLabel/$speciesWord.working", "$writableCacheDir/$dbLabel/$speciesWord");
+        }
         $speciesCacheDir = "$writableCacheDir/$dbLabel/$speciesWord";
       }
       else {
