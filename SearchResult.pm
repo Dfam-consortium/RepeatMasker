@@ -245,17 +245,11 @@ sub new {
   # Allow import of values
   if ( %nameValuePairs ) {
     while ( my ( $name, $value ) = each( %nameValuePairs ) ) {
-
       # RMH: Perl optimisation, the calls to _ucFirst were
       #      costly.
-      #my $method = "set" . _ucFirst( $name );
       my $method = "set" . uc( substr( $name, 0, 1 ) ) . substr( $name, 1 );
 
       # RMH: Perl optimisation, the calls to ->can are really expensive
-      #unless ( $this->can( $method ) ) {
-      #  croak(
-      #     "SearchResult::add: Instance variable $name doesn't exist." . "" );
-      #}
       eval { $this->$method( $value ); };
       if ( $@ ) {
         croak(
