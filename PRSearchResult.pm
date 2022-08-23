@@ -419,8 +419,11 @@ sub print {
 
 sub printBrief {
   my $this = shift;
+  my $excludeNewline = shift;
+  my $suffix = "\n";
+  $suffix = "" if ( $excludeNewline );
   my $outStr = sprintf(
-    "%4d %-18.18s %8d %8d " . "%1s %-18.18s %8d %8d %20s\n",
+    "%4d %-18.18s %8d %8d " . "%1s %-18.18s %8d %8d %20s$suffix",
     $this->getScore(),
     $this->getQueryName(),   $this->getQueryStart(),
     $this->getQueryEnd(),
@@ -537,12 +540,42 @@ sub printLinks {
     else {
       print "    ";
     }
-    $nextInChain->printBrief();
+    $nextInChain->printBrief(1);
+    my $left = $nextInChain->getLeftLinkedHit();
+    my $leftRight;
+    $leftRight = $left->getRightLinkedHit() if ($left);
+    my $right = $nextInChain->getRightLinkedHit();
+    my $rightLeft;
+    $rightLeft = $right->getLeftLinkedHit() if ($right);
+    
+    if ( $left == $nextInChain ) {
+      print "  U ";
+    }elsif ( $left ) {
+      if ( $nextInChain != $leftRight ) {
+        print "  ! ";
+      }else {
+        print " <- ";
+      }
+    }else {
+      print "  * ";
+    }
+    if ( $right == $nextInChain ) {
+      print "  U\n";
+    }elsif ( $right ) {
+      if ( $nextInChain != $rightLeft ) {
+        print "  !\n";
+      }else {
+        print " ->\n";
+      }
+    }else {
+      print "  *\n";
+    }
 
     # Link to itself is also allowed
     if ( $nextInChain == $nextInChain->getRightLinkedHit() ) {
       last;
     }
+    
     $nextInChain = $nextInChain->getRightLinkedHit();
       } while ( $nextInChain )
 
