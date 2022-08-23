@@ -3724,6 +3724,7 @@ CYCLE9:
               # RMH: 8/22/22 Fixed a bug reported by David Gordon and others where on rare occasions an
               #      identifier is omitted in the *.out file.
               $newRight->setLeftLinkedHit( $newHit );
+              $newHit->checkLinkOrder();
             }
           }
         }    # if @inserts
