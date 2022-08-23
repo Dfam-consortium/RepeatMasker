@@ -150,6 +150,8 @@ use IPC::Open3;
 use TRFSearchResult;
 use SearchResult;
 use SearchResultCollection;
+# For timing only
+#use Time::HiRes qw(gettimeofday);
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
 
 require Exporter;
@@ -686,6 +688,8 @@ sub search {
       . " 2>$errFile |\n"
       if ( $DEBUG );
 
+  # DISABLE: For timing only
+  #my $t0 = gettimeofday( );
   $pid = open( $POUTPUT, "cd $workDir; $cmdLine 2>$errFile |" )
       or die "Could not run: $cmdLine: $!\n";
 
@@ -700,6 +704,13 @@ sub search {
   }
   close OUT;
   close $POUTPUT;
+
+  # DISABLE: For timing only
+  #if ( $DEBUG ) {
+  #  my $t1 = gettimeofday( );
+  #  my $elapsed = $t1 - $t0;
+  #  print "TRF runtime: $elapsed secs\n"
+  #}
 
   my $resultCode = $?;
 
