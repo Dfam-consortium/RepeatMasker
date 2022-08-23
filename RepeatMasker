@@ -340,6 +340,8 @@ use FastaDB;
 use TRF;
 use TRFSearchResult;
 use LibraryUtils;
+# For timing only
+#use Time::HiRes qw(gettimeofday);
 
 # A bug in 5.8 produces way too many warnings
 if ( $] && $] >= 5.008003 ) {
@@ -986,14 +988,12 @@ JOBLOOP:
 
   FORK:
       if ( $child_id = fork ) {
-
         # Our children are our future
         print "Parent produced child $child_id\n" if ( $DEBUG );
         $children{$child_id} = $batchNums[ $k ];
         $batchStatus{ $batchNums[ $k ] }->{'childPID'} = $child_id;
       }
       elsif ( $child_id == 0 ) {
-
         my $batchSeqFile  = $file . "_batch-" . $batchNums[ $k ];
         my $batchCatFile  = $batchSeqFile . ".cat";
         my $batchMaskFile = $batchSeqFile . ".masked";
@@ -1292,9 +1292,19 @@ JOBLOOP:
     #
     # Run processrepeats
     #
+    # For timing only
+    #my $t0 = gettimeofday( );
     &systemint(
         "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
         unless $options{'is_only'};
+
+    # For timing only
+    #if ( $DEBUG ) {
+    #  my $t1 = gettimeofday( );
+    #  my $elapsed = $t1 - $t0;
+    #  print "ProcessRepeats runtime: $elapsed secs\n"
+    #}
+
     if ( $options{'is_clip'} && -s "$file.withoutIS.masked" ) {
       rename( "$maskSourceFile.masked", "$file.masked" );
     }
@@ -4284,7 +4294,7 @@ sub runSearchStages {
                      $seqDB
           );
 
-          #TODO REMOVE...testing
+          # for testing
           #copy( $maskfile, "/tmp/backup1" );
 
           if (    -s "$speciesLibDir/cutlib"
@@ -4366,8 +4376,8 @@ sub runSearchStages {
           last if ( $seqDB->getSubtLength() < 15 );
         }
 
-        #TODO REMOVE...testing
-        copy( $maskfile, "/tmp/backup" );
+        # for testing
+        #copy( $maskfile, "/tmp/backup" );
 
         ######  mask the remaining other short repeats and satellites#####
         if (    -s "$speciesLibDir/shortlib"
@@ -7739,6 +7749,12 @@ sub initLibrariesFromFamdb {
         {
           $speciesCacheDir = "$path/$dbLabel/$speciesWord";
         }
+      }elsif ( -d "$path/$dbLabel/$speciesWord" . ".working" ) {
+        # Make sure checkpointing name has been cleared in previous run
+        print "\n  It appears that RepeatMasker attempted to generate a cached library for this\n"
+              ."  species before but didn't complete it.  Attempting to remove and reubild this\n"
+              ."  cache: $path/$dbLabel/$speciesWord.working\n\n";
+        rmtree("$path/$dbLabel/$speciesWord" . ".working",0,1);
       }
       if ( -d "$path/$dbLabel/general" ) {
         if (
@@ -7757,6 +7773,12 @@ sub initLibrariesFromFamdb {
         {
           $generalCacheDir = "$path/$dbLabel/general";
         }
+      }elsif ( -d "$path/$dbLabel/general" . ".working" ){
+        # Make sure checkpointing name has been cleared in previous run
+        print "\n  It appears that RepeatMasker attempted to generate a cached general library\n"
+              ."  before but didn't complete it.  Attempting to remove and reubild this\n"
+              ."  cache: $path/$dbLabel/general.working\n\n";
+        rmtree("$path/$dbLabel/general.working",0,1);
       }
     }
   }
@@ -7807,7 +7829,7 @@ sub initLibrariesFromFamdb {
 
       # Make cache dir
       if ( !-d "$writableCacheDir/$dbLabel/general" ) {
-        eval { mkpath( "$writableCacheDir/$dbLabel/general" ) };
+        eval { mkpath( "$writableCacheDir/$dbLabel/general.working" ) };
         if ( $@ ) {
           die "RepeatMasker::setspecies: Can't creat dir path "
               . "$writableCacheDir/$dbLabel/general! $@\n";
@@ -7817,7 +7839,8 @@ sub initLibrariesFromFamdb {
       &createLibFromFamdb( $rmLibDir, 
                            "$writableCacheDir/$dbLabel/general/is.lib", 
                            'root', 10, $searchEngine );
-
+      # Rename upon successful completion
+      rename("$writableCacheDir/$dbLabel/general.working", "$writableCacheDir/$dbLabel/general");
       $generalCacheDir = "$writableCacheDir/$dbLabel/general";
     }
     else {
@@ -7834,7 +7857,7 @@ sub initLibrariesFromFamdb {
 
         # Make cache dir
         if ( !-d "$writableCacheDir/$dbLabel/$speciesWord" ) {
-          eval { mkpath( "$writableCacheDir/$dbLabel/$speciesWord" ) };
+          eval { mkpath( "$writableCacheDir/$dbLabel/$speciesWord.working" ) };
           if ( $@ ) {
             die "RepeatMasker::setspecies: Can't create dir path "
                 . "$writableCacheDir/$dbLabel/$speciesWord! $@\n";
@@ -7875,13 +7898,13 @@ sub initLibrariesFromFamdb {
         }
         close IN;
         nstore \%refineableHash,
-            "$writableCacheDir/$dbLabel/$speciesWord/refineableHash.dat";
+            "$writableCacheDir/$dbLabel/$speciesWord.working/refineableHash.dat";
    
         ##
         ##
         ##
-        open OUT,">$writableCacheDir/$dbLabel/$speciesWord/speciesMeta.pm" or 
-            die "Could not open $writableCacheDir/$dbLabel/$speciesWord/speciesMeta.pm " . 
+        open OUT,">$writableCacheDir/$dbLabel/$speciesWord.working/speciesMeta.pm" or 
+            die "Could not open $writableCacheDir/$dbLabel/$speciesWord.working/speciesMeta.pm " . 
                 "for writing!\n";
         print OUT "package speciesMeta;\n";
         print OUT "require Exporter;\n";
@@ -7902,67 +7925,69 @@ sub initLibrariesFromFamdb {
       
           # alu.lib, rodcutsines.lib => sinecutlib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord/sinecutlib", 
+                               "$writableCacheDir/$dbLabel/$speciesWord.working/sinecutlib", 
                                $species, 35, $searchEngine );
 
           # cut1.lib, rodcut.lib => shortcutlib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord/shortcutlib", 
+                               "$writableCacheDir/$dbLabel/$speciesWord.working/shortcutlib", 
                                $species, 40, $searchEngine );
 
 
 
           # cut2.lib, rodcut2.lib, cetartiocut.lib => cutlib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord/cutlib", 
+                               "$writableCacheDir/$dbLabel/$speciesWord.working/cutlib", 
                                $species, 45, $searchEngine );
 
           unless ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
 
             # humsines.lib, rod1.lib, cetartio1.lib => shortlib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord/shortlib", 
+                                 "$writableCacheDir/$dbLabel/$speciesWord.working/shortlib", 
                                  $species, 50, $searchEngine );
 
             # humlines.lib, rod2.lib => longlib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord/longlib", 
+                                 "$writableCacheDir/$dbLabel/$speciesWord.working/longlib", 
                                  $species, 55, $searchEngine );
 
             # mirs.lib => mirslib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord/mirslib", 
+                                 "$writableCacheDir/$dbLabel/$speciesWord.working/mirslib", 
                                  $species, 60, $searchEngine );
 
             # mir.lib => mirlib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord/mirlib", 
+                                 "$writableCacheDir/$dbLabel/$speciesWord.working/mirlib", 
                                  $species, 65, $searchEngine );
 
             # retrovirus.lib => retrolib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord/retrolib", 
+                                 "$writableCacheDir/$dbLabel/$speciesWord.working/retrolib", 
                                  $species, 70, $searchEngine );
           }
           else {
             # HMM search combines 35,50,60,65,70 into one search lib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord/masklib", 
+                                 "$writableCacheDir/$dbLabel/$speciesWord.working/masklib", 
                                  $species, 95, $searchEngine );
           }
 
           # refinelib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord/refinelib", 
+                               "$writableCacheDir/$dbLabel/$speciesWord.working/refinelib", 
                                $species, 85, $searchEngine );
         }
         else {
           # Need to separate into a species.lib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord/specieslib", 
+                               "$writableCacheDir/$dbLabel/$speciesWord.working/specieslib", 
                                $species, 80, $searchEngine );
         }
 
+        # Rename upon successful completion
+        rename("$writableCacheDir/$dbLabel/$speciesWord.working", "$writableCacheDir/$dbLabel/$speciesWord");
         $speciesCacheDir = "$writableCacheDir/$dbLabel/$speciesWord";
       }
       else {
