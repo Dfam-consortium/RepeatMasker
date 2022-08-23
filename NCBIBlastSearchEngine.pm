@@ -71,6 +71,9 @@ use Data::Dumper;
 use FileHandle;
 use File::Basename;
 use Carp;
+# For debugging only
+#use Time::HiRes qw(gettimeofday); 
+
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
 
 require Exporter;
@@ -118,7 +121,7 @@ sub new {
     while ( my ( $name, $value ) = each( %nameValuePairs ) ) {
       my $method = "set" . _ucFirst( $name );
       unless ( $this->can( $method ) ) {
-        croak( "$CLASS::set: Instance variable $name doesn't exist." . "" );
+        croak( $CLASS . "::set: Instance variable $name doesn't exist." . "" );
       }
       $this->$method( $value );
     }
@@ -591,10 +594,13 @@ sub search {
   my $POUTPUT = new FileHandle;
   my $errFile;
   my $currentTime;
+  my $rand = 0;
   do {
     $currentTime = time();
-    $errFile     = $outputDirName . "/ncResults-$currentTime-$$.err";
+    $rand = rand(5000);
+    $errFile     = $outputDirName . "/ncResults-$currentTime-$$-$rand.err";
   } while ( -f $errFile );
+  my $outFile = $outputDirName . "/ncResults-$currentTime-$$-$rand.out";
   my $pid;
 
   print $CLASS
@@ -602,6 +608,8 @@ sub search {
       . " 2>$errFile |\n"
       if ( $this->getDEBUG() );
 
+  # DISABLE: For timing only
+  #my $t0 = gettimeofday( ); 
   $pid = open( $POUTPUT, "$cmdLine 2>$errFile |" );
 
   my %parseParams = ();
@@ -609,30 +617,44 @@ sub search {
   $parseParams{'excludeAlignments'} = 1 if ( !$this->getGenerateAlignments() );
   $parseParams{'matrixName'}        = $matrixName;
 
-  # Create SearchResultCollection object from
-  # the engine results.
+  # Places to hold result codes and alignment data
+  my $resultCode;
   my $searchResultsCollection;
-  ## Create a debug file
-  my $outFile = $outputDirName . "/ncResults-$currentTime-$$.out";
 
-  # TODO DEBUGGING
-  if ( $this->getDEBUG ) {
-    system(   "cp "
-            . $this->getQuery()
-            . " $outputDirName"
-            . "/before-$currentTime-$$.fa" );
+  # Passing $POUTPUT directly to parseOutput and  saving to 
+  # a file first and then passing the file to parseOutput work
+  # out to be about the same in overall timing.  For now
+  # I am going to avoid saving it to disk if we don't need to.
+  if ( $this->getDEBUG() ) {
+    # TODO DEBUGGING
+    #if ( $this->getDEBUG ) {
+    #  system(   "cp "
+    #          . $this->getQuery()
+    #          . " $outputDirName"
+    #          . "/before-$currentTime-$$.fa" );
+    #}
+
+    open OUT, ">$outFile";
+    while ( <$POUTPUT> ) {
+      print OUT $_;
+    }
+    close OUT;
+    close $POUTPUT;
+    $resultCode = ( $? >> 8 );
+
+    # DISABLE: For timing only ( normally disabled )
+    #my $t1 = gettimeofday( ); 
+    #my $elapsed = $t1 - $t0; 
+    #print "NCBIBlast runtime: $elapsed secs\n";
+
+    $parseParams{'searchOutput'} = $outFile;
+    $searchResultsCollection = parseOutput( %parseParams );
+  }else {
+    $parseParams{'searchOutput'} = $POUTPUT;
+    $searchResultsCollection = parseOutput( %parseParams );
+    close $POUTPUT;
+    $resultCode = ( $? >> 8 );
   }
-
-  open OUT, ">$outFile";
-  while ( <$POUTPUT> ) {
-    print OUT $_;
-  }
-  close OUT;
-  close $POUTPUT;
-  $parseParams{'searchOutput'} = $outFile;
-  $searchResultsCollection = parseOutput( %parseParams );
-
-  my $resultCode = ( $? >> 8 );
 
   print "NCBIBlast returned a the following result code >$resultCode<\n"
       if ( $this->getDEBUG() );
@@ -690,17 +712,11 @@ sub search {
 
   }
 
-  unless ( $resultCode || $this->getDEBUG() ) {
-    unlink $errFile;
-    unlink $outFile;
-    return ( $resultCode, $searchResultsCollection );
-  }
-  else {
-
-    # Let's improve the debugging for users
+  if ( $this->getDEBUG() ) {
     return ( $resultCode, $searchResultsCollection, $outFile, $errFile );
+  }else {
+    return ( $resultCode, $searchResultsCollection, "", $errFile );
   }
-
 }
 
 ##-------------------------------------------------------------------------##
@@ -734,13 +750,13 @@ sub parseOutput {
       if ( !exists $nameValueParams{'searchOutput'} );
 
   my $NCBIFILE;
-  if ( ref( $nameValueParams{'searchOutput'} ) !~ /GLOB|FileHandle/ ) {
+  if ( ref( $nameValueParams{'searchOutput'} ) !~ /GLOB|FileHandle|IO::File/ ) {
     print $CLASS
         . "::parseOutput() Opening file "
         . $nameValueParams{'searchOutput'} . "\n"
         if ( $nameValueParams{'debug'} );
     open $NCBIFILE, $nameValueParams{'searchOutput'}
-        or die $CLASS
+        or croak $CLASS
         . "::parseOutput: Unable to open "
         . "results file: $nameValueParams{'searchOutput'} : $!";
   }
@@ -776,6 +792,11 @@ sub parseOutput {
       if ( defined $nameValueParams{'matrixName'} );
 
   my $resultColl = SearchResultCollection->new();
+
+  my %gapAndX = (
+    '-' => 1,
+    'x' => 1,
+    'X' => 1 );
 
   my %IUBMatchLookup = (
     "AA" => 1,
@@ -890,7 +911,14 @@ sub parseOutput {
         for ( my $i = 0 ; $i < length( $qrySeq ) ; $i++ ) {
           my $qryBase = substr( $qrySeq, $i, 1 );
           my $sbjBase = substr( $sbjSeq, $i, 1 );
-          next if ( $qryBase =~ /-|x/i || $sbjBase =~ /-|x/i );
+          # NYTProfiler found this to be extremely expensive!
+          #next if ( $qryBase =~ /-|x/i || $sbjBase =~ /-|x/i );
+          # This is faster...but
+          #next if ( $qryBase eq '-' || $sbjBase eq '-' ||
+          #          $qryBase eq'x' || $sbjBase eq 'x' ||
+          #          $qryBase eq 'X' || $sbjBase eq 'X' );
+          # Faster still:
+          next if ( exists $gapAndX{$qryBase} );
           $baseFreq{$qryBase}++;
           $mismatch++
               if (    !$IUBMatchLookup{ uc( $qryBase . $sbjBase ) }
