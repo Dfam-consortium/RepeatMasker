@@ -510,6 +510,50 @@ sub sanityCheckConsPos {
 
 }
 
+sub checkLinkOrder {
+  my $this = shift;
+
+  # Find begining
+  my $firstInChain = $this;
+  my $detectLoop   = 0;
+  while (    $firstInChain->getLeftLinkedHit() != undef
+          && $firstInChain != $firstInChain->getLeftLinkedHit()
+          && $detectLoop < 50 )
+  {
+    $firstInChain = $firstInChain->getLeftLinkedHit();
+    $detectLoop++;
+  }
+
+  if ( $detectLoop >= 50 ) {
+    print STDERR "WARNING! This chain contains a loop!!!!\n";
+  }
+
+  # Now print
+  my $nextInChain = $firstInChain;
+  my @resGroup = ();
+  my $inOrder = 1;
+  do {
+    push @resGroup, $nextInChain;
+    if ( $nextInChain->getRightLinkedHit() ) {
+      if ( $nextInChain->getQueryStart() < $nextInChain->getRightLinkedHit()->getQueryStart() ) {
+        $inOrder = 0;
+      }
+    }
+    $nextInChain = $nextInChain->getRightLinkedHit();
+  } while ( $nextInChain && $nextInChain != $nextInChain->getRightLinkedHit() );
+
+  unless ( $inOrder == 1 ) {
+   @resGroup = sort { $a->getQueryStart() <=> $b->getQueryStart() ||
+                      $b->getQueryEnd() <=> $a->getQueryEnd() } @resGroup;
+   $resGroup[0]->setLeftLinkedHit(undef);
+   $resGroup[$#resGroup]->setRightLinkedHit(undef);
+   for( my $i = 1; $i <= $#resGroup; $i++ ) {
+     $resGroup[$i]->setLeftLinkedHit($resGroup[$i-1]);
+     $resGroup[$i-1]->setRightLinkedHit($resGroup[$i]);
+   }
+  }
+}
+
 #
 # Print an element and ( if exists ) all of it chain members in order
 #
