@@ -7828,7 +7828,7 @@ sub initLibrariesFromFamdb {
           . "$writableCacheDir/$dbLabel/general\n";
 
       # Make cache dir
-      if ( !-d "$writableCacheDir/$dbLabel/general" ) {
+      if ( !-d "$writableCacheDir/$dbLabel/general.working" ) {
         eval { mkpath( "$writableCacheDir/$dbLabel/general.working" ) };
         if ( $@ ) {
           die "RepeatMasker::setspecies: Can't creat dir path "
@@ -7862,7 +7862,7 @@ sub initLibrariesFromFamdb {
             . "$writableCacheDir/$dbLabel/$speciesWord\n";
 
         # Make cache dir
-        if ( !-d "$writableCacheDir/$dbLabel/$speciesWord" ) {
+        if ( !-d "$writableCacheDir/$dbLabel/$speciesWord.working" ) {
           eval { mkpath( "$writableCacheDir/$dbLabel/$speciesWord.working" ) };
           if ( $@ ) {
             die "RepeatMasker::setspecies: Can't create dir path "

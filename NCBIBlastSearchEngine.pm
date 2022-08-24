@@ -918,7 +918,7 @@ sub parseOutput {
           #          $qryBase eq'x' || $sbjBase eq 'x' ||
           #          $qryBase eq 'X' || $sbjBase eq 'X' );
           # Faster still:
-          next if ( exists $gapAndX{$qryBase} );
+          next if ( exists $gapAndX{$qryBase} || exists $gapAndX{$sbjBase} );
           $baseFreq{$qryBase}++;
           $mismatch++
               if (    !$IUBMatchLookup{ uc( $qryBase . $sbjBase ) }
