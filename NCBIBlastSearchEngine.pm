@@ -715,6 +715,7 @@ sub search {
   if ( $this->getDEBUG() ) {
     return ( $resultCode, $searchResultsCollection, $outFile, $errFile );
   }else {
+    unlink $errFile;
     return ( $resultCode, $searchResultsCollection, "", $errFile );
   }
 }
