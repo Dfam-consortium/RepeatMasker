@@ -160,7 +160,7 @@ for ( my $i = 0 ; $i < $searchResults->size() ; $i++ ) {
     print "+\t";
   }
   print ".\t";
-  print "Target="
+  print "ID=" . $result->getId() . ";Target="
       . $result->getSubjName() . " "
       . $result->getSubjStart() . " "
       . $result->getSubjEnd() . "\n";

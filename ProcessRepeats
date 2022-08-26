@@ -906,20 +906,22 @@ CYCLE2:
             . $LeftUnalignedPrint . "\n";
       }
       if ( $options{'gff'} ) {
-        my $source;
-        if ( $currentAnnot->getHitName() =~ /Alu/ ) {
-          $source = 'RepeatMasker_SINE';
-        }
-        else {    #
-          $source = 'RepeatMasker';
-        }
+        #my $source;
+        #if ( $currentAnnot->getHitName() =~ /Alu/ ) {
+        #  $source = 'RepeatMasker_SINE';
+        #}
+        #else {    #
+        #  $source = 'RepeatMasker';
+        #}
+        my $source = 'RepeatMasker';
         print OUTGFF ""
             . $currentAnnot->getQueryName()
-            . "\t$source\tsimilarity\t"
+            . "\t$source\tdispersed_repeat\t"
             . $currentAnnot->getQueryStart() . "\t"
             . $currentAnnot->getQueryEnd() . "\t"
             . $currentAnnot->getPctDiverge() . "\t"
             . ( $currentAnnot->getOrientation() eq 'C' ? '-' : '+' ) . "\t.\t"
+            . "ID=" . $currentAnnot->getPRID()+1 . ";" 
             . "Target \"Motif:"
             . $currentAnnot->getHitName() . "\" "
             . $currentAnnot->getSubjStart() . " "
@@ -1509,7 +1511,7 @@ CYCLE3:
       $i              = -1;
       $cycleAnnotIter = $sortedAnnotationsList->getIterator();
       $DEBUG          = 0;
-      my %conPosCorrection = ();
+      my %conPosCorrection = (); 
 
       ## Create a cycle data structure to hold last 21 join scores.
       ##  ie.   prevScoreHash{ ID }->{ HitName } = chainScore ( sum of score function )
@@ -2693,8 +2695,11 @@ CYCLE3:
                 . $highestConCorr . "\n";
           }
           push @elements, $nextInChain;
+          # 5/17/22: RMH - If correction is negative followed by null correction
+          #                entry, the null will be considered higher.  Added
+          #                check for empty string.
           $highestConCorr = $conPosCorrection{ $nextInChain->getPRID() }
-              if (
+              if ( $conPosCorrection{ $nextInChain->getPRID() } ne "" &&
                $conPosCorrection{ $nextInChain->getPRID() } > $highestConCorr );
           $nextInChain = $nextInChain->getRightLinkedHit();
         }
@@ -3670,7 +3675,13 @@ CYCLE9:
             else {
               $newHit->setLeftLinkedHit( $currentAnnot->getLeftLinkedHit() );
             }
-            $newHit->setRightLinkedHit( $currentAnnot->getRightLinkedHit() );
+            # RMH: 8/22/22 Fixed a bug reported by David Gordon and others where on rare occasions an
+            #      identifier is omitted in the *.out file.
+            my $newRight = $currentAnnot->getRightLinkedHit();
+            $newHit->setRightLinkedHit( $newRight );
+            if ( $newRight ) { 
+              $newRight->setLeftLinkedHit( $newHit );
+            }
             if ( $DEBUG ) {
               print "Inserting\n";
               $newHit->print();
@@ -3681,7 +3692,6 @@ CYCLE9:
               $newHit->getRightLinkedHit()->printBrief()
                   if ( $newHit->getRightLinkedHit() );
               print "\n";
-
             }
             $cycleAnnotIter->insert( $newHit );
             $lastNewHit = $newHit;
@@ -3701,6 +3711,8 @@ CYCLE9:
             }
             else {
               print "Correcting order\n" if ( $DEBUG );
+              # oldLeft,newhit,oldRight,newRight ---> oldLeft,oldRight,newhit,newRight
+              #                                fix          * *      * *    * * 
               my $oldRight = $newHit->getRightLinkedHit();
               my $oldLeft  = $newHit->getLeftLinkedHit();
               my $newRight = $oldRight->getRightLinkedHit();
@@ -3709,6 +3721,10 @@ CYCLE9:
               $oldRight->setRightLinkedHit( $newHit );
               $oldRight->setLeftLinkedHit( $oldLeft );
               $oldLeft->setRightLinkedHit( $oldRight );
+              # RMH: 8/22/22 Fixed a bug reported by David Gordon and others where on rare occasions an
+              #      identifier is omitted in the *.out file.
+              $newRight->setLeftLinkedHit( $newHit );
+              $newHit->checkLinkOrder();
             }
           }
         }    # if @inserts
@@ -5331,12 +5347,14 @@ sub generateOutput {
 
   if ( $options{'gff'} ) {
     open( OUTGFF, ">$file.out.gff" ) || die "can't create $file.out.gff\n";
-    print OUTGFF "##gff-version 2\n";
-    printf OUTGFF "##date %4d-%02d-%02d\n", ( localtime )[ 5 ] + 1900,
-        ( localtime )[ 4 ] + 1, ( localtime )[ 3 ];    # date as 1999-09-24...
-    ( my $seqname = $file ) =~ s/^.*\///;
-    print OUTGFF "##sequence-region $seqname\n";
+    print OUTGFF "##gff-version 3\n";
+    #printf OUTGFF "##date %4d-%02d-%02d\n", ( localtime )[ 5 ] + 1900,
+    #    ( localtime )[ 4 ] + 1, ( localtime )[ 3 ];    # date as 1999-09-24...
+    #( my $seqname = $file ) =~ s/^.*\///;
+    #print OUTGFF "##sequence-region $seqname\n";
   }
+
+  my $currentQueryName = "";
   while ( $cycleAnnotIter->hasNext() ) {
 
     my $currentAnnot = $cycleAnnotIter->next();
@@ -5462,17 +5480,22 @@ sub generateOutput {
     }    # if $options{'poly'}
 
     if ( $options{'gff'} ) {
-      my $source;
-      if ( $currentAnnot->getHitName =~ /Alu/ ) {
-        $source = 'RepeatMasker_SINE';
+
+      # First annotation of a region
+      if ( $currentAnnot->getQueryName() ne $currentQueryName ) {
+         $currentQueryName = $currentAnnot->getQueryName();
+         print OUTGFF "##sequence-region $currentQueryName 1 "
+               . ( $LeftOver + $currentAnnot->getQueryEnd() ) . "\n";
       }
-      else {
-        $source = 'RepeatMasker';
-      }
+
+      my $source = "RepeatMasker";
+      #if ( $currentAnnot->getHitName =~ /Alu/ ) {
+      #  $source = 'RepeatMasker_SINE';
+      #}
       print OUTGFF ""
           . $currentAnnot->getQueryName() . "\t"
           . $source
-          . "\tsimilarity\t"
+          . "\tdispersed_repeat\t"
           . $currentAnnot->getQueryStart() . "\t"
           . $currentAnnot->getQueryEnd() . "\t"
           . $PctSubst . "\t";
@@ -5482,7 +5505,8 @@ sub generateOutput {
       else {
         print OUTGFF "+\t.\t";
       }
-      print OUTGFF "Target \"Motif:"
+      print OUTGFF "ID=" . $printid . ";"
+          . "Target \"Motif:"
           . $currentAnnot->getHitName() . "\" "
           . $currentAnnot->getSubjStart() . " "
           . $currentAnnot->getSubjEnd() . "\n";
@@ -8251,7 +8275,7 @@ sub preProcessLINE {
   if ( $DEBUG ) {
     print "After preprocessing\n";
     $annot->print();
-    print "cons pos correction = " . $conPosCorrHash->{$ID} . "\n";
+    print "cons pos correction (ID=$ID) = " . $conPosCorrHash->{$ID} . "\n";
   }
 }
 
@@ -8508,7 +8532,8 @@ sub printHitArrayList {
   my $ind            = 1;
   while ( $cycleAnnotIter->hasNext() ) {
     my $currentAnnot = $cycleAnnotIter->next();
-    if (    $currentAnnot->getLeftLinkedHit()
+    if (    $currentAnnot->getLeftLinkedHit() 
+         && $currentAnnot->getLeftLinkedHit() != $currentAnnot
          && $newID{ $currentAnnot->getLeftLinkedHit()->getUniqID() } > 0 )
     {
       $newID{ $currentAnnot->getUniqID() } =

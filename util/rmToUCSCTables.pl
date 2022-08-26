@@ -71,6 +71,7 @@ use Getopt::Long;
 use Data::Dumper;
 use IO::File;
 use FindBin;
+use File::Basename;
 use lib $FindBin::Bin;
 use lib "$FindBin::Bin/../";
 use CrossmatchSearchEngine;
@@ -127,7 +128,7 @@ if ( $options{'version'} ) {
 }
 
 if ( !defined $options{'out'} || !-s $options{'out'} ) {
-  print "\n\nMissing a non-empty RepeatMasker *.out file\n\n";
+  print "\n\nMissing a empty RepeatMasker *.out file\n\n";
   usage();
 }
 my $outFile = $options{'out'};
@@ -190,11 +191,11 @@ if ( defined $options{'align'} ) {
         . "    the *.align data for this run.\n\n";
 
     print "Creating temporary bed files...\n";
-    my $outBedFile = $outFile;
-    $outBedFile =~ s/\.out.*/\.out.bed/;
+    my $outBedFile = basename($outFile);
+    $outBedFile =~ s/\.(rm)?out.*/\.out.bed/;
     _rmToBedFile( rmFile => $outFile, bedFile => $outBedFile );
-    my $alignBedFile = $alignFile;
-    $alignBedFile =~ s/\.align.*/\.align.bed/;
+    my $alignBedFile = basename($alignFile);
+    $alignBedFile =~ s/\.(rm)?align.*/\.align.bed/;
     _rmToBedFile( rmFile => $alignFile, bedFile => $alignBedFile );
 
     print "Comparing ranges using bedTools...\n";
@@ -242,7 +243,7 @@ if ( defined $options{'align'} ) {
     unlink( $outBedFile );
     print "Total unmappable alignments = $unmappable\n";
 
-  }
+  } # if oldformat
   print "Writing out $alignTSVFile...\n";
   $alignPos = 0;
   my $ALIGN = IO::File->new();
@@ -278,10 +279,10 @@ if ( defined $options{'align'} ) {
 #   .  "description='Repeat Masker family graph' visibility=pack "
 #   .  "itemRgb='On' exonArrows='on'\n";
 
-my $outTSVFile = $outFile;
-$outTSVFile =~ s/\.out.*/\.out\.tsv/;
-my $joinTSVFile = $outFile;
-$joinTSVFile =~ s/\.out.*/\.join.tsv/;
+my $outTSVFile = basename($outFile);
+$outTSVFile =~ s/\.(rm)?out.*/\.out\.tsv/;
+my $joinTSVFile = basename($outFile);
+$joinTSVFile =~ s/\.(rm)?out.*/\.join.tsv/;
 
 open OUTTSV, ">$outTSVFile"
     or die "Could not open $outTSVFile for writing!\n";

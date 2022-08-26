@@ -419,8 +419,11 @@ sub print {
 
 sub printBrief {
   my $this = shift;
+  my $excludeNewline = shift;
+  my $suffix = "\n";
+  $suffix = "" if ( $excludeNewline );
   my $outStr = sprintf(
-    "%4d %-18.18s %8d %8d " . "%1s %-18.18s %8d %8d %20s\n",
+    "%4d %-18.18s %8d %8d " . "%1s %-18.18s %8d %8d %20s$suffix",
     $this->getScore(),
     $this->getQueryName(),   $this->getQueryStart(),
     $this->getQueryEnd(),
@@ -507,6 +510,50 @@ sub sanityCheckConsPos {
 
 }
 
+sub checkLinkOrder {
+  my $this = shift;
+
+  # Find begining
+  my $firstInChain = $this;
+  my $detectLoop   = 0;
+  while (    $firstInChain->getLeftLinkedHit() != undef
+          && $firstInChain != $firstInChain->getLeftLinkedHit()
+          && $detectLoop < 50 )
+  {
+    $firstInChain = $firstInChain->getLeftLinkedHit();
+    $detectLoop++;
+  }
+
+  if ( $detectLoop >= 50 ) {
+    print STDERR "WARNING! This chain contains a loop!!!!\n";
+  }
+
+  # Now print
+  my $nextInChain = $firstInChain;
+  my @resGroup = ();
+  my $inOrder = 1;
+  do {
+    push @resGroup, $nextInChain;
+    if ( $nextInChain->getRightLinkedHit() ) {
+      if ( $nextInChain->getQueryStart() < $nextInChain->getRightLinkedHit()->getQueryStart() ) {
+        $inOrder = 0;
+      }
+    }
+    $nextInChain = $nextInChain->getRightLinkedHit();
+  } while ( $nextInChain && $nextInChain != $nextInChain->getRightLinkedHit() );
+
+  unless ( $inOrder == 1 ) {
+   @resGroup = sort { $a->getQueryStart() <=> $b->getQueryStart() ||
+                      $b->getQueryEnd() <=> $a->getQueryEnd() } @resGroup;
+   $resGroup[0]->setLeftLinkedHit(undef);
+   $resGroup[$#resGroup]->setRightLinkedHit(undef);
+   for( my $i = 1; $i <= $#resGroup; $i++ ) {
+     $resGroup[$i]->setLeftLinkedHit($resGroup[$i-1]);
+     $resGroup[$i-1]->setRightLinkedHit($resGroup[$i]);
+   }
+  }
+}
+
 #
 # Print an element and ( if exists ) all of it chain members in order
 #
@@ -537,12 +584,42 @@ sub printLinks {
     else {
       print "    ";
     }
-    $nextInChain->printBrief();
+    $nextInChain->printBrief(1);
+    my $left = $nextInChain->getLeftLinkedHit();
+    my $leftRight;
+    $leftRight = $left->getRightLinkedHit() if ($left);
+    my $right = $nextInChain->getRightLinkedHit();
+    my $rightLeft;
+    $rightLeft = $right->getLeftLinkedHit() if ($right);
+    
+    if ( $left == $nextInChain ) {
+      print "  U ";
+    }elsif ( $left ) {
+      if ( $nextInChain != $leftRight ) {
+        print "  ! ";
+      }else {
+        print " <- ";
+      }
+    }else {
+      print "  * ";
+    }
+    if ( $right == $nextInChain ) {
+      print "  U\n";
+    }elsif ( $right ) {
+      if ( $nextInChain != $rightLeft ) {
+        print "  !\n";
+      }else {
+        print " ->\n";
+      }
+    }else {
+      print "  *\n";
+    }
 
     # Link to itself is also allowed
     if ( $nextInChain == $nextInChain->getRightLinkedHit() ) {
       last;
     }
+    
     $nextInChain = $nextInChain->getRightLinkedHit();
       } while ( $nextInChain )
 

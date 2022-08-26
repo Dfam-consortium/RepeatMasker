@@ -135,6 +135,14 @@ Produce alignments. These are stored in the output file.
 
 Creates an additional Gene Feature Finding (gff) output file.
 
+=item -pa  <value>
+
+Spawn this many processes for masking, default is 1
+
+=item -dupout
+
+Stop the program after generating dupout. The second half of the pipeline often fails in snakemake so this way we can split it into two jobs. 
+
 =back
 
 =head1 CONFIGURATION OVERRIDES
@@ -173,6 +181,7 @@ use CrossmatchSearchEngine;
 use SeqDBI;
 use SimpleBatcher;
 use FastaDB;
+use File::Basename;
 
 #
 # Version
@@ -190,8 +199,10 @@ my @getopt_args = (
                     '-version',       # print out the version and exit
                     '-maxDiv=i',      # maximal duplicon seed divergence
                     '-maxWidth=i',    # realignNonRepMaxWidth zj 5-10-07
-                    '-forceSearch',
+                    '-pa=i',
+					'-forceSearch',
                     '-engine=s',
+					'-dupout',
                     '-gff',
                     '-align'
 );
@@ -239,6 +250,16 @@ if ( $options{'version'} )
   print "$version\n";
   exit;
 }
+
+my $pa=1;
+if($options{'pa'})
+{
+	$pa=$options{'pa'};
+}
+
+  
+print "Using this many jobs: $pa\n";
+
 
 #
 # Resolve configuration settings using the following precedence: 
@@ -354,6 +375,8 @@ if ( !defined $ARGV[ 0 ] )
 my $fastaFile = $ARGV[ 0 ];
 
 die "\nFile does not exist $fastaFile!!!\n\n" if ( !-s $fastaFile );
+my $baseFile = basename($fastaFile);
+print "\rRunning on this fasta file: $baseFile \n"; 
 
 #
 #  Open up the duplicon library
@@ -375,7 +398,7 @@ my $db = FastaDB->new(
 if ( $options{'forceSearch'} || !-e "$fastaFile.out" )
 {
   print "Searching for repeats...\n";
-  system( "$REPEATMASKER -engine $engine $fastaFile > /dev/null 2>&1" );
+  system( "$REPEATMASKER -pa $pa -engine $engine $fastaFile > /dev/null 2>&1" );
 } else
 {
   print "Using existing repeat annotations in $fastaFile.out\n";
@@ -403,9 +426,10 @@ if ( $options{'forceSearch'} || !-e "$fastaFile.dupout" )
 {
   print "Searching for duplicons...\n";
 
-  my $cmd = "$REPEATMASKER -engine $engine -nolow -lib $dupliconLib $tmpMaskedFile";
+  my $cmd = "$REPEATMASKER -pa $pa -engine $engine -nolow -lib $dupliconLib $tmpMaskedFile";
   print "$cmd\n" if ( $DEBUG );
-  system( "$cmd > /dev/null 2>&1" );
+  system( "$cmd" );
+  #system( "$cmd > /dev/null 2>&1" );
 
   unless ( $DEBUG )
   {
@@ -435,6 +459,15 @@ if ( !-e "$fastaFile.dupout" )
 {
   die "Could not generate $fastaFile.dupout\n";
 }
+
+#
+# end the pipeline if the goal is to only generate the dupoutfile
+#
+if($options{'dupout'}){
+  print "Exiting becasue -dupout specified and dupout has been created\n";
+  exit;
+}
+
 
 ##
 ## Read in annotations
@@ -793,11 +826,12 @@ foreach my $reAlignRange ( @ranges )
 
   # Create a temp file name
   $tmpIdx = 1;
-  my $tmpLibFile = "/tmp/tmplibfile-$tmpIdx";
+  my $tmpLibFile = "/tmp/tmplibfile-$baseFile-$tmpIdx";
   while ( -e $tmpLibFile )
   {
-    $tmpLibFile = "/tmp/tmplibfile-" . $tmpIdx++;
+    $tmpLibFile = "/tmp/tmplibfile-$baseFile-" . $tmpIdx++;
   }
+  #print "Creating tmp lib file: $tmpLibFile \n";
 
   # Extract consensi and save to temp file
   open OUT, ">$tmpLibFile" or die "Can't create lib file $tmpLibFile: $?\n";
@@ -815,11 +849,12 @@ foreach my $reAlignRange ( @ranges )
 
   # Create a temp file name
   $tmpIdx = 1;
-  my $tmpQueryFile = "/tmp/tmpqueryfile-$tmpIdx";
+  my $tmpQueryFile = "/tmp/tmpqueryfile-$baseFile-$tmpIdx";
   while ( -e $tmpQueryFile )
   {
-    $tmpQueryFile = "/tmp/tmpqueryfile-" . $tmpIdx++;
+    $tmpQueryFile = "/tmp/tmpqueryfile-$baseFile-" . $tmpIdx++;
   }
+  #print "Creating tmp query file: $tmpQueryFile \n";
 
   # Extract query range and save to a temp file
   open OUT, ">$tmpQueryFile" or die "Can't create lib file $tmpQueryFile: $?\n";

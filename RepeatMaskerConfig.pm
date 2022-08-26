@@ -111,7 +111,7 @@ BEGIN {
                                             ],
                         'param_type' => 'directory',
                         'required' => 0,
-                        'value' => ''
+                        'value' => '/home/rhubley/projects/RepeatMasker/Libraries'
                       },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
@@ -153,7 +153,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.2-p1";
+$VERSION = "4.1.3";
 
 #
 # Set this flag to default to debug mode for the entire package

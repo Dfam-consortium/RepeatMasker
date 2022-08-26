@@ -451,8 +451,13 @@ sub search {
   if ( $this->getDEBUG() ) {
     ## Create a debug file
     my $outFile;
+    my $rand = 0;
+    my $currentTime;
     do {
-      $outFile = $outputDirName . "/cmResults-" . time() . ".out";
+      $currentTime = time();
+      $rand = rand(5000);
+      $outFile     = $outputDirName . "/cmResults-$currentTime-$$-$rand.out";
+
     } while ( -f $outFile );
     open OUT, ">$outFile";
     while ( <$POUTPUT> ) {
@@ -550,7 +555,7 @@ sub parseOutput {
   my $CMFILE;
   if ( ref( $nameValueParams{'searchOutput'} ) !~ /GLOB|FileHandle|IO::File/ ) {
     open $CMFILE, $nameValueParams{'searchOutput'}
-        or die $CLASS
+        or croak $CLASS
         . "::parseOutput: Unable to open "
         . "results file: $nameValueParams{'searchOutput'} : $!";
   }
