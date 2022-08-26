@@ -1,3 +1,41 @@
+4.1.3
+  - A new utility for generating trackHubs for our new UCSC TE visualization
+  - Fix a bug where killing RM while starting up can leave the cached libraries
+    in an inconsistent state. 
+  - Fixed a bug where in rare cases the joined fragment ID field is blank
+  - Merged in changes to Dupmasker supporting multi-threaded use
+  - Fixed legacy RepBase taxonomic labels
+  - Added support for GFF v3 output and fixed the utility/rmOutToGFF3.pl
+
+4.1.2p1
+  - Releases 4.1.1-4.1.2 contained a bug with the processing of Alu sequences in 
+    primates. The step where an initial annotation is refined into a particular 
+    Alu subfamily was not performed and the annotations remained labeled with the 
+    initial capture sequence ( AluJb, AluSx, or AluY ). This patch release fixes 
+    this one issue.
+  
+4.1.2
+  - Fixed 21 protein family classifications in RepeatProteinLib.
+  - Fixed a problem with the generation of the RepeatMasker.lib file for use by 
+    RepeatModeler. In release 4.1.1 it did not add the classification info to 
+    this auxilary file.
+  - Fixed a "log(0)" error that can cause the program to fault in rare circumstances.
+  - buildSummary now supports FamDB and has improved documentation.
+  - Bugfixes and improvements to FamDB.
+
+4.1.1
+  - Dfam (starting with version 3.2) is now distributed in the FamDB file format 
+    based on HDF5, which has improved support for large datasets compared to the 
+    EMBL and HMM formats that were previously used. RepeatMasker therefore includes
+    a copy of famdb.py, and depends on the python package h5py.
+
+      o The 'configure' script and other parts of RepeatMasker have been updated to 
+        accomodate these changes.
+      o The utilities 'queryTaxonomyDatabase.pl' and 'queryRepeatDatabase.pl' are no 
+        longer included, since that data is now included in FamDB. The 'famdb.py' 
+        tool can be used to make many of the same queries as the removed utilies, 
+        and even more.
+
 4.1.0
   - Refactored the RepeatMasker configuration system.  
     The changes make it easier to automate installation and/or
