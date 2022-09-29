@@ -153,7 +153,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.3";
+$VERSION = "4.1.3-p1";
 
 #
 # Set this flag to default to debug mode for the entire package

@@ -1,3 +1,10 @@
+4.1.3-p2
+  - A recent change in 4.1.3 to correct blank fragment ID fields can in rare
+    cases causing the error message: 'Can't call method "setLeftLinkedHit"'.
+  - The RepeatAnnotationData.pm file containing necessary information for
+    recognizing equivalent fragments of DNA transposons was missing data.
+  - The MULE-MuDR class was added to the *.tbl file for "-lib" searches.
+
 4.1.3
   - A new utility for generating trackHubs for our new UCSC TE visualization
   - Fix a bug where killing RM while starting up can leave the cached libraries
@@ -7,12 +14,12 @@
   - Fixed legacy RepBase taxonomic labels
   - Added support for GFF v3 output and fixed the utility/rmOutToGFF3.pl
 
-4.1.2p1
-  - Releases 4.1.1-4.1.2 contained a bug with the processing of Alu sequences in 
-    primates. The step where an initial annotation is refined into a particular 
-    Alu subfamily was not performed and the annotations remained labeled with the 
-    initial capture sequence ( AluJb, AluSx, or AluY ). This patch release fixes 
-    this one issue.
+4.1.2-p1
+  - Releases 4.1.1-4.1.2 contained a bug with the processing of Alu sequences 
+    in primates. The step where an initial annotation is refined into a 
+    particular Alu subfamily was not performed and the annotations remained 
+    labeled with the initial capture sequence ( AluJb, AluSx, or AluY ). 
+    This patch release fixes this one issue.
   
 4.1.2
   - Fixed 21 protein family classifications in RepeatProteinLib.

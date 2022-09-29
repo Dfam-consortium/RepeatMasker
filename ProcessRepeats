@@ -3723,7 +3723,9 @@ CYCLE9:
               $oldLeft->setRightLinkedHit( $oldRight );
               # RMH: 8/22/22 Fixed a bug reported by David Gordon and others where on rare occasions an
               #      identifier is omitted in the *.out file.
-              $newRight->setLeftLinkedHit( $newHit );
+              if ( $newRight ) {
+                $newRight->setLeftLinkedHit( $newHit );
+              }
               $newHit->checkLinkOrder();
             }
           }
@@ -6096,9 +6098,10 @@ sub generateOutput {
     printf $OUT "   En-Spm           %6d   %10d bp   %5.2f \%\n",
         $uniqCount{"DNA/En-Spm"}, $totlength{"DNA/En-Spm"},
         $totlength{"DNA/En-Spm"} * 100 * $usePerc / $totseqlen;
-    printf $OUT "   MuDR-IS905       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/MuDR"}, $totlength{"DNA/MuDR"},
-        $totlength{"DNA/MuDR"} * 100 * $usePerc / $totseqlen;
+    printf $OUT "   MULE-MuDR        %6d   %10d bp   %5.2f \%\n",
+        $uniqCount{"DNA/MuDR"}+$uniqCount{"DNA/MULE-MuDR"}, 
+        $totlength{"DNA/MuDR"}+$totlength{"DNA/MULE-MuDR"},
+        $totlength{"DNA/MuDR"}+$totlength{"DNA/MULE-MuDR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "   PiggyBac         %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'DNAPIG'}->{'count'},
         $aggregateStats{'DNAPIG'}->{'length'},
