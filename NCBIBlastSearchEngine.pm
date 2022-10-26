@@ -322,6 +322,23 @@ sub setPathToEngine {
   if ( $result =~ /rmblast[n]\s*:?\s*(\S.*)/ ) {
     $this->{'engineName'} = "rmblastn";
     $this->{'version'}    = $1;
+    if ( $this->{'version'} =~ /(\d+)\.(\d+)\.(\d+)\+/ ) {
+      my $majorVer = $1;
+      my $minorVer = $2;
+      my $revision = $3;
+      if ( $majorVer >= 2 && $minorVer >= 13 ) {
+         # Since the 2.13.0+ release of RMBlast we now have:
+         #    - pre-computed Kimura divergence, Kimura CpG adjusted,
+         #      transitions, transversions, cpg_sites, and the cross_match
+         #      stats (perc_sub, perc_query_gap, perc_subj_gap).
+         #    - Ability to thread on the query sequences rather than just
+         #      the subject sequences.
+         #    - The ability to output tab delimited format with all the above
+         #      fields.
+         $this->{'hasQueryThreading'} = 1;
+         $this->{'hasTabFormat'} = 1;
+      }
+    }
   }
   else {
     croak $CLASS
@@ -338,6 +355,76 @@ sub setPathToEngine {
 ##-------------------------------------------------------------------------##
 ## Instance Methods
 ##-------------------------------------------------------------------------##
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
+=item Use: my $value = getForceLegacyParsing( );
+
+=item Use: my $oldValue = setForceLegacyParsing( $value );
+
+Get/Set the use of legacy parsing when used with rmblastn 2.13.0+ or 
+newer.  This serves to assist with debugging.
+
+  $value :  Integer >= 0
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getForceLegacyParsing {
+  my $this = shift;
+
+  return $this->{'useLegacyParser'};
+}
+
+sub setForceLegacyParsing {
+  my $this  = shift;
+  my $value = shift;
+
+  my $oldValue = $this->{'useLegacyParser'};
+  $this->{'useLegcyParser'} = $value;
+
+  return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
+=item Use: my $value = getThreadByQuery( );
+
+=item Use: my $oldValue = setThreadByQuery( $value );
+
+Get/Set the use of threading over the query sequences.  This is
+used when there is a much larger query set than database.  
+
+  $value :  Integer >= 0
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getThreadByQuery {
+  my $this = shift;
+
+  return $this->{'useThreadByQuery'};
+}
+
+sub setThreadByQuery {
+  my $this  = shift;
+  my $value = shift;
+
+  my $oldValue = $this->{'useThreadByQuery'};
+  $this->{'useThreadByQuery'} = $value;
+
+  return $oldValue;
+}
+
+
 
 ##-------------------------------------------------------------------------##
 
@@ -478,6 +565,16 @@ sub getParameters {
     $parameters .= " -min_raw_gapped_score $minScore -dust no ";
   }
 
+  if ( exists $this->{'hasTabFormat'} && !$this->{'forceLegacyParser'} ) 
+  {
+    if ( $this->getGenerateAlignments() )
+    {
+      $parameters .= " -outfmt=\"6 score perc_sub perc_query_gap perc_db_gap qseqid qstart qend qlen sstrand sseqid sstart send slen kdiv cpg_kdiv transi transv cpg_sites qseq sseq\" ";
+    }else {
+      $parameters .= " -outfmt=\"6 score perc_sub perc_query_gap perc_db_gap qseqid qstart qend qlen sstrand sseqid sstart send slen kdiv cpg_kdiv transi transv cpg_sites\" ";
+    }
+  }
+
   #
   # TODO: Is there some way we can check to see if this
   #       is a MT version of rmblastn?  Also a good way
@@ -488,6 +585,10 @@ sub getParameters {
   }
   else {
     $parameters .= " -num_threads 4 ";
+  }
+
+  if ( defined( $value = $this->getThreadByQuery() ) && $value > 0 ) {
+    $parameters .= " -mt_mode 1 ";
   }
 
   if ( defined( $value = $this->getMatrix() ) ) {
@@ -616,6 +717,7 @@ sub search {
   $parseParams{'debug'} = $this->getDEBUG() if ( $this->getDEBUG );
   $parseParams{'excludeAlignments'} = 1 if ( !$this->getGenerateAlignments() );
   $parseParams{'matrixName'}        = $matrixName;
+  $parseParams{'format'} = "tab" if ( $this->{'hasTabFormat'} && !$this->{'forceLegacyParser'} );
 
   # Places to hold result codes and alignment data
   my $resultCode;
@@ -666,29 +768,43 @@ sub search {
        && $searchResultsCollection->size() > 0 )
   {
 
-    ## For some reason when complexity adjustment is turned off
-    ## RMBLAST isn't respecting the min_raw_gapped_score. For
-    ## now I am doing it as a perl postprocessing step below.
-    my $minScore = $this->getMinScore();
-    if ( defined $minScore ) {
-      print $CLASS
-          . "::search: "
-          . $searchResultsCollection->size()
-          . " hits before minScore filtering\n"
-          if ( $this->getDEBUG() );
-
-      for ( my $i = $searchResultsCollection->size() - 1 ; $i >= 0 ; $i-- ) {
-        if ( $searchResultsCollection->get( $i )->getScore() < $minScore ) {
-          $searchResultsCollection->remove( $i );
+    if ( ! $this->{'hasTabFormat'} || $this->{'forceLegacyParser'} )
+    {
+      ## For some reason when complexity adjustment is turned off
+      ## RMBLAST isn't respecting the min_raw_gapped_score. For
+      ## now I am doing it as a perl postprocessing step below.
+      my $minScore = $this->getMinScore();
+      if ( defined $minScore ) {
+        print $CLASS
+            . "::search: "
+            . $searchResultsCollection->size()
+            . " hits before minScore filtering\n"
+            if ( $this->getDEBUG() );
+  
+        for ( my $i = $searchResultsCollection->size() - 1 ; $i >= 0 ; $i-- ) {
+          if ( $searchResultsCollection->get( $i )->getScore() < $minScore ) {
+            $searchResultsCollection->remove( $i );
+          }
         }
+        print $CLASS
+            . "::search: "
+            . $searchResultsCollection->size()
+            . " hits after minScore filtering\n"
+            if ( $this->getDEBUG() );
       }
-      print $CLASS
-          . "::search: "
-          . $searchResultsCollection->size()
-          . " hits after minScore filtering\n"
-          if ( $this->getDEBUG() );
+  
+      for ( my $i = 0 ; $i < $searchResultsCollection->size() ; $i++ ) {
+        my $result = $searchResultsCollection->get( $i );
+  
+        #
+        # Calculate Kimura divergence using the CpG modification described
+        # in SearchResult.pm
+        #
+        my ( $div, $transi, $transv, $wellCharBases, $numCpGs ) =
+            $result->calcKimuraDivergence( divCpGMod => 1 );
+        $result->setPctKimuraDiverge( sprintf( "%4.2f", $div ) );
+      }
     }
-
     # The final result collection should be sorted by
     #  queryname and secondarily by query start position.
     $searchResultsCollection->sort(
@@ -698,17 +814,6 @@ sub search {
       }
     );
 
-    for ( my $i = 0 ; $i < $searchResultsCollection->size() ; $i++ ) {
-      my $result = $searchResultsCollection->get( $i );
-
-      #
-      # Calculate Kimura divergence using the CpG modification described
-      # in SearchResult.pm
-      #
-      my ( $div, $transi, $transv, $wellCharBases, $numCpGs ) =
-          $result->calcKimuraDivergence( divCpGMod => 1 );
-      $result->setPctKimuraDiverge( sprintf( "%4.2f", $div ) );
-    }
 
   }
 
@@ -734,17 +839,191 @@ sub search {
 
   Use: my $SearchResultCollection = NCBIBLASTSearchEngine::parseOutput(
                                      searchOutput => $filename|$FH,
+                                     [format => 'tab'],
                                      [matrixName => $matrixName],
                                      [excludeAlignments => 1]  );
 
   Parse the result of a search and return a SearchResultCollection.
-  NOTE: Providing a scoreMatrix parameter turns on complexity 
-        score adjustment.
 
 =cut
 
 ##-------------------------------------------------------------------------##
 sub parseOutput {
+  my %nameValueParams = @_;
+
+  croak $CLASS. "::parseOutput() missing searchOutput parameter!\n"
+      if ( !exists $nameValueParams{'searchOutput'} );
+
+  if ( exists $nameValueParams{'format'} &&  $nameValueParams{'format'} eq "tab" )
+  {
+    return ( &parseTabOutput(%nameValueParams) );
+  }else {
+    return ( &parseReportOutput(%nameValueParams) );
+  }
+}
+
+
+##-------------------------------------------------------------------------##
+
+=head2 parseTabOutput()
+
+  Use: my $SearchResultCollection = NCBIBLASTSearchEngine::parseTabOutput(
+                                     searchOutput => $filename|$FH,
+                                     [matrixName => $matrixName],
+                                     [excludeAlignments => 1]  );
+
+  Parse the result of a search in NCBI Blast tab delemited format
+  (2.13.0+ and up) and return a SearchResultCollection.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub parseTabOutput {
+  my %nameValueParams = @_;
+
+  croak $CLASS. "::parseTabOutput() missing searchOutput parameter!\n"
+      if ( !exists $nameValueParams{'searchOutput'} );
+
+  my $NCBIFILE;
+  if ( ref( $nameValueParams{'searchOutput'} ) !~ /GLOB|FileHandle|IO::File/ ) {
+    print $CLASS
+        . "::parseTabOutput() Opening file "
+        . $nameValueParams{'searchOutput'} . "\n"
+        if ( $nameValueParams{'debug'} );
+    open $NCBIFILE, $nameValueParams{'searchOutput'}
+        or croak $CLASS
+        . "::parseTabOutput: Unable to open "
+        . "results file: $nameValueParams{'searchOutput'} : $!";
+  }
+  else {
+    $NCBIFILE = $nameValueParams{'searchOutput'};
+  }
+
+  my $callbackFunc = undef;
+  if ( defined $nameValueParams{'callback'}
+       && ref( $nameValueParams{'callback'} ) == /CODE/ )
+  {
+    $callbackFunc = $nameValueParams{'callback'};
+  }
+
+  my $matrix;
+  $matrix = $nameValueParams{'matrixName'}
+      if ( defined $nameValueParams{'matrixName'} );
+
+  my $resultColl = SearchResultCollection->new();
+
+  # So simple it hurts, no parsing madness with tab separated value
+  while ( <$NCBIFILE> ) {
+
+    print "RMBLASTN: $_"
+        if ( exists $nameValueParams{'debug'}
+             && $nameValueParams{'debug'} > 8 );
+
+    if ( /^\d+/ ) {
+      s/[\n\r]+//g;
+      my @flds = split(/\t/);
+      #
+      # 18 Field Format:
+      #   -outfmt="6 score perc_sub perc_query_gap perc_db_gap qseqid qstart 
+      #            qend qlen sstrand sseqid sstart send slen kdiv cpg_kdiv
+      #            transi transv cpg_sites"
+      # 20 Field Format:
+      #   -outfmt="6 score perc_sub perc_query_gap perc_db_gap qseqid qstart 
+      #            qend qlen sstrand sseqid sstart send slen kdiv cpg_kdiv 
+      #            transi transv cpg_sites qseq sseq"
+      #
+      # Example:
+      #  2430    17.63   8.33    6.51    qseq1  595     1530    1587    plus    
+      #     dseq1    1722      2673    6004    13.21   12.91   73      9       
+      #     91      AATTGTCACCAAACAAAT	AATTGTTACTAAATTTGTCA-ACAAAT
+      #
+      if ( @flds == 18 || @flds == 20 ){
+         my $orient = "";
+         my $sbjStart = $flds[10];
+         my $sbjEnd = $flds[11];
+         if ( $flds[8] eq "minus" )
+         {
+           $orient = "C";
+           $sbjStart = $flds[11];
+           $sbjEnd = $flds[10];
+         }
+         my $result = SearchResult->new(
+                                     queryName      => $flds[4],
+                                     queryStart     => $flds[5],
+                                     queryEnd       => $flds[6],
+                                     queryRemaining => ( $flds[7] - $flds[6] ),
+                                     orientation    => $orient,
+                                     subjName       => $flds[9],
+                                     subjStart      => $sbjStart,
+                                     subjEnd        => $sbjEnd,
+                                     subjRemaining  => ( $flds[12] - $sbjEnd ),
+                                     pctDiverge     => $flds[1],
+                                     pctInsert      => $flds[3],
+                                     pctDelete      => $flds[2],
+                                     matrixName     => $matrix,
+                                     score          => $flds[0],
+                                     pctRawKimuraDiverge => $flds[13],
+                                     pctKimuraDiverge    => $flds[14],  # CpG adjusted
+                                     cpGSites            => $flds[17]    
+        );
+        if ( @flds == 20 ) {
+          $result->setQueryString($flds[18]); 
+          $result->setSubjString($flds[19]); 
+        }
+
+        if ( defined $callbackFunc ) {
+          $callbackFunc->( $result );
+        }
+        else {
+          $resultColl->add( $result );
+        }
+
+
+      }else {
+        # Warn....bad number of fields
+      }
+      
+    }else {
+      # possibly a header row?
+    }
+
+# Reorient if this is a reverse strand
+# hit.
+#
+#if ( $qryOrient eq "C" ) 
+#
+#          # Fix the sequence orientation so that it
+#          # matches the SearchResult.pm convention of
+#          # the query being in the forward direction.
+#          $qrySeq = reverse $qrySeq;
+#          $qrySeq =~ tr/ACGTYRMKHBVD/TGCARYKMDVBH/;    # complement
+#          $sbjSeq = reverse $sbjSeq;
+#          $sbjSeq =~ tr/ACGTYRMKHBVD/TGCARYKMDVBH/;    # complement
+#          $orientation = "C";
+
+  }
+  close $NCBIFILE;
+
+  return $resultColl;
+}
+
+
+##-------------------------------------------------------------------------##
+
+=head2 parseReportOutput()
+
+  Use: my $SearchResultCollection = NCBIBLASTSearchEngine::parseReportOutput(
+                                     searchOutput => $filename|$FH,
+                                     [matrixName => $matrixName],
+                                     [excludeAlignments => 1]  );
+
+  Parse the result of a search in NCBI Blast report alignment format (default)
+  and return a SearchResultCollection.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub parseReportOutput {
   my %nameValueParams = @_;
 
   croak $CLASS. "::parseOutput() missing searchOutput parameter!\n"
@@ -811,7 +1090,7 @@ sub parseOutput {
     "AR" => 1,
     "AY" => 0,
     "AK" => 0,
-    "AM" => 0,
+    "AM" => 1,
     "AS" => 0,
     "AW" => 1,
     "AN" => 1,

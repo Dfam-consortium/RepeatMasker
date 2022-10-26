@@ -792,7 +792,7 @@ sub setPctDiverge {
   Use: my $value    = getPctKimuraDiverge();
   Use: my $oldValue = setPctKimuraDiverge( $value );
 
-  Get/Set the percent divergence value.
+  Get/Set the percent Kimura divergence value adjusted for CpG sites.
 
 =cut
 
@@ -812,6 +812,68 @@ sub setPctKimuraDiverge {
 
   $oldValue = $obj->{'percKimuraDiv'};
   $obj->{'percKimuraDiv'} = $value;
+
+  return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 get_setPctRawKimuraDiverge()
+
+  Use: my $value    = getPctRawKimuraDiverge();
+  Use: my $oldValue = setPctRawKimuraDiverge( $value );
+
+  Get/Set the percent Kimura divergence value (not adjusted).
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getPctRawKimuraDiverge {
+  my $obj = shift;
+
+  my $value = $obj->{'percRawKimuraDiv'};
+
+  return $value;
+}
+
+sub setPctRawKimuraDiverge {
+  my $obj      = shift;
+  my $value    = shift;
+  my $oldValue = undef;
+
+  $oldValue = $obj->{'percRawKimuraDiv'};
+  $obj->{'percRawKimuraDiv'} = $value;
+
+  return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 get_setCpGSites()
+
+  Use: my $value    = getCpGSites();
+  Use: my $oldValue = setCpGSites( $value );
+
+  Get/Set the count of CpG sites
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getCpGSites {
+  my $obj = shift;
+
+  my $value = $obj->{'cpgSites'};
+
+  return $value;
+}
+
+sub setCpGSites {
+  my $obj      = shift;
+  my $value    = shift;
+  my $oldValue = undef;
+
+  $oldValue = $obj->{'cpgSites'};
+  $obj->{'cpgSites'} = $value;
 
   return $oldValue;
 }
@@ -1578,7 +1640,6 @@ sub calcKimuraDivergence {
         $transversions++;
       }
       if ( $prevTrans == 2 ) {
-
         # CpG sites contains 2 transitions ( treat as 1 trans )
         $prevTrans = 1;
       }
@@ -2675,6 +2736,13 @@ sub _toCrossMatchFormat {
       $retStr .=
           "Kimura (with divCpGMod) = " . $obj->getPctKimuraDiverge() . "\n";
     }
+
+    if ( $obj->getCpGSites() ne "" && $obj->getPctRawKimuraDiverge() ne "" )
+    {
+      $retStr .= "CpG sites = " . $obj->getCpGSites() .
+                 ", Kimura (unadjusted) = " . $obj->getPctRawKimuraDiverge() . "\n"; 
+    }
+ 
     $retStr .= "Transitions / transversions = ";
 
     if ( defined $mismatchType{'v'} ) {

@@ -281,7 +281,7 @@ sub getParameters {
   my $engine = $this->getPathToEngine();
   if ( !defined $engine || !-f "$engine" ) {
     croak $CLASS
-        . "::search: The path to the search engine is undefined or\n"
+        . "::getParameters: The path to the search engine is undefined or\n"
         . "is set incorrectly: $engine\n";
   }
 
@@ -333,7 +333,7 @@ sub getParameters {
       $parameters .= " -matrix $value";
     }
     else {
-      croak $CLASS. "::search: Error...matrix ($value) does not exist!\n";
+      croak $CLASS. "::getParameters: Error...matrix ($value) does not exist!\n";
     }
   }
   if ( ( $value = $this->getQuery() ) ) {
@@ -341,22 +341,22 @@ sub getParameters {
       $parameters .= " $value";
     }
     else {
-      croak $CLASS. "::search: Error...query ($value) does not exist!\n";
+      croak $CLASS. "::getParameters: Error...query ($value) does not exist!\n";
     }
   }
   else {
-    croak $CLASS. "::search: Error query undefined!\n";
+    croak $CLASS. "::getParameters: Error query undefined!\n";
   }
   if ( ( $value = $this->getSubject() ) ) {
     if ( -f $value ) {
       $parameters .= " $value";
     }
     else {
-      croak $CLASS. "::search: Error...subject ($value) does not exist!\n";
+      croak $CLASS. "::getParameters: Error...subject ($value) does not exist!\n";
     }
   }
   else {
-    croak $CLASS. "::search: Error subject undefined!\n";
+    croak $CLASS. "::getParameters: Error subject undefined!\n";
   }
 
   return ( "$engine $parameters" );
