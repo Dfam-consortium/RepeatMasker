@@ -326,7 +326,7 @@ sub setPathToEngine {
       my $majorVer = $1;
       my $minorVer = $2;
       my $revision = $3;
-      if ( $majorVer >= 2 && $minorVer >= 13 ) {
+      if ( $majorVer > 2 || ($majorVer == 2 && $minorVer >= 13 )) {
          # Since the 2.13.0+ release of RMBlast we now have:
          #    - pre-computed Kimura divergence, Kimura CpG adjusted,
          #      transitions, transversions, cpg_sites, and the cross_match
