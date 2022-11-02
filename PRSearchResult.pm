@@ -176,6 +176,10 @@ sub setFrom {
   $this->setQueryString( $source->getQueryString() );
   $this->setMatrixName( $source->getMatrixName() );
 
+  $this->setPctRawKimuraDiverge( $source->getPctRawKimuraDiverge() );
+  $this->setCpGSites( $source->getCpGSites() );
+
+
   # WARNING: Do not inherit "derivedFromAnnots".
   # These are the fields we are ignoring currently
   #    setStatus
