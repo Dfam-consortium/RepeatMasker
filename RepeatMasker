@@ -503,6 +503,15 @@ if ( defined $options{'int'} || defined $options{'low'} ) {
       . "-noint or -nolow instead.\n\n";
 }
 
+if ( defined $options{'nolow'} ) {
+  print "\nWARNING: The nolow option should be used with caution.  This option\n" . 
+        "         doesn't simply filter out simple repeats and low-complexity\n" .
+        "         annotations from the output, rather it doesn't run these\n" .
+        "         searches at all.  The simple repeats, and low-complexity\n" . 
+        "         sequences may then be falsely annotated as fragments of\n" .
+        "         TE families that contain short stretches of them.\n\n";
+}
+
 if ( !-e $TRF_PRGM ) {
   die "TRF program not configured! This version of RepeatMasker requires a\n"
       . "local installatoin of TRF.  Please visit:\n"
