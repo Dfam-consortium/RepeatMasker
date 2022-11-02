@@ -291,9 +291,9 @@ sub setPathToEngine {
 
 =head2 getParameters()
 
-  Use: my  $wuBlastParamString  = getParameters( );
+  Use: my  $nhmmerParamString  = getParameters( );
 
-  Convert object parameters into WUBlast command line parameters.
+  Convert object parameters into nhmmer command line parameters.
 
 =cut
 
@@ -309,10 +309,9 @@ sub getParameters {
         . "is set incorrectly: $engine\n";
   }
 
-  # TESTING: Setting BG
-  #
   my $bgFile = undef;
   if ( 0 ) {
+    # Testing setting BG 
     my $value;
     if ( $value = $this->getMatrix() ) {
       if ( $value =~ /(\d\d)g/ ) {
@@ -340,7 +339,6 @@ sub getParameters {
         close BGFILE;
       }
     }
-
     # END Testing
   }
 

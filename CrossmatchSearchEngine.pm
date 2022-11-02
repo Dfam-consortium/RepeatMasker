@@ -605,6 +605,8 @@ sub parseOutput {
   my $transI;
   my $transV;
   my $kimura;
+  my $cpgSites;
+  my $kimuraRaw;
   my $subjSeq;
   my $result;
   my $alignPos          = 0;
@@ -650,10 +652,17 @@ sub parseOutput {
       $matrix =~ s/[\n\r]//g;
     }
 
-    # Kimura Divergence
+    # Kimura Divergence (adjusted)
     #  - Non crossmatch field
     if ( /^Kimura.*=\s*(\S+)/ ) {
       $kimura = $1;
+    }
+
+    # Kimura unadjusted and cpg sites
+    #  -Non crossmatch field
+    if ( /^CpG sites\s*=\s*(\d+),\s*Kimura \(unadjusted\)\s*=\s*([\d\.]+)/ ) {
+      $cpgSites = $1;
+      $kimuraRaw = $2;
     }
 
     #
@@ -839,6 +848,12 @@ sub parseOutput {
       if ( defined $kimura ) {
         $result->setPctKimuraDiverge( $kimura );
       }
+      if ( defined $kimuraRaw ) {
+        $result->setPctRawKimuraDiverge($kimuraRaw);
+      }
+      if ( defined $cpgSites ) {
+        $result->setCpGSites($cpgSites);
+      }
 
       if ( defined $callbackFunc ) {
         $callbackFunc->( $result );
@@ -851,6 +866,8 @@ sub parseOutput {
       $transV            = 0;
       $transI            = 0;
       $kimura            = undef;
+      $kimuraRaw         = undef;
+      $cpgSites          = undef;
       $alignPos          = 0;
       $queryComplemented = 0;
       @hdrLineArray      = ();

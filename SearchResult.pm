@@ -2737,7 +2737,7 @@ sub _toCrossMatchFormat {
           "Kimura (with divCpGMod) = " . $obj->getPctKimuraDiverge() . "\n";
     }
 
-    if ( $obj->getCpGSites() ne "" && $obj->getPctRawKimuraDiverge() ne "" )
+    if ( defined $obj->getCpGSites() && defined $obj->getPctRawKimuraDiverge() )
     {
       $retStr .= "CpG sites = " . $obj->getCpGSites() .
                  ", Kimura (unadjusted) = " . $obj->getPctRawKimuraDiverge() . "\n"; 

@@ -128,7 +128,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => '/usr/local/rmblast/bin'
+                             'value' => '/usr/local/rmblast-2.13.0/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',
@@ -153,7 +153,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.3-p1";
+$VERSION = "4.1.4-dev";
 
 #
 # Set this flag to default to debug mode for the entire package
