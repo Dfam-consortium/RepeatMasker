@@ -5,6 +5,8 @@
   - New CpGSites and unadjusted Kimura stats in the *.align file.
   - Fixed a bug that caused the read-only state of the input fasta file
     to propogate to the intermediate files and cause the program to exit.
+  - Removed DateRepeats as it's based on old library formats - this functionality
+    will return with the refactored version of RM in the works.
 
 4.1.3-p2
   - A recent change in 4.1.3 to correct blank fragment ID fields can in rare
