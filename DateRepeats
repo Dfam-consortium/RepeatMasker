@@ -226,8 +226,7 @@ if ( $options{'libdir'} ) {
   $dir = $options{'libdir'};
 }
 
-my $message =
-"You need a RepeatMasker library of June 2003 or later for $script to function\n(the file \"version\" in the $dir directory needs to say 20030606 or later).\nNew RepeatMasker libraries can be downloaded from http://www.girinst.org\n";
+my $message = "Missing $dir/RepeatMaskerLib.embl file!";
 
 unless ( -s "$dir/RepeatMaskerLib.embl" ) {
   open IN, "$dir/version" || die "$message";

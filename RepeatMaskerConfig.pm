@@ -85,7 +85,7 @@ BEGIN {
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => 'rmblast'
+                                       'value' => ''
                                      },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
@@ -153,7 +153,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.3-p1";
+$VERSION = "4.1.4";
 
 #
 # Set this flag to default to debug mode for the entire package
