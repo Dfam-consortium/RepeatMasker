@@ -484,24 +484,28 @@ sub searchEngineMenu {
       }
       else {
         RepeatMaskerConfig::promptForParam($searchEngines[$answer-1]->{'name'});
-        system("clear");
-        print "\n\n\n";
-        print "Do you want " . $searchEngines[$answer-1]->{'desc'} . " to be your default\nsearch engine for Repeatmasker? (Y/N) ";
-        print " [ Y ]: ";
-        my $isDefault = <STDIN>;
-        $isDefault =~ s/[\n\r]+//g;
-        if ( $isDefault =~ /^\s*$/ || $isDefault =~ /\s*[yY]\s*/ ) 
-        {
-          for ( $i = 0 ; $i <= $#searchEngines ; $i++ )
+        if ( $defaultEngine ne "" ) {
+          system("clear");
+          print "\n\n\n";
+          print "Do you want " . $searchEngines[$answer-1]->{'desc'} . " to be your default\nsearch engine for Repeatmasker? (Y/N) ";
+          print " [ Y ]: ";
+          my $isDefault = <STDIN>;
+          $isDefault =~ s/[\n\r]+//g;
+          if ( $isDefault =~ /^\s*$/ || $isDefault =~ /\s*[yY]\s*/ ) 
           {
-            $searchEngines[$i]->{'status'} = 1 
-              if ( $searchEngines[$i]->{'status'} == 2 );
+            for ( $i = 0 ; $i <= $#searchEngines ; $i++ )
+            {
+              $searchEngines[$i]->{'status'} = 1 
+                if ( $searchEngines[$i]->{'status'} == 2 );
+            }
+            $searchEngines[ $answer - 1 ]->{'status'} = 2;
+            $RepeatMaskerConfig::configuration->{'DEFAULT_SEARCH_ENGINE'}->{'value'} = $searchEngines[$answer-1]->{'defname'};
+            $defaultEngine = $answer;
+          }else {
+            $searchEngines[ $answer - 1 ]->{'status'} = 1;
           }
-          $searchEngines[ $answer - 1 ]->{'status'} = 2;
-          $RepeatMaskerConfig::configuration->{'DEFAULT_SEARCH_ENGINE'}->{'value'} = $searchEngines[$answer-1]->{'defname'};
-          $defaultEngine = $answer;
         }else {
-          $searchEngines[ $answer - 1 ]->{'status'} = 1;
+          $searchEngines[ $answer - 1 ]->{'status'} = 2;
         }
       }
     }
