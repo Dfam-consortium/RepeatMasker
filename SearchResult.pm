@@ -1689,7 +1689,7 @@ sub calcKimuraDivergence {
   Use: my ( $score, $divergence, $cpgsites, $percIns, $percDel, 
             \@positionScores, \@xdrop_fragments, $well_characterized_bases,
             transisitions, transversions )  = rescoreAlignment( 
-                             scoreMatrix => $matrixFileName,
+                             scoreMatrix => MatrixObj,
                              gapOpenPenalty => #,
                              [ gapExtPenalty => #,|
                                  insGapExtensionPenalty => #,
@@ -1891,9 +1891,24 @@ sub rescoreAlignment {
       next;
     }
 
-    # Assumption: Subject is the consensus sequence
-    # Assumption: Matrix rows = ancestral state, cols = derived state
-    #                or matrix[$sIdx][$qIdx]
+    # Matrices developed for crossmatch:
+    #     Crossmatch applies matrix values as:
+    #
+    #                     query residue
+    #            +------------------------------
+    #  subject   |
+    #    residue | 
+    #            |
+    #
+    #     Arian's matrices were developed with the
+    #     specific assignment of:
+    #              query = genomic, or derived state
+    #            subject = consensus, or ancestral state
+    #
+    # This rescoring routine assumes that the subj/query
+    # strings in the search result and the supplied matrix
+    # follow this convention.  Therefore the scores are
+    # looked up as:  matrix[subj_base][query_base]
 
     # Score the aligned bases
     my $matScore =
