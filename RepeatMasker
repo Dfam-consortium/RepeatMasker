@@ -7764,7 +7764,7 @@ sub initLibrariesFromFamdb {
       }elsif ( -d "$path/$dbLabel/$speciesWord" . ".working" ) {
         # Make sure checkpointing name has been cleared in previous run
         print "\n  It appears that RepeatMasker attempted to generate a cached library for this\n"
-              ."  species before but didn't complete it.  Attempting to remove and reubild this\n"
+              ."  species before but didn't complete it.  Attempting to remove and rebuild this\n"
               ."  cache: $path/$dbLabel/$speciesWord.working\n\n";
         rmtree("$path/$dbLabel/$speciesWord" . ".working",0,1);
       }
@@ -7788,7 +7788,7 @@ sub initLibrariesFromFamdb {
       }elsif ( -d "$path/$dbLabel/general" . ".working" ){
         # Make sure checkpointing name has been cleared in previous run
         print "\n  It appears that RepeatMasker attempted to generate a cached general library\n"
-              ."  before but didn't complete it.  Attempting to remove and reubild this\n"
+              ."  before but didn't complete it.  Attempting to remove and rebuild this\n"
               ."  cache: $path/$dbLabel/general.working\n\n";
         rmtree("$path/$dbLabel/general.working",0,1);
       }
@@ -8138,7 +8138,7 @@ sub createLibFromFamdb {
         if ( /^MAXL\s+(\d+)/ ) {
           $hmm_maxl = $1;
         }
-        if ( /^STATS\s+LOCAL\s+FORWARD\s+([\d\.]+)\s+([\d\.]+)/ ) {
+        if ( /^STATS\s+LOCAL\s+FORWARD\s+([\-\d\.]+)\s+([\-\d\.]+)/ ) {
           $hmm_tau = $1;
           $hmm_lambda = $2;
         }
@@ -8156,7 +8156,8 @@ sub createLibFromFamdb {
         if ( /^\/\// ) {
           print OUT $preHeader;
           if ( $hasGA == 0 ){
-            die "Could not find hmm MAXL value for $acc!\n" if ( $hmm_maxl == 0 );
+            die "Could not find HMM Lambda is zero in accession $acc!\n" if ( $hmm_lambda == 0 );
+            die "Could not find HMM MAXL value for $acc!\n" if ( $hmm_maxl == 0 );
             # From eval2score() originally in hmmstat and now in dfthresh ( see dfthresh for details )
             my $nseq = $Zval / $hmm_maxl;
             my $sc = $hmm_tau - ((1/$hmm_lambda) * log($evalue/$nseq));
