@@ -2229,6 +2229,14 @@ sub _toCAF {
     $sbjSeq =~ s/^(\S)//;
     my $sbjChar = $1;
     if ( $qryChar eq "-" ) {
+      if ( $delStart != -1 ) {
+        # I have seen cases like this:
+        #     CAAAGACAAAA-ACGACA
+        #     v  i      --  v i 
+        #     GAAGGACAAA-AACCATA  
+        $outSeq .= "-";
+        $delStart = -1;
+      }
       if ( $insStart == -1 ) {
         $outSeq .= "+";
         $insStart = 1;
@@ -2237,6 +2245,11 @@ sub _toCAF {
       $sbjPos++;
     }
     elsif ( $sbjChar eq "-" ) {
+      if ( $insStart != -1 ) {
+        # See above
+        $outSeq .= "+";
+        $insStart = -1;
+      }
       if ( $delStart == -1 ) {
         $outSeq .= "-";
         $delStart = 1;
