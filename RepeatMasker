@@ -108,6 +108,18 @@ repeat options
 
 Does not mask low_complexity DNA or simple repeats
 
+NOTE: This is an important step in RepeatMasker, the identification
+of low-divergence simple repeats early in RepeatMasker's search
+phase lowers the overall false-positive rate for TE annotations 
+considerably.  To simply remove simple repeats from the final output
+of RepeatMasker use postprocessing tools such as:
+
+ egrep -v "Simple|Satellite" my_data.out > filtered.out
+
+To remove these annotations from the final output.  The -nolow option
+should only be used when there is a specific reason to avoid pre/post
+masking tandem/simple/low-complexity sequences.
+
 =item -noint   
 
 Only masks low complex/simple repeats (no interspersed repeats)
@@ -122,7 +134,7 @@ Only masks Alus (and 7SLRNA, SVA and LTR5)(only for primate DNA)
 
 =item -div [number]  
 
-Masks only those repeats < x percent diverged from consensus seq
+Masks only those repeats with [number] percent diverged from consensus
 
 =item -lib [filename] 
 
