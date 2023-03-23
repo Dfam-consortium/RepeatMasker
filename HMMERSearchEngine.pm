@@ -542,9 +542,9 @@ sub search {
     if ( defined( $maskLevel = $this->getMaskLevel() ) && $maskLevel < 101 ) {
       my $strand;
       print "Using: masklevel = $maskLevel\n" if ( $this->getDEBUG() );
-      print ""
-          . $searchResultsCollection->toString( SearchResult::OutFileFormat )
-          . "\n";
+      #print ""
+      #    . $searchResultsCollection->toString( SearchResult::OutFileFormat )
+      #    . "\n";
       if ( defined( $strand = $this->getMaskLevelSequence() ) ) {
         $searchResultsCollection->maskLevelFilter( value  => $maskLevel,
                                                    strand => $strand );
@@ -558,9 +558,9 @@ sub search {
           . " hits "
           . "after masklevel filtering\n"
           if ( $this->getDEBUG() );
-      print ""
-          . $searchResultsCollection->toString( SearchResult::OutFileFormat )
-          . "\n";
+      #print ""
+      #    . $searchResultsCollection->toString( SearchResult::OutFileFormat )
+      #    . "\n";
     }
 
     for ( my $i = 0 ; $i < $searchResultsCollection->size() ; $i++ ) {
@@ -859,6 +859,9 @@ sub parseOutput {
     if ( $inAlignState
          && /^\s+(\S+)\s+(\d+|-)\s+([acgtnbdhvrykmsw\.\-]+)\s+(\d+|-)/i )
     {
+
+      # TODO: This is fragile, if a sequence is searched against itself then you end up 
+      #       only one sequence because the IDs are the descriminating factor!
 
       # Query or Subject
       if ( $1 eq $qryID ) {

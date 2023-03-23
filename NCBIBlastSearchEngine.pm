@@ -530,7 +530,9 @@ sub getParameters {
     ## global alignment.  I.e when refining a previously
     ## aligned region with new consensi.
     ## Currently this special case is only used by
-    ## the "rbn" utility.
+    ## the "align.pl" utility.  NOTE: To be safe, the
+    ## only way this is invoked is with a negative value
+    ## e.g -bandwidth -29 ( cm bandwidth default is 14 [14*2+1])
     if ( defined( $value = $this->getBandwidth() )
          && $value < 0 )
     {
@@ -760,6 +762,7 @@ sub search {
 
   print "NCBIBlast returned a the following result code >$resultCode<\n"
       if ( $this->getDEBUG() );
+
 
   #
   # Postprocess the results

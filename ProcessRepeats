@@ -5186,6 +5186,7 @@ sub generateOutput {
   my %aggregateStats = (
                          'SINE'    => { 'RE' => 'SINE' },
                          'LINE'    => { 'RE' => '^LINE' },
+                         'PLE'     => { 'RE' => '^PLE' },
                          'LINECR1' => { 'RE' => '\/CR1$|\/L2$|\/Rex-Babar$' },
                          'LINEI'   => { 'RE' => '\/R1$|\/LOA$|\/I$|\/Jockey$' },
                          'LINERTE' => { 'RE' => '\/RTE|\/Bov-B' },
@@ -5672,6 +5673,7 @@ sub generateOutput {
 
   my $totallength =
       $aggregateStats{'SINE'}->{'length'} +
+      $aggregateStats{'PLE'}->{'length'} +
       $aggregateStats{'LINE'}->{'length'} + $aggregateStats{'LTR'}->{'length'} +
       $aggregateStats{'DNA'}->{'length'} + $aggregateStats{'OTHER'}->{'length'};
 
@@ -5715,8 +5717,14 @@ sub generateOutput {
         $totlength{"SINE/Alu"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      MIRs       %6d   %10d bp   %5.2f \%\n",
         $uniqCount{"SINE/MIR"}, $totlength{"SINE/MIR"},
-        $totlength{"SINE/MIR"} * 100 * $usePerc / $totseqlen;
+        $totlength{"SINE/MIR"} * 100 * $usePerc / $totseqlen;  
     printf $OUT "\n";
+    if ( $aggregateStats{"PLE"}->{'count'} > 0 ) {
+      printf $OUT "Penelope         %6d   %10d bp   %5.2f \%\n",
+        $aggregateStats{"PLE"}->{'count'}, $aggregateStats{"PLE"}->{'length'},
+        $aggregateStats{"PLE"}->{'length'} * 100 * $usePerc / $totseqlen;
+      printf $OUT "\n";
+    }   
     printf $OUT "LINEs:           %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
@@ -5827,6 +5835,12 @@ sub generateOutput {
         $uniqCount{"SINE/MIR"}, $totlength{"SINE/MIR"},
         $totlength{"SINE/MIR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
+    if ( $aggregateStats{"PLE"}->{'count'} > 0 ) {
+      printf $OUT "Penelope         %6d   %10d bp   %5.2f \%\n",
+        $aggregateStats{"PLE"}->{'count'}, $aggregateStats{"PLE"}->{'length'},
+        $aggregateStats{"PLE"}->{'length'} * 100 * $usePerc / $totseqlen;
+    }
+    printf $OUT "\n";
     printf $OUT "LINEs:            %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
@@ -5929,6 +5943,12 @@ sub generateOutput {
         $uniqCount{"SINE/MIR"}, $totlength{"SINE/MIR"},
         $totlength{"SINE/MIR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
+    if ( $aggregateStats{"PLE"}->{'count'} > 0 ) {
+      printf $OUT "Penelope         %6d   %10d bp   %5.2f \%\n",
+        $aggregateStats{"PLE"}->{'count'}, $aggregateStats{"PLE"}->{'length'},
+        $aggregateStats{"PLE"}->{'length'} * 100 * $usePerc / $totseqlen;
+      printf $OUT "\n";
+    }
     printf $OUT "LINEs:            %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
@@ -6037,9 +6057,12 @@ sub generateOutput {
     printf $OUT "   SINEs:           %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'SINE'}->{'count'}, $aggregateStats{'SINE'}->{'length'},
         $aggregateStats{'SINE'}->{'length'} * 100 * $usePerc / $totseqlen;
-    printf $OUT "   Penelope         %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/Penelope"}, $totlength{"LINE/Penelope"},
-        $totlength{"LINE/Penelope"} * 100 * $usePerc / $totseqlen;
+    printf $OUT "   Penelope:        %6d   %10d bp   %5.2f \%\n",
+        $aggregateStats{"PLE"}->{'count'}, $aggregateStats{"PLE"}->{'length'},
+        $aggregateStats{"PLE"}->{'length'} * 100 * $usePerc / $totseqlen;
+    # Classification change:
+    #    $uniqCount{"LINE/Penelope"}, $totlength{"LINE/Penelope"},
+    #    $totlength{"LINE/Penelope"} * 100 * $usePerc / $totseqlen;
     printf $OUT "   LINEs:           %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
