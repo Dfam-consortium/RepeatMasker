@@ -7,6 +7,8 @@
     running RepeatMasker serially.
   - Repbase Metadata is seriously out-of-date, updated species names
     so that they match the current NCBI Taxonomy names.
+  - Fixed an issue with the HMM parser.  It wasn't recognizing 
+    negative values for Tau with models that do not have GA thresholds.
 
 4.1.4
   - Added support for RMBlast 2.13.0
