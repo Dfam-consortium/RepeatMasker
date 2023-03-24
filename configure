@@ -506,6 +506,7 @@ sub searchEngineMenu {
           }
         }else {
           $searchEngines[ $answer - 1 ]->{'status'} = 2;
+          $defaultEngine = $answer;
         }
       }
     }
