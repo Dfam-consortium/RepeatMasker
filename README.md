@@ -8,9 +8,9 @@ http://www.repeatmasker.org
 IMPORTANT:
 The github 'master' branch only contains the source code files for
 the latest release of RepeatMasker.  A complete distribution including
-the source files, a copy of the Dfam database, and the required taxonomy
-data file may be found at the RepeatMasker website:
-http://www.repeatmasker.org/RMDownload.html
+the source files, and a copy of the Dfam database (curated families)
+may be found at the RepeatMasker website:
+http://www.repeatmasker.org/RepeatMasker/
 ```
 
 RepeatMasker

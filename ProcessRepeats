@@ -2072,7 +2072,7 @@ CYCLE3:
       }    # cycle5a
 
     }    # if refcat.....
-         #printHitArrayList( $sortedAnnotationsList );
+    #printHitArrayList( $sortedAnnotationsList );
 
     ########################## C Y C L E 6 ################################
     #
