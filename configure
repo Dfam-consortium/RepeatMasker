@@ -312,42 +312,74 @@ if ( ! RepeatMaskerConfig::validateParam('LIBDIR') ) {
 my $LIBDIR = $config->{'LIBDIR'}->{'value'};
 
 print "\n\nChecking for libraries...\n\n";
-# Installation scenarios
-#  1: Both Dfam *and* RepBase RepeatMasker Edition
-if ( -s "$LIBDIR/Dfam.h5" && -s "$LIBDIR/RMRBSeqs.embl" ) {
-  unlink("$LIBDIR/RepeatMaskerLib.h5") if ( -e "$LIBDIR/RepeatMaskerLib.h5" );
-  defined(my $pid = fork) or die "Couldn't fork: $!";
-  if (!$pid) { # Child
-    system("$FindBin::RealBin/addRepBase.pl -libdir $LIBDIR");
-    exit;
-  } else { # Parent
-    while (! waitpid($pid, WNOHANG)) {
-      sleep 2;
-      print ".";
+my $hasFamDBRoot = 0;
+my $famdb_prefix = "";
+my @famdb_files = ();
+if ( -d "$LIBDIR/famdb" ) {
+  opendir DIR, "$LIBDIR/famdb" or die "Could not open $LIBDIR/famdb directory\n";
+  my $gzip = 0;
+  while ( my $entry = readdir(DIR) ) {
+    if ( -s "$LIBDIR/famdb/$entry" && $entry =~ /(\S+)\.(\d+)\.h5/ ) {
+      if ( $famdb_prefix ne "" && $famdb_prefix ne $1 ) {
+         die "There appears to be more than one FamDB database in the $LIBDIR/famdb directory: $famdb_prefix and $1\n";
+      }
+      $famdb_prefix = $1;
+      if ( $2 eq "0" ) {
+        $hasFamDBRoot = 1;
+      }
+      push @famdb_files, $entry;
+    }elsif ( -s "$LIBDIR/famdb/$entry" && $entry =~ /(\S+)\.(\d+)\.h5.gz/ ) {
+      $gzip = 1;
     }
   }
-  print "\n";
-#  2: Just a form of Dfam ( curated or curated+uncurated )
-}elsif ( -s "$LIBDIR/Dfam.h5" ) {
-  print "  - Found Dfam\n";
-  unlink("$LIBDIR/RepeatMaskerLib.h5") if ( -e "$LIBDIR/RepeatMaskerLib.h5" );
-  system("ln -s $LIBDIR/Dfam.h5 $LIBDIR/RepeatMaskerLib.h5");
+  closedir(DIR);
+  if ( ! $hasFamDBRoot && $gzip ) {
+    die "The FamDB database in $LIBDIR/famdb appears be gzipd.  Please uncompress the FamDB partitions and rerun configure.\n";
+  }
+}
+   
+# Installation scenarios
+#  1: Both Dfam *and* RepBase RepeatMasker Edition
+if ( $hasFamDBRoot && -s "$LIBDIR/RMRBSeqs.embl" ) {
+
+  my $dbInfo = `$rmLocation/famdb.py -i $LIBDIR/famdb info`;
+  if ( $dbInfo !~ /Database:\s+Dfam\s+withRBRM/ ) {
+    defined(my $pid = fork) or die "Couldn't fork: $!";
+    if (!$pid) { # Child
+      system("$FindBin::RealBin/addRepBase.pl -libdir $LIBDIR");
+      exit;
+    } else { # Parent
+      while (! waitpid($pid, WNOHANG)) {
+        sleep 2;
+        print ".";
+      }
+    }
+    print "\n";
+    if ( -e "$LIBDIR/famdb/merge.working" ) {
+      die "Merging RepBase failed!";
+    }
+    print "<PRESS ENTER TO CONTINUE - CTRL-C to QUIT>\n";
+    $answer = <STDIN>;
+  }
+#  2: Dfam partioned FamDB only
+}elsif ( $hasFamDBRoot ) {
+  #print "  - Found Dfam\n";
 #  3: What...nothing?
 }else {
-  die "\nCould not find $LIBDIR/Dfam.h5!\n" .
-      "Please download a copy of the Dfam library ( famdb HDF5 format )\n" . 
+  die "\nCould not find a partitioned FamDB database in $LIBDIR/famdb\n" .
+      "Please download a copy of the Dfam database ( famdb HDF5 format )\n" . 
       "from:\n\n" . 
-      "  https://www.dfam.org/releases/Dfam_#.#/families/Dfam.h5.gz\n" .
-      "or\n" . 
-      "  https://www.dfam.org/releases/Dfam_#.#/families/Dfam_curatedonly.h5.gz\n\n" .
-      "uncompress it ( gunzip ), store in $LIBDIR,\n" . 
-      "and rerun the configure program.\n\n\n";
+      "  https://www.dfam.org/releases/Dfam_#.#/families/FamDB\n" .
+      "Minimally you may download just the root partition (file ending with \"*.0.h5\")\n" .
+      "uncompress it ( gunzip ), store in $LIBDIR/famdb,\n" . 
+      "and rerun the configure program. See\n" . 
+      "      https://www.dfam.org/releases/Dfam_#.#/families/FamDB/README\n" .
+      "for more details on the taxanomic coverage of each partition.\n\n\n";
 }
 #print "<PRESS ENTER TO CONTINUE>\n";
 #$answer = <STDIN>;
 
-
-my $dbInfo = `$rmLocation/famdb.py -i $LIBDIR/RepeatMaskerLib.h5 info`;
+my $dbInfo = `$rmLocation/famdb.py -i $LIBDIR/famdb info`;
 
 if ( ! $options{'trf_prgm'} ) {
   RepeatMaskerConfig::promptForParam('TRF_PRGM');
@@ -368,7 +400,9 @@ print "Building FASTA version of RepeatMasker.lib ...";
 
 defined(my $pid = fork) or die "Couldn't fork: $!";
 if (!$pid) { # Child
-  system("$rmLocation/famdb.py -i $rmLocation/Libraries/RepeatMaskerLib.h5 families --descendants 1 --curated --format fasta_name --include-class-in-name > $rmLocation/Libraries/RepeatMasker.lib");
+  #system("$rmLocation/famdb.py -i $rmLocation/Libraries/famdb families --descendants 1 --curated --format fasta_name --include-class-in-name > $rmLocation/Libraries/RepeatMasker.lib");
+  # Anthony made a really fast version
+  system("$rmLocation/famdb.py -i $rmLocation/Libraries/famdb fasta_all > $rmLocation/Libraries/RepeatMasker.lib");
   exit;
 } else { # Parent
   while (! waitpid($pid, WNOHANG)) {

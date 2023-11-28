@@ -41,7 +41,7 @@ Usage:
 =head1 DESCRIPTION
 
   Merges RepBase RepeatMasker Edition (RMRBMeta.embl and RMRBSeqs.embl) with
-  Dfam.h5, and makes it the main RepeatMasker library (RepeatMaskerLib.h5)
+  partitioned FamDB Dfam, and makes it the main RepeatMasker library (FamDB/)
 
 The options are:
 
@@ -93,12 +93,24 @@ if ( $options{'libdir'} ) {
   }
 }
 
-
-my $mainLibrary      = "RepeatMaskerLib.h5";
-my $dfamLibrary      = "Dfam.h5";
+my $FamDBDir         = "famdb";
 my $RMRBLibrary      = "RMRB.embl";
 
-print "Rebuilding $mainLibrary master library\n";
+if ( ! -d "$LIBDIR/$FamDBDir" ) {
+  die "A FamDB database is not available in $LIBDIR/$FamDBDir\n" .
+      "Please download at least the root FamDB data partition from\n" .
+      "http://dfam.org/releases/current/families/FamDB\n";
+}
+
+if ( -e "$LIBDIR/$FamDBDir/merge.working" ) {
+  die "It appears that a previous merge of RepBase & Dfam was interrupted or otherwise failed to\n" .
+      "complete.  This may have left the files in $LIBDIR/$FamDBDir in\n" . 
+      "a inconsistent state. Please delete the contents of this directory and re-download the\n" . 
+      "root data partition (and optional additional partitions) from\n" .
+      "http://dfam.org/releases/current/families/FamDB before retrying to run the configure script.\n";
+}
+
+print "Rebuilding FamDB master library\n";
 
 my $versionWarned = 0;
 if ( ! -s "$LIBDIR/$RMRBLibrary") {
@@ -113,36 +125,47 @@ if ( !$versionWarned && $libVersion ne "20181026" ) {
 
 my $savBuf = $|;
 $| = 1;
-print "  Merging Dfam + RepBase into $mainLibrary library...";
+print "  Merging Dfam + RepBase into FamDB library...";
 $| = $savBuf;
 
-copy( "$LIBDIR/$dfamLibrary", "$LIBDIR/$mainLibrary.writing" )
-  or die "Failed to copy $LIBDIR/$dfamLibrary to $LIBDIR/$mainLibrary.writing.\n" .
-         "Is the source file missing, or is your user missing write permissions to the directory?\n";
+# Setup the flag
+open OUT,">$LIBDIR/$FamDBDir/merge.working" or die "Could not open $LIBDIR/$FamDBDir/merge.working for writing!\n";
+print OUT "" . localtime() . "\n"; 
+close OUT;
 
 my $REPEATMASKER_DIR = "$FindBin::Bin";
 my $FAMDB = "$REPEATMASKER_DIR/famdb.py";
 
-system("$FAMDB -i $LIBDIR/$mainLibrary.writing append $LIBDIR/$RMRBLibrary --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
 my $status = $?;
 if ( $status ) {
-  die "Failed to append $LIBDIR/$RMRBLibrary to $LIBDIR/$mainLibrary.writing.\n" .
+  die "Failed to append $LIBDIR/$RMRBLibrary to $LIBDIR/$FamDBDir.\n" .
       "Process exited with code " . ( $status >> 8 ) . ".\n";
 }
 
-# Backup old library ( only one backup kept )
-if ( -s "$LIBDIR/$mainLibrary" ) {
-  unlink( "$LIBDIR/$mainLibrary.old" )
-    if ( -s "$LIBDIR/$mainLibrary.old" );
-  rename( "$LIBDIR/$mainLibrary", "$LIBDIR/$mainLibrary.old" )
-}
+## Backup old library ( only one backup kept )
+#if ( -s "$LIBDIR/$mainLibrary" ) {
+#  unlink( "$LIBDIR/$mainLibrary.old" )
+#    if ( -s "$LIBDIR/$mainLibrary.old" );
+#  rename( "$LIBDIR/$mainLibrary", "$LIBDIR/$mainLibrary.old" )
+#}
 
 # rename temporary file
-rename( "$LIBDIR/$mainLibrary.writing", "$LIBDIR/$mainLibrary" );
+#rename( "$LIBDIR/$mainLibrary.writing", "$LIBDIR/$mainLibrary" );
 
 print "\r\n\n";
 
-system("$FAMDB -i $LIBDIR/$mainLibrary info");
+#system("$FAMDB -i $LIBDIR/$FamDBDir info");
+
+# Remove working flag
+unlink("$LIBDIR/$FamDBDir/merge.working");
+exit(0);
+
+
+
+####################################################################################
+####################################################################################
+####################################################################################
 
 # my $versionString = getLibraryVersionStr( $libFile );
 # Return the version from the header of the given library file.

@@ -40,7 +40,7 @@ use Taxonomy;
 
 Usage: 
 
-my $taxDB = Taxonomy->new( famdbfile=>"Dfam.h5" );
+my $taxDB = Taxonomy->new( famdb_dir => "Libraries/famdb" );
 
 if ( $taxDB->isA( "Mouse", "Mammalia" ) ) {
   print "A Mouse is a Mammal!\n";
@@ -97,9 +97,9 @@ my $FAMDB = "$FindBin::Bin/famdb.py";
 
 =over 4
 
-=item my $instance = Taxonomy->new( famdbfile=>"filename" );
+=item my $instance = Taxonomy->new( famdb_dir => "directory" );
 
-Construct a new Taxonomy object.  Use the FamDB file
+Construct a new Taxonomy object.  Use the FamDB directory
 specified for queries.
 
 =back
@@ -138,13 +138,13 @@ sub new {
 
   my $this = {};
 
-  if ( defined $nameValuePairs{'famdbfile'}
-          && -s $nameValuePairs{'famdbfile'} )
+  if ( defined $nameValuePairs{'famdb_dir'}
+          && -d $nameValuePairs{'famdb_dir'} )
   {
 
     # store the database filename to use later
     $this = {
-      famdbfile => $nameValuePairs{'famdbfile'},
+      famdb_dir => $nameValuePairs{'famdb_dir'},
       isACache => {},
     };
 
@@ -153,7 +153,7 @@ sub new {
 
   }
   else {
-    croak $CLASS. "::new() needs a path for a famdb file!\n";
+    croak $CLASS. "::new() needs a path for a famdb directory!\n";
   }
 
   return $this;
@@ -368,7 +368,7 @@ sub _invokeFamDB {
   my $this = shift;
   my $args = shift;
 
-  my $dbfile = $this->{famdbfile};
+  my $db_dir = $this->{famdb_dir};
 
   my $args_quoted = "";
   for my $arg (@{$args}) {
@@ -377,7 +377,8 @@ sub _invokeFamDB {
     $args_quoted .= " '$argq'";
   }
 
-  my $result = `$FAMDB --file $dbfile $args_quoted 2>&1`;
+  my $result = `$FAMDB -i $db_dir $args_quoted 2>&1`;
+  #print "RUNNING: $FAMDB -i $db_dir $args_quoted\n";
 
   if (    $result =~ /^\s*no results/i
        || $result =~ /^\s*no species/i

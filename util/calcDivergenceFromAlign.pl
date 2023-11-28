@@ -34,20 +34,36 @@ calcDivergenceFromAlign.pl - Recalculate/Summarize the divergences in an align f
 =head1 SYNOPSIS
 
   calcDivergenceFromAlign.pl [-version] [-s <summary_file>] [-noCpGMod]
-                             [-a <new_align_file>] *.align[.gz]
+                             [-a <new_align_file>] 
+                             *.align[.gz]
+
+  Typical use case: generate *.divsum file for createRepeatLandscape.pl
+      
+       ./calcDivergenceFromAlign.pl -s mygenome.divsum  mygenome.fa.align.gz
+
+  Note: The "-a" parameter is only necessary if you want to save the
+        per-alignment divergence values in addition to the family summaries.
 
 =head1 DESCRIPTION
 
   A utility script to calculate a new divergence measure on the
-  RM alignment files.  Currently we only calculate the Kimura 2-Parameter
-  divergence metric.  
+  RM alignment files.  Currently RepeatMasker only calculates the
+  standard Kimura 2-Parameter divergence metric for the *.align file. 
 
-  Treat "CG" dinucleotide sites in the consensus sequence as follows:
-  Two transition mutations are counted as a single transition, one
-  transition is counted as 1/10 of a standard transition, and 
-  transversions are counted normally (as the would outside of a CpG
-  site).  This modification to the Kimura 2 parameter model accounts
-  for the extremely high rate of mutations in at a CpG locus.  
+  The new divergence metric is modification of the Kimura 2-Parameter
+  model where "CG" dinucleotide sites in the consensus sequence are
+  treated specially:
+
+    - Two transition mutations are counted as a single 
+      transition,
+    - One transition is counted as 1/10 of a standard
+      transition, and 
+    - Transversions are counted normally (as they would 
+      outside of a CpG site).  
+
+  This modification to the Kimura 2 parameter model accounts for the 
+  extremely high rate of mutations in at a CpG locus. Note this is 
+  applicable to organisms for which CpG methylation is applicable.
 
 
 The options are:
@@ -57,6 +73,16 @@ The options are:
 =item -version
 
 Displays the version of the program
+
+=item -s <summary_file>
+
+Generate a file containing the summarized divergences for each family.  This 
+is needed by the createRepeatLandscape.pl tool.
+
+=item -a <new_align_file>
+
+Optionally generate a new *.align file with each alignment labeled with 
+the recalculated divergence.
 
 =item -noCpGMod
 
@@ -68,7 +94,7 @@ Do not modify the transition counts at CpG sites.
 
 =head1 COPYRIGHT
 
-Copyright 2013 Robert Hubley, Institute for Systems Biology
+Copyright 2013-2023 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -89,28 +115,14 @@ use lib "/home/rhubley/projects/RepeatMasker";
 use FindBin;
 use lib $FindBin::RealBin;
 use lib "$FindBin::Bin/..";
+use RepeatMaskerConfig;
 use SearchResult;
 use CrossmatchSearchEngine;
 
 #
 # Version
 #
-#  This is a neat trick.  CVS allows you to tag
-#  files in a repository ( i.e. cvs tag "2003/12/03" ).
-#  If you check out that release into a new
-#  directory with "cvs co -r "2003/12/03" it will
-#  place this string into the $Name:  $ space below
-#  automatically.  This will help us keep track
-#  of which release we are using.  If we simply
-#  check out the code as "cvs co Program" the
-#  $Name:  $ macro will be blank so we should default
-#  to what the ID tag for this file contains.
-#
-my $CVSNameTag = '$Name:  $';
-my $CVSIdTag   =
-    '$Id: calcDivergenceFromAlign.pl,v 1.27 2017/02/01 21:01:56 rhubley Exp $';
-my $Version = $CVSNameTag;
-$Version = $CVSIdTag if ( $Version eq "" );
+my $Version = $RepeatMaskerConfig::VERSION;
 
 #
 # Magic numbers/constants here
@@ -151,7 +163,12 @@ if ( $options{'version'} ) {
 
 if ( !$options{'s'} && !$options{'a'} ) {
   print
-"\n\nError: One or more of the options '-a' or '-s' must be supplied!\n\n";
+"\n===\n=== Error: One or more of the options '-a' or '-s' must be supplied!\n===\n";
+  usage();
+}
+
+if ( ! -s $ARGV[ 0 ] ) {
+  print "\n===\n=== Error: Missing alignment file parameter!\n===\n";
   usage();
 }
 
@@ -172,11 +189,11 @@ my $searchResultsFH = new FileHandle;
 if ( $alignFile =~ /.+\.gz/ ) {
   open $searchResultsFH, "gunzip -c $alignFile|"
       or die
-      "RepeatLandscape: Could not open gunzip for reading $alignFile: $!\n";
+      "calcDivergenceFromAlign: Could not open gunzip for reading $alignFile: $!\n";
 }
 else {
   open $searchResultsFH, "<$alignFile"
-      or die "RepeatLandscape: Could not open $alignFile for reading: $!\n";
+      or die "calcDivergenceFromAlign: Could not open $alignFile for reading: $!\n";
 }
 
 if ( $options{'s'} ) {

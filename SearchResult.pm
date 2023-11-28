@@ -2182,30 +2182,57 @@ sub _toCSVFormat {
 ##  Yet another Compressed Alignment Format (yaCAF or just CAF).
 ##  This format was developed for the use case where sequence databases
 ##  may not be available for either the query or the subject of an
-##  alignment and where it's still desirable to communicate the aligment
+##  alignment and where it's still desirable to communicate the alignment
 ##  in a semi-succinct fashion.
 ##
 ##  Three basic inline string operators are provided: "/" for substitutions,
 ##  "+" for insertions (relative to the query) and "-" for deletions.
 ##
 ##  For example the exact alignment:
+##
 ##    Query: AATTGG
 ##    Subj : AATTGG
+##
 ##  would not need any of these operators and would be encoded using
 ##  the single string "AATTGG".
 ##
-##  Substitutions are encocde as query_base/subj_base.  For example:
+##  Substitutions are encoded as query_base/subj_base.  For example:
+##
 ##    Query: AAGAA
 ##             |
 ##    Subj : AACAA
+##
 ##  would be encoded as: "AAG/CAA"
 ##
 ##  Finally gaps are encoded by surrounding the deleted sequence or the
 ##  inserted sequence (relative to the query) by either "+" or "-".  For
 ##  instance the following alignment:
+##
 ##    Query: AAGCTA--A
 ##    Subj : AA--TAGGA
+##
 ##  would be encoded as: "AA-GC-TA+GG+A"
+##
+## The alignment data and metadata are stored in a CSV line with the folllowing fields:
+##
+##   1: score - bit, raw, complexity adjusted or evalue.
+##   2: Percent Substitution - Percent of mismatched non-gap characters in the alignment
+##   3: Percent Deletion - Percent of deletion characters in alignment
+##   4: Percent Insertion - Percent of insertion characters in alignment
+##   5: Query Sequence ID
+##   6: Query Start - 1-based, fully closed
+##   7: Query End - 1-based, fully closed
+##   8: Query Remaining - Remaining length of query sequence
+##   9: Subject Sequence ID - Subject sequence is generally the TE family model for our use cases
+##   10: Subject Classification - [optional] The Dfam/RepeatMasker classification for the TE family
+##   11: Subject Start - 1 based, fully closed
+##   12: Subject End - 1 based, fully closed
+##   13: Subject Remaining - Remaining length of subject sequence
+##   14: Orientation - 0=plus_strand, 1=negative_strand
+##   15: Overlap - [optional] Overlapping annotations from RepeatMasker are flagged using this field
+##   16: Linkage_ID - [optional] RepeatMasker linkage id
+##   17: CAF encoded alignment string
+##   18: Matrix - [optional] The matrix used in scoring the alignment encoded as ##p##g.matrix or simply ##p##g
 ##
 ##-------------------------------------------------------------------------##
 sub _toCAF {

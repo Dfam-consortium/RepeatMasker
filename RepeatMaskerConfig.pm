@@ -128,7 +128,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => '/home/rhubley/projects/RMBlast_project/RMBlast/rmblast-2.14.0/bin'
+                             'value' => '/usr/local/rmblast/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',

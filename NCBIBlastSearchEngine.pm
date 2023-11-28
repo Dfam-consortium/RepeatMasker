@@ -338,6 +338,10 @@ sub setPathToEngine {
          $this->{'hasQueryThreading'} = 1;
          $this->{'hasTabFormat'} = 1;
       }
+      if ( $majorVer > 2 || ($majorVer == 2 && $minorVer > 14) ||
+           ($majorVer == 2 && $minorVer == 14 && $revision >= 1) ) {
+         $this->{'hasDBSoftMasking'} = 1;
+      }
     }
   }
   else {
