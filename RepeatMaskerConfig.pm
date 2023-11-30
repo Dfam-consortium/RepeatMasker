@@ -153,7 +153,12 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.1.5";
+$VERSION = "4.1.6";
+
+#
+# Default Dfam Version
+#
+$DFAM_VERSION = "3.8";
 
 #
 # Set this flag to default to debug mode for the entire package

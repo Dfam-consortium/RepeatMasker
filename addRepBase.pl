@@ -136,7 +136,13 @@ close OUT;
 my $REPEATMASKER_DIR = "$FindBin::Bin";
 my $FAMDB = "$REPEATMASKER_DIR/famdb.py";
 
-system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+my $dbInfo = `$FAMDB -i $LIBDIR/$FamDBDir info`;
+if ( $dbInfo !~ /Database:\s+Dfam\s+withRBRM/ ) {
+  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+}else {
+  # No need to re-append name/desc
+  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary");
+}
 my $status = $?;
 if ( $status ) {
   die "Failed to append $LIBDIR/$RMRBLibrary to $LIBDIR/$FamDBDir.\n" .

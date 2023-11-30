@@ -1,3 +1,19 @@
+4.1.6
+  - Upgraded to FamDB 1.0.1 to support Dfam 3.8 and the new partitioned
+    database format.
+  - Added Libraries/RMRB_spec_to_tax.json to project.  This maps the
+    RepBase taxanames to current NCBI tax_ids and needs to be refreshed
+    with each new Dfam release.
+  - Added softmasking support to NCBIBlastSearchEngine.pm.
+  - Added new '--uncurated' flag to handle single export Dfam format.     
+    If this flag is used the CONS/HMM cached directories will be suffixed
+    with "_wunc".
+  - Fixed sunk error messages from famdb.py.  Now they will be displayed
+    and cause RepeatMasker to quit. 
+  - Additional error checking for configure utility.
+  - CAF documentation in SearchResult.
+  - calcDivergenceFromAlign clarified use of "-a" in documentation.
+
 4.1.5
   - Updated codebase for Dfam 3.7 compatibility (famdb format 4.3)
   - Penelope classification change caused *.tbl file accounting

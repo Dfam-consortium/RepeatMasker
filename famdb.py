@@ -794,11 +794,11 @@ with a given clade, optionally filtered by additional criteria",
             args.db_dir = FamDB(args.db_dir, mode)
         except:
             args.db_dir = None
-
             exc_value = sys.exc_info()[1]
-            LOGGER.error("Error reading file: %s", exc_value)
-            if LOGGER.getEffectiveLevel() <= logging.DEBUG:
-                raise
+            #LOGGER.error("Error reading file: %s", exc_value)
+            #if LOGGER.getEffectiveLevel() <= logging.DEBUG:
+            #    raise
+            raise
     else:
         LOGGER.error(
             "Please specify a directory to operate on with the -i/--db_dir option."
