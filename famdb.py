@@ -121,8 +121,15 @@ def command_names(args):
         raise ValueError("Unimplemented names format: %s" % args.format)
 
 
-def print_lineage_tree(file, tree, partition, gutter_self, gutter_children,
-                       uncurated_only=False, curated_only=False ):
+def print_lineage_tree(
+    file,
+    tree,
+    partition,
+    gutter_self,
+    gutter_children,
+    uncurated_only=False,
+    curated_only=False,
+):
     """Pretty-prints a lineage tree with box drawing characters."""
     if not tree:
         return
@@ -137,11 +144,12 @@ def print_lineage_tree(file, tree, partition, gutter_self, gutter_children,
         tax_id = str(tax_id).split(":")[1]
     name, tax_partition = file.get_taxon_name(tax_id, "scientific name")
     if name != "Not Found":
-        fams = file.get_families_for_taxon(tax_id,
-                   tax_partition,
-                   curated_only=curated_only,
-                   uncurated_only=uncurated_only,
-                )
+        fams = file.get_families_for_taxon(
+            tax_id,
+            tax_partition,
+            curated_only=curated_only,
+            uncurated_only=uncurated_only,
+        )
         missing_message = MISSING_FILE % (tax_partition, file.db_dir, HELP_URL)
         missing_message = (
             missing_message.replace("\t", f"{gutter_self[:-2]}│ * \t")
@@ -176,7 +184,15 @@ def print_lineage_tree(file, tree, partition, gutter_self, gutter_children,
         )
 
 
-def print_lineage_semicolons(file, tree, partition, parent_name, starting_at, curated_only=False, uncurated_only=False):
+def print_lineage_semicolons(
+    file,
+    tree,
+    partition,
+    parent_name,
+    starting_at,
+    curated_only=False,
+    uncurated_only=False,
+):
     """
     Prints a lineage tree as a flat list of semicolon-delimited names.
 
@@ -200,7 +216,9 @@ def print_lineage_semicolons(file, tree, partition, parent_name, starting_at, cu
             starting_at = None
 
         if not starting_at:
-            fams = file.get_families_for_taxon(tax_id, tax_partition, curated_only, uncurated_only)
+            fams = file.get_families_for_taxon(
+                tax_id, tax_partition, curated_only, uncurated_only
+            )
             count = (
                 f"[{len(fams)}]"
                 if fams is not None
@@ -209,10 +227,27 @@ def print_lineage_semicolons(file, tree, partition, parent_name, starting_at, cu
             print(f"{tax_id}({tax_partition}): {name} {count}")
 
         for child in children:
-            print_lineage_semicolons(file, child, tax_partition, name, starting_at, curated_only, uncurated_only)
+            print_lineage_semicolons(
+                file,
+                child,
+                tax_partition,
+                name,
+                starting_at,
+                curated_only,
+                uncurated_only,
+            )
 
 
-def get_lineage_totals(file, tree, target_id, partition, curated_only=False, uncurated_only=False, seen=None, present=None):
+def get_lineage_totals(
+    file,
+    tree,
+    target_id,
+    partition,
+    curated_only=False,
+    uncurated_only=False,
+    seen=None,
+    present=None,
+):
     """
     Recursively calculates the total number of families
     on ancestors and descendants of 'target_id' in the given 'tree'.
@@ -228,7 +263,9 @@ def get_lineage_totals(file, tree, target_id, partition, curated_only=False, unc
 
     tax_id = tree[0]
     children = tree[1:]
-    accessions = file.get_families_for_taxon(tax_id, partition, curated_only, uncurated_only)
+    accessions = file.get_families_for_taxon(
+        tax_id, partition, curated_only, uncurated_only
+    )
 
     count_here = 0
     for acc in accessions:
@@ -244,7 +281,14 @@ def get_lineage_totals(file, tree, target_id, partition, curated_only=False, unc
         partition = file.find_taxon(tax_id)
         if partition is not None:
             new_counts, new_present = get_lineage_totals(
-                file, child, target_id, partition, curated_only, uncurated_only, seen, present
+                file,
+                child,
+                target_id,
+                partition,
+                curated_only,
+                uncurated_only,
+                seen,
+                present,
             )
             counts[0] += new_counts[0]
             counts[1] += new_counts[1]
@@ -282,12 +326,20 @@ def command_lineage(args):
 
     # TODO: prune branches with 0 total
     if args.format == "pretty":
-        print_lineage_tree(args.db_dir, tree, partition, "", "", args.curated, args.uncurated)
+        print_lineage_tree(
+            args.db_dir, tree, partition, "", "", args.curated, args.uncurated
+        )
     elif args.format == "semicolon":
-        print_lineage_semicolons(args.db_dir, tree, partition, "", target_id, args.curated, args.uncurated)
+        print_lineage_semicolons(
+            args.db_dir, tree, partition, "", target_id, args.curated, args.uncurated
+        )
     elif args.format == "totals":
-        totals, present = get_lineage_totals(args.db_dir, tree, target_id, partition, args.curated, args.uncurated)
-        present = ", ".join([str(val) for val in present]) + ';' if present else partition
+        totals, present = get_lineage_totals(
+            args.db_dir, tree, target_id, partition, args.curated, args.uncurated
+        )
+        present = (
+            ", ".join([str(val) for val in present]) + ";" if present else partition
+        )
         missing = (
             " absent related partitions: "
             + ", ".join([str(val) for val in set(tree.missing.values())])
@@ -466,17 +518,17 @@ def command_families(args):
     header = True if accessions else False
     print_families(args, families, header, target_id)
 
+
 # RepeatMasker Commands -----------------------------------------------------------------------
 def command_fasta_all(args):
     """
     command prints out all curated families in FASTA format
-    This command is not documented in the help. It is used to export all of the curated families 
+    This command is not documented in the help. It is used to export all of the curated families
     to FASTA format for use by RepeatMasker
     """
     args.format = "fasta_name"
     print_families(args, args.db_dir.fasta_all("/DF"), True, 1)
     print_families(args, args.db_dir.fasta_all("/Aux"), True, 1)
-
 
 
 def command_append(args):
@@ -571,7 +623,7 @@ famdb.py families --help
         #  subcommands.  All subcommands will however be printed in the error message
         #  if a bad subcommand is entered as a possibility, so it doesn't hide it
         #  completely.  This is added to hide the new fasta_all command.
-        metavar='{info,names,lineage,families,family,append}'
+        metavar="{info,names,lineage,families,family,append}",
     )
     # INFO --------------------------------------------------------------------------------------------------------------------------------
     p_info = subparsers.add_parser(
@@ -761,7 +813,7 @@ with a given clade, optionally filtered by additional criteria",
         help="additional database description (added to the existing description)",
     )
     p_append.set_defaults(func=command_append)
-    
+
     # FASTA ALL --------------------------------------------------------------------------------------------------------------------------------
     p_fasta = subparsers.add_parser("fasta_all")
     p_fasta.set_defaults(func=command_fasta_all)
@@ -778,9 +830,7 @@ with a given clade, optionally filtered by additional criteria",
         # sys.path[0], if non-empty, is initially set to the directory of the
         # originally-invoked script.
         if sys.path[0]:
-            default_db_dir = os.path.join(
-                sys.path[0], "Libraries/famdb"
-            )
+            default_db_dir = os.path.join(sys.path[0], "Libraries/famdb")
             if os.path.exists(default_db_dir):
                 args.db_dir = default_db_dir
 
@@ -795,8 +845,8 @@ with a given clade, optionally filtered by additional criteria",
         except:
             args.db_dir = None
             exc_value = sys.exc_info()[1]
-            #LOGGER.error("Error reading file: %s", exc_value)
-            #if LOGGER.getEffectiveLevel() <= logging.DEBUG:
+            # LOGGER.error("Error reading file: %s", exc_value)
+            # if LOGGER.getEffectiveLevel() <= logging.DEBUG:
             #    raise
             raise
     else:

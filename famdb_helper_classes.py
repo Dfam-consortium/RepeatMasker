@@ -26,29 +26,26 @@ class Lineage(list):  # TODO replace exits  with real exception
         if LEAF_LINK in lin_str:
             self.descendants = True
             if not self.root:
-                LOGGER.error("Leaf Links Found In Non-Root Lineage")
-                exit()
+                raise Exception("Leaf Links Found In Non-Root Lineage")
             for i in range(len(splits)):
                 if LEAF_LINK in splits[i]:
                     links[LEAF_LINK][i] = str(splits[i].split(":")[1])
         elif ROOT_LINK in lin_str:
             self.ancestors = True
             if self.root:
-                LOGGER.error("Root Links found In Root Lineage")
-                exit()
+                raise Exception("Root Links found In Root Lineage")
             links[ROOT_LINK] = {str(lineage[1][0]): str(lineage[1])}
 
         if self.ancestors and self.descendants:
-            LOGGER.error("Lineage Should Not Contain Root Links And Leaf Links")
-            exit()
+            raise Exception("Lineage Should Not Contain Root Links And Leaf Links")
         self.links = links
         self.splits = splits
 
     def __add__(self, other):
         # check to avoid adding root+root or leaf+leaf
         if (self.root and other.root) or (not self.root and not other.root):
-            LOGGER.error("Must Combine Root and Non-Root Lineages")
-            exit()
+            raise Exception("Must Combine Root and Non-Root Lineages")
+
         # assign lineages
         root_lineage = self if self.root else other
         leaf_lineage = self if not self.root else other
@@ -294,8 +291,12 @@ class Family:  # pylint: disable=too-many-instance-attributes
                     hmm_tc = 0.0
                     hmm_nc = 0.0
                     hmm_fdr = 0.0
-                    print("Error in thresholds for accession={} and taxid={}".format(self.accession_with_optional_version(),tax_id), file=sys.stderr)
-
+                    print(
+                        "Error in thresholds for accession={} and taxid={}".format(
+                            self.accession_with_optional_version(), tax_id
+                        ),
+                        file=sys.stderr,
+                    )
 
                 # only recover name, do need for partition number
                 tax_name = famdb.get_taxon_name(tax_id, "scientific name")[0]

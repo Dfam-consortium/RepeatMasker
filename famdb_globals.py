@@ -17,7 +17,7 @@ dfam_acc_pat = re.compile("^(D[FR])([0-9]{2})([0-9]{2})([0-9]{2})[0-9]{3,6}$")
 FILE_VERSION = "1.0"
 
 # The version of the famdb python package
-GENERATOR_VERSION = "1.0.1"
+GENERATOR_VERSION = "1.0.2"
 
 LEAF_LINK = "leaf_link:"
 ROOT_LINK = "root_link:"

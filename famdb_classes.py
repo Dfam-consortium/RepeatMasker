@@ -190,22 +190,25 @@ class FamDBLeaf:
         # check by accession first
         accession = family.accession
         binned_acc = accession_bin(accession)
-        binned_v = accession_bin(accession + 'v')
+        binned_v = accession_bin(accession + "v")
 
-        if self.file.get(f"{binned_acc}/{accession}") or self.file.get(f"{binned_v}/{accession}v"):
+        if self.file.get(f"{binned_acc}/{accession}") or self.file.get(
+            f"{binned_v}/{accession}v"
+        ):
             return False
 
         # check for unique name
-        #if family.name:
+        # if family.name:
         #    name_lookup = f"{GROUP_LOOKUP_BYNAME}/{family.name}"
         #    if self.file.get(name_lookup) or self.file.get(name_lookup + 'v'):
         #        return False
 
-        if self.file.get(f"{GROUP_LOOKUP_BYNAME}/{accession}") or self.file.get(f"{GROUP_LOOKUP_BYNAME}/{accession}v"):
+        if self.file.get(f"{GROUP_LOOKUP_BYNAME}/{accession}") or self.file.get(
+            f"{GROUP_LOOKUP_BYNAME}/{accession}v"
+        ):
             return False
 
         return True
-
 
     def add_family(self, family):
         """Adds the family described by 'family' to the database."""
@@ -308,12 +311,11 @@ class FamDBLeaf:
 
         # Filter out DF/DR or not at all depending on flags
         if curated_only:
-           return list(filter(lambda x: (x[1] == 'F'), group.keys()))
+            return list(filter(lambda x: (x[1] == "F"), group.keys()))
         elif uncurated_only:
-            return list(filter(lambda x: (x[1] == 'R'), group.keys()))
+            return list(filter(lambda x: (x[1] == "R"), group.keys()))
         else:
             return list(group.keys())
-
 
     def get_lineage(self, tax_id, **kwargs):
         """
@@ -663,18 +665,27 @@ class FamDB:
         # Make sure we only have at least one database present
         if len(db_prefixes) == 0:
             if h5_files:
-                LOGGER.error("A partitioned famdb database is not present in " + db_dir + "\n" + \
-                             "There were several *.h5 files present however, they do not appear\n" + \
-                             "to be in the correct format: " + "\n".join(h5_files) + "\n")
+                LOGGER.error(
+                    "A partitioned famdb database is not present in "
+                    + db_dir
+                    + "\n"
+                    + "There were several *.h5 files present. However, they do not appear\n"
+                    + "to be in the correct format: "
+                    + "\n".join(h5_files)
+                    + "\n"
+                )
             else:
-                LOGGER.error("A partitioned famdb database is not present in " + db_dir )
+                LOGGER.error("A partitioned famdb database is not present in " + db_dir)
             exit(1)
 
         # Make sure we have *only* one database present
         if len(db_prefixes) > 1:
-            LOGGER.error("Multiple famdb root partitions were found in this export directory: " + \
-                          ", ".join(db_prefixes.keys()) + "\nEach famdb database " + \
-                          "should be in separate folders.")
+            LOGGER.error(
+                "Multiple famdb root partitions were found in this export directory: "
+                + ", ".join(db_prefixes.keys())
+                + "\nEach famdb database "
+                + "should be in separate folders."
+            )
             exit(1)
 
         # Tabulate all partitions for db_prefix
@@ -682,7 +693,7 @@ class FamDB:
         for file in h5_files:
             if db_prefix in file:
                 fields = file.split(".")
-                idx = int( fields[-2] )
+                idx = int(fields[-2])
                 if idx == 0:
                     self.files[idx] = FamDBRoot(f"{db_dir}/{file}", mode)
                 else:
@@ -777,16 +788,19 @@ class FamDB:
         for part in sorted([int(x) for x in self.file_map]):
             part_str = str(part)
             partition_name = self.file_map[part_str]["T_root_name"]
-            partition_detail = ', '.join(self.file_map[part_str]["F_roots_names"])
+            partition_detail = ", ".join(self.file_map[part_str]["F_roots_names"])
             filename = self.file_map[part_str]["filename"]
             if part in self.files:
-                print(f" Partition {part} [{filename}]: {partition_name} {f'- {partition_detail}' if partition_detail else ''}")
+                print(
+                    f" Partition {part} [{filename}]: {partition_name} {f'- {partition_detail}' if partition_detail else ''}"
+                )
                 counts = self.files[part].get_counts()
                 print(f"     Consensi: {counts['consensus']}, HMMs: {counts['hmm']}")
             else:
-                print(f" Partition {part} [ Absent ]: {partition_name} {f'- {partition_detail}' if partition_detail else ''}")
+                print(
+                    f" Partition {part} [ Absent ]: {partition_name} {f'- {partition_detail}' if partition_detail else ''}"
+                )
             print()
-
 
     def assemble_filters(self, **kwargs):
         """Define family filters (logically ANDed together)"""
@@ -861,7 +875,6 @@ class FamDB:
             descendants = kwargs.get("descendants") or False
 
         filters, stages, repeat_type, name_filter = self.assemble_filters(**kwargs)
-
 
         # Recursive iterator flattener
         def walk_tree(tree):
@@ -951,8 +964,10 @@ class FamDB:
     def fasta_all(self, group):
         seen = set()
         for file in self.files:
-            if GROUP_FAMILIES+group in self.files[file].file:
-                for name in families_iterator(self.files[file].file[GROUP_FAMILIES+group], "Families" + group):
+            if GROUP_FAMILIES + group in self.files[file].file:
+                for name in families_iterator(
+                    self.files[file].file[GROUP_FAMILIES + group], "Families" + group
+                ):
                     if name not in seen:
                         seen.add(name)
                         yield self.get_family_by_accession(name)
@@ -994,10 +1009,13 @@ class FamDB:
     def get_taxon_name(self, tax_id, kind):
         return self.files[0].get_taxon_name(tax_id, kind)
 
-    def get_families_for_taxon(self, tax_id, partition, curated_only=False,
-                               uncurated_only=False):
+    def get_families_for_taxon(
+        self, tax_id, partition, curated_only=False, uncurated_only=False
+    ):
         if partition in self.files:
-            return self.files[partition].get_families_for_taxon(tax_id, curated_only, uncurated_only)
+            return self.files[partition].get_families_for_taxon(
+                tax_id, curated_only, uncurated_only
+            )
         else:
             return None
 
