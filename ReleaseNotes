@@ -1,5 +1,5 @@
 4.1.6
-  - Upgraded to FamDB 1.0.1 to support Dfam 3.8 and the new partitioned
+  - Upgraded to FamDB 1.0.2 to support Dfam 3.8 and the new partitioned
     database format.
   - Added Libraries/RMRB_spec_to_tax.json to project.  This maps the
     RepBase taxanames to current NCBI tax_ids and needs to be refreshed
@@ -10,7 +10,7 @@
     with "_wunc".
   - Fixed sunk error messages from famdb.py.  Now they will be displayed
     and cause RepeatMasker to quit. 
-  - Additional error checking for configure utility.
+  - Additional library setup steps and error checking for configure utility.
   - CAF documentation in SearchResult.
   - calcDivergenceFromAlign clarified use of "-a" in documentation.
 
