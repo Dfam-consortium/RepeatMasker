@@ -162,6 +162,19 @@ mammal, carnivore, rodentia, rat, cow, pig, cat, dog, chicken,
 fugu, danio, "ciona intestinalis" drosophila, anopheles, worm, 
 diatoaea, artiodactyl, arabidopsis, rice, wheat, and maize 
 
+=item -uncurated  
+
+Use uncurated and curated families from FamDB rather than curated
+only (default).
+
+The latest version of RepeatMasker is designed to work with the new
+FamDB partitioned data format (v1.0).  This format supports storing
+both curated and uncurated TE data in smaller (optionally present)
+partitions. Rather than controlling the type of data used (curated/
+uncurated) by downloading the corresponding database, both 
+curated/uncurated data will now be in the same files and use of that
+data can be controlled using this new flag.
+
 =back
 
 Contamination options
@@ -384,7 +397,7 @@ my @opts = qw( a|alignments ace alu cutoff=s dir=s
     help int noint inv is_clip is_only lib=s
     low nolow lcambig libdir=s no_id no_is nocut
     noisy norna parallel=i poly q qq
-    s small species|sp=s u fptest rbrm_only
+    s small species|sp=s uncurated u fptest rbrm_only
     x xm xsmall nopost engine|e=s source html debug=s );
 # Add configuration parameters as additional command-line options
 push @opts, RepeatMaskerConfig::getCommandLineOptions();
@@ -656,7 +669,7 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 # Species & Library Setup
 #
 my $tax =
-    Taxonomy->new( famdbfile => "$LIBDIR/RepeatMaskerLib.h5" );
+    Taxonomy->new( famdb_dir => "$LIBDIR/famdb" );
 
 #
 # The search path for finding a place to store the cache
@@ -1326,7 +1339,7 @@ JOBLOOP:
     #if ( $DEBUG ) {
     #  my $t1 = gettimeofday( );
     #  my $elapsed = $t1 - $t0;
-    #  print "ProcessRepeats runtime: $elapsed secs\n"
+    #  print "ProcessRepeats runtime: $elapsed secs\n";
     #}
 
     if ( $options{'is_clip'} && -s "$file.withoutIS.masked" ) {
@@ -7498,7 +7511,7 @@ sub commify {
 ##
 ##      species       : "-species" option provided by the user or undef.
 ##      customLibFile : "-lib" option provided by the user or undef.
-##      rmLibDir      : Directory containing the RepeatMaskerLib.h5 file.
+##      rmLibDir      : Directory containing the famdb/ subdirectory.
 ##      workingDir    : The programs working directory (e.g "RM_#####..").
 ##      libraryPath   : Search path for cached RM libraries.
 ##      searchEngine  : The search engine object.
@@ -7613,8 +7626,8 @@ sub initLibrariesFromFamdb {
     my $modelPrefix = "CONS-";
     $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
 
-    my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 info ";
-    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
+    my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb info ";
+    open IN,"$famdbCmd |";
     my $dbTitle;
     my $dbVersion;
     my $dbDate;
@@ -7629,19 +7642,22 @@ sub initLibrariesFromFamdb {
       #
       # Total consensus sequences: 273655
       # Total HMMs: 273655
-      if ( /Database:\s*(\S.*)/ ) { 
+      if ( /^Database\s*:\s*(\S.*)/ ) { 
         $dbTitle = $1;
-      }elsif ( /Version:\s*(\S.*)/ ) {
+      }elsif ( /^Version\s*:\s*(\S.*)/ ) {
         $dbVersion = $1;
-      }elsif ( /Date:\s*(\S.*)/ ) {
+      }elsif ( /^Date\s*:\s*(\S.*)/ ) {
         $dbDate = $1;
-      }elsif ( /Total consensus sequences:\s*(\d+)/ ) {
+      }elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
         $dbConsCnt = $1;
-      }elsif ( /Total HMMs:\s*(\d+)/ ) {
+      }elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
         $dbHMMCnt = $1;
       }
     }
     close IN;
+    if ( $? ) {
+      die "Could not execute famdb.py using: $famdbCmd\n";
+    }
     $dbLabel = $dbTitle;
     $dbLabel = s/^\s+//;
     $dbLabel = s/\s+$//;
@@ -7650,7 +7666,7 @@ sub initLibrariesFromFamdb {
     $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
     $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
     $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
-    print "\nUsing Master RepeatMasker Database: $rmLibDir/RepeatMaskerLib.h5\n";
+    print "\nUsing Master RepeatMasker Database: $rmLibDir/famdb\n";
     print "  Title    : $dbTitle\n";
     print "  Version  : $dbVersion\n";
     print "  Date     : $dbDate\n";
@@ -7660,83 +7676,139 @@ sub initLibrariesFromFamdb {
       print "  Families : " . commify($dbHMMCnt) . "\n\n";
     }
     # TODO Print total Taxa count
- 
     # Lookup species in famdb and resolve orgFlag
     # NOTE: orgFlag is a bit of a legacy concept that will probably disappear
     #       in a future RM version. 
     # TODO: Should REPEATMASKER_DIR be global???
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 lineage '" .
+    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
                     $species . "' -f semicolon";
     #print "FamdbCMD: $famdbCmd\n";
-    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
+    open IN,"$famdbCmd |";
     my $lineage = "";
     my $NCBITaxID;
     my $NCBITaxName;
+    my $msg = "";
     while ( <IN> ) {
-      # famdb lineage output:
-      # 370040: root;cellular organisms;Eukaryota;Opisthokonta;Metazoa;Eumetazoa;Bilateria;Deuterostomia;Chordata;Craniata;Vertebrata;Gnathostomata;Teleostomi;Euteleostomi;Actinopterygii;Actinopteri;Neopterygii;Teleostei;Osteoglossocephalai;Clupeocephala;Euteleosteomorpha;Neoteleostei;Eurypterygia;Ctenosquamata;Acanthomorphata;Euacanthomorphacea;Percomorphaceae;Ovalentaria;Mugilomorphae;Mugiliformes;Mugilidae;Planiliza;Planiliza haematocheilus [1469]
+      # current famdb lineage output:
+      # 370040(0): root;cellular organisms;Eukaryota;Opisthokonta;Metazoa;Eumetazoa;Bilateria;Deuterostomia;Chordata;Craniata;Vertebrata;Gnathostomata;Teleostomi;Euteleostomi;Actinopterygii;Actinopteri;Neopterygii;Teleostei;Osteoglossocephalai;Clupeocephala;Euteleosteomorpha;Neoteleostei;Eurypterygia;Ctenosquamata;Acanthomorphata;Euacanthomorphacea;Percomorphaceae;Ovalentaria;Mugilomorphae;Mugiliformes;Mugilidae;Planiliza;Planiliza haematocheilus [1469]
       #1299 entries in ancestors; 8 lineage-specific entries
-      $orgFlag = "mammalia" if ( /^\d+:\s.*;Mammalia(;| \[)/ );
-      $orgFlag = "rodentia" if ( /^\d+:\s.*;Rodentia(;| \[)/ );
-      $orgFlag = "primates" if ( /^\d+:\s.*;Primates(;| \[)/ );
-      if ( /^(\d+):\s+(root.*)\;(\S.*)\s+\[.*/ ) {
+      $orgFlag = "mammalia" if ( /^\d+\(\d+\):\s.*;Mammalia(;| \[)/ );
+      $orgFlag = "rodentia" if ( /^\d+\(\d+\):\s.*;Rodentia(;| \[)/ );
+      $orgFlag = "primates" if ( /^\d+\(\d+\):\s.*;Primates(;| \[)/ );
+      if ( /^(\d+)\(\d+\):\s+(root.*)\;(\S.*)\s+\[.*/ ) {
         $NCBITaxID = $1;
         $lineage = $2;
         $NCBITaxName = $3;
       }
-      # TODO: Catch stderr... and print out ambiguous matches up to 10...
-      # Ambiguous search term 'mouse' (found 6 results).
-      # Please use a more specific name or taxa ID, which can be looked
-      # up with the 'names' command.
-      #
+      # Capture messages in case name is not identified.
+      $msg .= $_;
     }
     close IN;
-
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 lineage '" .
-                    $species . "' --ancestors --descendants -f totals";
-    #print "famdb_command: $famdbCmd\n";
-    open IN,"$famdbCmd 2>&1 |" or die "Could not execute famdb.py using: $famdbCmd\n";
-    while ( <IN> ) {
-      #1299 entries in ancestors; 8 lineage-specific entries
-      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
-        my $ancestral = $1;
-        my $linSpecific = $2;
-        print "Species/Taxa Search:\n";
-        print "  $NCBITaxName [NCBI Taxonomy ID: $NCBITaxID]\n";
-        my $lineageBlock = "";
-        my $lineageLine = "";
-        foreach my $component ( split(/;/,$lineage) ){
-          my $prefix;
-          if ( $lineageBlock eq "" ) {
-            $prefix = "  Lineage: ";
-          }else {
-            $prefix = "           ";
-          }
-          if ( length($lineageLine . ";" . $component) > 60 ) {
-            $lineageBlock .= $prefix . $lineageLine . "\n";
-            $lineageLine = "";
-          }
-          $lineageLine .= "$component;";
-        }
-        $lineageBlock =~ s/;$//;
-        $lineageBlock .= "\n"
-            unless ( $lineageBlock =~ /.*\n+$/s );
-        print "$lineageBlock";
-        print "  $ancestral families in ancestor taxa; $linSpecific lineage-specific families\n\n";
-      }
+    if ( $? ) {
+      die "Could not execute famdb.py using: $famdbCmd\n";
     }
-    close IN;
 
     if ( $lineage eq "" ) {
-      die "\n\nSpecies \""
+      if ( $msg =~ /Taxon in Partition\s+(\d+)/ ) {
+        die  "\nTaxon \"$species\" is in partition $1 of the current FamDB however,\n"
+           . "this partition is absent.  Please download this file from the original\n"
+           .  "source and rerun configure to proceed.\n\n";
+      }else {
+        die "\nTaxon \""
           . $species
-          . "\" is not known to RepeatMasker.  There may\n"
-          . "not be any TE families defined in the libraries for this\n"
-          . "species/clade or there may be an error in the spelling.\n"
+          . "\" is not defined in the current FamDB partitions\n"
+          . "present.  There may not be any TE families defined in the\n"
+          . "database for this taxon or there may be an error in the spelling.\n"
           . "Please check your entry against the NCBI Taxonomy database\n"
           . "and/or try using a broader clade or related species instead.\n"
           . "The full list of species/clades defined in the library may be\n"
-          . "obtained using the famdb.py script.\n\n";
+          . "obtained using the famdb.py script.\n\n"
+          . "For example, to search for particular taxa use:\n\n"
+          . "    % ./famdb.py names Heterodontus\n\n"
+          . "    Exact Matches\n"
+          . "    =============\n"
+          . "    Taxon: 7791, Partition: 0, Names: Heterodontus (scientific name)\n\n"
+          . "    Non-exact Matches\n"
+          . "    =================\n"
+          . "    Taxon: 95544, Partition: 0, Names: Heterodontus japonicus (scientific name), Japanese bullhead shark (genbank common name)\n\n"
+          . "Or to obtain the full taxanomic lineage to a particular entry:\n\n"
+          . "    % ./famdb.py lineage \"Heterodontus japonicus\" -ad -f semicolon\n\n"
+          . "    95544(0): root;cellular organisms;Eukaryota;Opisthokonta;Metazoa;Eumetazoa;Bilateria;Deuterostomia;Chordata;Craniata <chordates>;Vertebrata <vertebrates>;Gnathostomata <vertebrates>;Chondrichthyes;Elasmobranchii;Selachii;Galeomorphii;Heterodontoidea;Heterodontiformes;Heterodontidae;Heterodontus;Heterodontus japonicus [0]\n\n"
+          . "In this last example, if the '-f semicolon' is omitted the output will\n"
+          . "also contain the counts of families labeled with each taxon in the lineage\n\n\n";
+      }
+    }
+
+ 
+    # Tabulate curated
+    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+                    $species . "' --curated --ancestors --descendants -f totals";
+    open IN,"$famdbCmd |";
+    my $curated_ancestor_counts = 0;
+    my $curated_lineage_counts = 0;
+    while ( <IN> ) {
+      #1299 entries in ancestors; 8 lineage-specific entries
+      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+        $curated_ancestor_counts = $1;
+        $curated_lineage_counts = $2;
+      }
+    }
+    close IN;
+    if ( $? ) {
+      die "Could not execute famdb.py using: $famdbCmd\n";
+    }
+    
+    # Tabulate uncurated
+    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+                    $species . "' --uncurated --ancestors --descendants -f totals";
+    open IN,"$famdbCmd |";
+    my $uncurated_ancestor_counts = 0;
+    my $uncurated_lineage_counts = 0;
+    while ( <IN> ) {
+      #1299 entries in ancestors; 8 lineage-specific entries
+      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+        $uncurated_ancestor_counts = $1;
+        $uncurated_lineage_counts = $2;
+      }
+    }
+    close IN;
+    if ( $? ) {
+      die "Could not execute famdb.py using: $famdbCmd\n";
+    }
+
+    print "Species/Taxa Search:\n";
+    print "  $NCBITaxName [NCBI Taxonomy ID: $NCBITaxID]\n";
+    my $lineageBlock = "";
+    my $lineageLine = "";
+    foreach my $component ( split(/;/,$lineage) ){
+      my $prefix;
+      if ( $lineageBlock eq "" ) {
+        $prefix = "  Lineage: ";
+      }else {
+        $prefix = "           ";
+      }
+      if ( length($lineageLine . ";" . $component) > 60 ) {
+        $lineageBlock .= $prefix . $lineageLine . "\n";
+        $lineageLine = "";
+      }
+      $lineageLine .= "$component;";
+    }
+    $lineageBlock =~ s/;$//;
+    $lineageBlock .= "\n"
+            unless ( $lineageBlock =~ /.*\n+$/s );
+    print "$lineageBlock";
+       
+    if ( $options{'uncurated'} ) {
+       print "Including curated and uncurated families:\n";
+       my $tot_ancestral = $uncurated_ancestor_counts + $curated_ancestor_counts;
+       my $tot_lineage = $uncurated_lineage_counts + $curated_lineage_counts;
+       print "  $tot_ancestral families in ancestor taxa; $tot_lineage lineage-specific families\n";
+       print "    ** NOTE: No uncurated families were found for this taxon **\n" 
+           if ( ($uncurated_ancestor_counts + $uncurated_lineage_counts) == 0 );
+       print "\n";
+    }else{
+       print "Including only curated families:\n";
+       print "  $curated_ancestor_counts families in ancestor taxa; $curated_lineage_counts lineage-specific families\n\n";
     }
   }
 
@@ -7752,6 +7824,10 @@ sub initLibrariesFromFamdb {
   #
   my $speciesWord = $species || "";
   $speciesWord =~ s/\s+/_/g;
+  # 2023/11/14
+  #   New "uncurated" flag requires suffixes for cached libraries
+  #   to ensure we reproduce the same set of families for each query.
+  $speciesWord .= "_wunc" if ( $options{'uncurated'} );
   foreach my $path ( @libraryPath ) {
     if ( -d "$path/$dbLabel" ) {
       if ( -d "$path/$dbLabel/$speciesWord" ) {
@@ -7781,22 +7857,24 @@ sub initLibrariesFromFamdb {
         rmtree("$path/$dbLabel/$speciesWord" . ".working",0,1);
       }
       if ( -d "$path/$dbLabel/general" ) {
-        if (
-             (
-                  $searchEngine->isa( "WUBlastSearchEngine" )
-               && ( my @pathFiles = glob( "$path/$dbLabel/general/*.ahd" ) )
-             )
-             || (   $searchEngine->isa( "NCBIBlastSearchEngine" )
-                 && ( my @pathFiles = glob( "$path/$dbLabel/general/*.nhr" ) )
-                )
-             || (    $searchEngine->isa( "CrossmatchSearchEngine" )
-                  && -s "$path/$dbLabel/general/l1.lib"
-                  && -s "$path/$dbLabel/general/refineableHash.dat" )
-             || (   $searchEngine->isa( "HMMERSearchEngine" ) )
-            )
-        {
-          $generalCacheDir = "$path/$dbLabel/general";
-        }
+        #if (
+        #     (
+        #          $searchEngine->isa( "WUBlastSearchEngine" )
+        #       && ( my @pathFiles = glob( "$path/$dbLabel/general/*.ahd" ) )
+        #     )
+        #     || (   $searchEngine->isa( "NCBIBlastSearchEngine" )
+        #         && ( my @pathFiles = glob( "$path/$dbLabel/general/*.nhr" ) )
+        #        )
+        #     || (    $searchEngine->isa( "CrossmatchSearchEngine" )
+        #          && -s "$path/$dbLabel/general/l1.lib"
+        #          && -s "$path/$dbLabel/general/refineableHash.dat" )
+        #     || (   $searchEngine->isa( "HMMERSearchEngine" ) )
+        #    )
+        #{
+        # The general directory may not have anything in it.  Fallback on the .working
+        # flag to ensure it was built correctly.
+        $generalCacheDir = "$path/$dbLabel/general";
+        #}
       }elsif ( -d "$path/$dbLabel/general" . ".working" ){
         # Make sure checkpointing name has been cleared in previous run
         print "\n  It appears that RepeatMasker attempted to generate a cached general library\n"
@@ -7855,8 +7933,8 @@ sub initLibrariesFromFamdb {
       if ( !-d "$writableCacheDir/$dbLabel/general.working" ) {
         eval { mkpath( "$writableCacheDir/$dbLabel/general.working" ) };
         if ( $@ ) {
-          die "RepeatMasker::setspecies: Can't creat dir path "
-              . "$writableCacheDir/$dbLabel/general! $@\n";
+          die "RepeatMasker::setspecies: Can't create dir path "
+              . "$writableCacheDir/$dbLabel/general.working! $@\n";
         }
       }
 
@@ -7897,10 +7975,12 @@ sub initLibrariesFromFamdb {
         # Build the cached refineable elements hash.  These are the
         # IDs of sequences which can be refined by searching against
         # the refinelib.
-        my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" .
-                       $species . "' --ancestors --descendants -f embl_meta";
+        my $cOpt = "--curated";
+        $cOpt = "" if ( $options{'uncurated'} );
+        my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+                       $species . "' $cOpt --ancestors --descendants -f embl_meta";
         #print "Running $famdbCmd\n";
-        open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";
+        open IN,"$famdbCmd|";
         my $acc;
         my $name;
         my $ref;
@@ -7927,6 +8007,9 @@ sub initLibrariesFromFamdb {
            $ref = 1 if ( /^CC\s+Refineable/ );
         }
         close IN;
+        if ( $? ) {
+          die "Could not execute famdb.py using: $famdbCmd\n";
+        }
         nstore \%refineableHash,
             "$writableCacheDir/$dbLabel/$speciesWord.working/refineableHash.dat";
    
@@ -8081,13 +8164,18 @@ sub createLibFromFamdb {
   # NOTE: Stage 95 is a catch all for 35 50 55 60 65 70 75....basically
   #       excluding 25/40/45. Stage '80' is all stages.  Currently famdb.py handles these
   #       special case selections internally.
-  my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/RepeatMaskerLib.h5 families '" . 
-              $species . "' --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
+  my $cOpt = "--curated";
+  $cOpt = "" if ( $options{'uncurated'} );
+  my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" . 
+              $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
   if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
     $famdbCmd .= " --add-reverse-complement";
   }
   $famdbCmd .= " > $outFile";
   system($famdbCmd);
+  if ( $? ) {
+    die "Could not execute famdb.py using: $famdbCmd\n";
+  }
 
   if ( `grep -v -c "^#" $outFile` == 0 ) {
     print "createLibFromFamdb: Removing empty library $outFile\n" if ( $DEBUG );

@@ -239,7 +239,9 @@ sub translateBatchSeqPositionToFastaSeq {
   my $batchRef = $this->{'batchInfo'}->{'batches'}->[ $batchIDsRef->[ 0 ] - 1 ];
   foreach my $seq ( @{ $batchRef->{'sequences'} } ) {
     next if ( $seq->{'id'} ne $seqID );
-    return ( $position + $seq->{'startPos'} );
+    my $startPos = 0;
+    $startPos = $seq->{'startPos'} if ( exists $seq->{'startPos'} && defined $seq->{'startPos'} );
+    return ( $position + $startPos );
   }
 
   return ( -1 );
@@ -308,10 +310,10 @@ sub getSeqIDValidRange {
   my $overlapMiddle = sprintf( "%.0f", $this->{'overlapLength'} / 2 );
   foreach my $seq ( @{ $batchRef->{'sequences'} } ) {
     next if ( $seq->{'id'} ne $seqID );
-    if ( $seq->{'startPos'} > 0 ) {
+    if ( exists $seq->{'startPos'} && $seq->{'startPos'} > 0 ) {
       $startPos = $seq->{'startPos'} + $overlapMiddle + 1;
     }
-    if ( $seq->{'lastPos'} > 0 && !$seq->{'lastBatch'} ) {
+    if ( exists $seq->{'lastPos'} && $seq->{'lastPos'} > 0 && !$seq->{'lastBatch'} ) {
       $endPos = $seq->{'lastPos'} - $overlapMiddle + 1;
     }
     return ( $startPos, $endPos );
@@ -340,6 +342,26 @@ sub getBatchAverageGC {
   return $this->{'batchInfo'}->{'batches'}->[ $batchNum - 1 ]->{'averageGC'};
 
 }
+
+##-------------------------------------------------------------------------##
+
+=head2 getBatchAverageGCFP()
+
+  Use: my $avgGC = $obj->getBatchAverageGCFP( $batchNum );
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getBatchAverageGCFP {
+  my $this     = shift;
+  my $batchNum = shift;
+
+  return ( -1 )
+      unless ( defined $this->{'batchInfo'}->{'batches'}->[ $batchNum - 1 ] );
+
+  return sprintf("%0.2f",$this->{'batchInfo'}->{'batches'}->[ $batchNum - 1 ]->{'fp_avg_gc'});
+}
+
 
 ##-------------------------------------------------------------------------##
 
@@ -602,6 +624,7 @@ sub _packBatches {
           {
             'sequenceLength' => $batchLenCtr,
             'averageGC'      => int( ( $totalGC / $batchLenCtr ) * 100 ),
+            'fp_avg_gc'      => ( $totalGC / $batchLenCtr ) * 100,
             'completeSeqs'   => $completeSeqs,
             'sequences'      => [ @batchSequences ]
           };
@@ -630,6 +653,7 @@ sub _packBatches {
             {
               'sequenceLength' => $batchLenCtr,
               'averageGC'      => int( ( $totalGC / $batchLenCtr ) * 100 ),
+              'fp_avg_gc'      => ( $totalGC / $batchLenCtr ) * 100,
               'completeSeqs'   => $completeSeqs,
               'sequences'      => [ @batchSequences ]
             };
@@ -667,10 +691,13 @@ sub _packBatches {
         my $gcLevel = 0;
         $gcLevel = sprintf( "%.0f", ( ( $gcLength / $gcSize ) * 100 ) )
             if ( $gcSize > 0 );
+        my $fpGC = 0;
+        $fpGC = ( $gcLength / $gcSize ) * 100 if ( $gcSize > 0);
         push @batches,
             {
               'sequenceLength' => $size,
               'averageGC'      => $gcLevel,
+              'fp_avg_gc'      => $fpGC,
               'completeSeqs'   => $completeSeqs,
               'sequences'      => [ @batchSequences ]
             };
@@ -699,10 +726,13 @@ sub _packBatches {
       my $gcLevel = 0;
       $gcLevel = sprintf( "%.0f", ( ( $gcLength / $gcSize ) * 100 ) )
           if ( $gcSize > 0 );
+      my $fpGC = 0;
+      $fpGC = ( $gcLength / $gcSize ) * 100 if ( $gcSize > 0);
       push @batches,
           {
             'sequenceLength' => $size,
             'averageGC'      => $gcLevel,
+            'fp_avg_gc'      => $fpGC,
             'completeSeqs'   => $completeSeqs,
             'sequences'      => [ @batchSequences ]
           };
@@ -722,6 +752,7 @@ sub _packBatches {
             {
               'sequenceLength' => $batchLenCtr,
               'averageGC'      => int( ( $totalGC / $batchLenCtr ) * 100 ),
+              'fp_avg_gc'      => ( ( $totalGC / $batchLenCtr ) * 100 ),
               'completeSeqs'   => $completeSeqs,
               'sequences'      => [ @batchSequences ]
             };
@@ -752,6 +783,7 @@ sub _packBatches {
         {
           'sequenceLength' => $batchLenCtr,
           'averageGC'      => int( ( $totalGC / $batchLenCtr ) * 100 ),
+          'fp_avg_gc'      => ( ( $totalGC / $batchLenCtr ) * 100 ),
           'completeSeqs'   => $completeSeqs,
           'sequences'      => [ @batchSequences ]
         };

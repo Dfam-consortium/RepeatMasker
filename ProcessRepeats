@@ -245,7 +245,7 @@ if ( $options{'species'} ) {
 
   # Need to set opt_species, opt_mammal, opt_mus
   $tax =
-      Taxonomy->new( famdbfile => "$LIBDIR/RepeatMaskerLib.h5" );
+      Taxonomy->new( famdb_dir => "$LIBDIR/famdb" );
 
   if ( $tax->isA( $options{'species'}, "primates" ) ) {
     $options{'primate'} = 1;
@@ -2072,7 +2072,7 @@ CYCLE3:
       }    # cycle5a
 
     }    # if refcat.....
-         #printHitArrayList( $sortedAnnotationsList );
+    #printHitArrayList( $sortedAnnotationsList );
 
     ########################## C Y C L E 6 ################################
     #
