@@ -315,7 +315,7 @@ Crossmatch, ProcessRepeats
 
 =head1 COPYRIGHT
 
-2002-2020 Copyright (C) Institute for Systems Biology Developed by
+2002-2023 Copyright (C) Institute for Systems Biology Developed by
 Arian Smit and Robert Hubley.
 
 2000-2001 Copyright (C) Arian Smit.
@@ -473,15 +473,26 @@ my $TRF_PRGM = $config->{'TRF_PRGM'}->{'value'};
 # Determine the installation directory using 
 # location of the program that was invoked.
 my $LIBDIR = $config->{'LIBDIR'}->{'value'};
-my $MATDIR = "$REPEATMASKER_DIR/Matrices";
+if ( $LIBDIR eq "" ) {
+  die "The path to the RepeatMasker libraries is not set.  This\n" .
+      "is typically the case when the RepeatMasker has not been\n" .
+      "initially configured.  Please run the RepeatMasker/configure\n" .
+      "program before retrying RepeatMasker";
+}
+unless ( -d $LIBDIR ) {
+  die "The path to the Libraries directory is set incorrectly:\n" .
+      "    $LIBDIR\n".
+      "does not exist.  Please re-run the configure program.\n";
+}
 
+my $MATDIR = "$REPEATMASKER_DIR/Matrices";
 die "The assumed RepeatMasker installation directory\n" .
     "    $REPEATMASKER_DIR\n" . 
     "does not appear to be correct.  E.g it does not\n" .
-    "contain a 'Libraries' or 'Matrices' subdirectory.\n" .
+    "contain the 'Matrices' subdirectory.\n" .
     "This can occur if hard links are used to invoke\n" .
     "this script.\n"
-    unless ( -d $LIBDIR && -d $MATDIR );
+    unless ( -d $MATDIR );
 
 #
 # Get the date
