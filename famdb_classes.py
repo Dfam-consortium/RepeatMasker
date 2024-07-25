@@ -352,7 +352,7 @@ class FamDBLeaf:
                 if "Parent" in node:
                     if str(node["Parent"][0]) in group_nodes:
                         tax_id = node["Parent"][0]
-                        tree = [tax_id, tree]
+                        tree = [int(tax_id), tree]
                     else:
                         tree = [f"{ROOT_LINK}{tax_id}", tree]
                         tax_id = None
