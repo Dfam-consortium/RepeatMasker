@@ -526,24 +526,56 @@ sub getParameters {
     $parameters .= " -word_size 14";
   }
 
+  # Translate SearchEngine minScore/Bandwidth
+  # to RMBlast's -xdrop_ungap/-xdrop_gap_final/
+  # -xdrop_gap parameters.  NOTE: There is much
+  # legacy support encoded here.
   if ( defined( $value = $this->getMinScore() )
        && $value =~ /\d+/ )
   {
     my $minScore = $value;
-    ## In some cases we want to generate a pseudo
-    ## global alignment.  I.e when refining a previously
-    ## aligned region with new consensi.
-    ## Currently this special case is only used by
-    ## the "align.pl" utility.  NOTE: To be safe, the
-    ## only way this is invoked is with a negative value
-    ## e.g -bandwidth -29 ( cm bandwidth default is 14 [14*2+1])
-    if ( defined( $value = $this->getBandwidth() )
-         && $value < 0 )
+
+    ## There are three approaches encoded here
+    ## that are selectable by using +bandwidth,
+    ## 0 bandwidth, and -bandwidth.  An 'undefined'
+    ## bandwidth defaults to the +bandwidth method.
+    ##
+    ##  +bandwidth: use legacy MaskerAid tranlsations
+    ##              for minScore to RMBlast parameters.
+    ##              [default]
+    ##  0 bandwidth: use pseudo-global alignment 
+    ##               translations for RepeatMasker's
+    ##               refinement stage.
+    ##  -bandwidth: use bandwidth magnitude, in addition
+    ##              to minScore to simulate a bandwidth
+    ##              in RMBlast. This uses the gap penalties
+    ##              to work out a correct -xdrop_gap_final
+    ##              parameter.
+    ## TODO: Document diff between xdrops for NCBI Blast
+    ##    xdrop_ungap: 
+    ##    xdrop_gap:
+    ##    xdrop_gap_final:
+    ##
+
+    # The RepeatMasker refinement case.  NOTE: This is not equivalent
+    # to "undefined".  It must have a value of "0".
+    if ( $this->getBandwidth() eq "0" ) {
+      $parameters .=                                                           
+            " -xdrop_ungap "
+          . ( $minScore * 2 )                                
+          . " -xdrop_gap_final "                     
+          . ( $minScore * 4 )    
+          . " -xdrop_gap "
+          . int( $minScore / 2 ) . " ";                        
+    }
+    elsif ( defined( $value = $this->getBandwidth() )
+            && $value < 0 )
     {
-      # Document diff between xdrops for NCBI Blast
-      # xdrop_ungap: 
-      # xdrop_gap:
-      # xdrop_gap_final:
+      # In crossmatch the bandwidth parameter is the off-diagonal
+      # distance tolerated.  So the full band is (cm_bandwidth * 2 + 1)
+      # wide.  Here we use bandwidth to indicate the full width of the band
+      # (legacy...should have used the same definition as cm) so a bandwidth
+      # of -29 is equivalent to the crossmatch bandwidth of 14.
       $parameters .= " -xdrop_ungap " . ( $minScore * 2 ) . " -xdrop_gap_final "
           # Ins/Del extension penalties are the same for RMBlast ( only cm differentiates )
           # The tolerated gapped xdrop should tolerate a gap of bandwidth #.  So 
@@ -554,7 +586,6 @@ sub getParameters {
           . int( $minScore / 2 ) . " ";
     }
     else {
-
       # These are inherited from MaskerAid.  It's a strange choice as
       # it creates a side effect on indel size.  Lower minscores
       # reduce the allowable indel length whereas higher minscores

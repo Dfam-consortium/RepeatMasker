@@ -678,7 +678,7 @@ sub _parseTagData {
     #   ID   IS1     repeatmasker; DNA;  ???;  768 BP.
     # RepBase Example
     #   ID   MER57F      repbase;    DNA;    HUM; 435 BP.
-    elsif ( $data =~ /(\S+)\s+\S+\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\d+)\s+BP.*/ )
+    elsif ( $data =~ /^(\S+)\s+\S+\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\d+)\s+BP.*/ )
     {
       $recRef->setId( $1 );
       $recRef->setSeqVersion( 0 );
@@ -687,7 +687,18 @@ sub _parseTagData {
       $recRef->setDataclass( "STD" );
       $recRef->pushDivisions( $3 );
     }
-
+    # Also Repbase:
+    #   ID   nhAT6_ML; linear; DNA; STD; UNC; 215 BP.
+    elsif ( $data =~ /^(\S+)\s+(\S+)\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\S+)\s*\;\s+(\d+)\s+BP.*/ ) 
+    {
+      $recRef->setId( $1 );
+      $recRef->setSeqVersion( 0 );
+      $recRef->setTopology( $2 );
+      $recRef->setMolecule( $3 );
+      $recRef->setDataclass( $4 );
+      $recRef->pushDivisions( $5 );
+    }
+    
     # RepBase Error:
     #   foo bar; DNA; ???; HUM BP.
     # Deprecated - they fixed the issue

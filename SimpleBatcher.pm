@@ -329,6 +329,9 @@ sub getSeqIDValidRange {
 
   Use: my $avgGC = $obj->getBatchAverageGC( $batchNum );
 
+  Get average GC content for a batch (in percent) rounded to the nearest
+  integer.
+
 =cut
 
 ##-------------------------------------------------------------------------##
@@ -348,6 +351,8 @@ sub getBatchAverageGC {
 =head2 getBatchAverageGCFP()
 
   Use: my $avgGC = $obj->getBatchAverageGCFP( $batchNum );
+
+  GC Fraction with two additional decimal places.
 
 =cut
 

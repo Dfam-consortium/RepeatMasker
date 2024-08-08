@@ -41,7 +41,7 @@ RepeatMasker
 
 =head1 COPYRIGHT
 
-Copyright 2003-2019 Robert Hubley, Institute for Systems Biology
+Copyright 2003-2024 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -254,7 +254,6 @@ if ( $? ) {
 print " -- Setting perl interpreter...\n";
 my @progFiles = (
                   "RepeatMasker",
-                  "DateRepeats",
                   "ProcessRepeats",
                   "RepeatProteinMask",
                   "DupMasker",
@@ -282,8 +281,11 @@ my $perlLocEsc = $perlLocation;
 $perlLocEsc =~ s/\//\\\//g;
 
 foreach my $file ( @progFiles ) {
-  system(
-         "$perlLocation -i -0pe \'s/^#\\!.*perl.*/#\\!$perlLocEsc/g\;' $file" );
+  if ( -s $file ) {
+    system("$perlLocation -i -0pe \'s/^#\\!.*perl.*/#\\!$perlLocEsc/g\;' $file" );
+  }else {
+    die "    $file is missing from RepeatMasker distribution";
+  }
 }
 
 ##
@@ -652,6 +654,8 @@ sub searchEngineMenu {
           }
         }else {
           $searchEngines[ $answer - 1 ]->{'status'} = 2;
+          # RMH: Added 8/7/24 -- didn't set default engine if only one engine was chosen
+          $RepeatMaskerConfig::configuration->{'DEFAULT_SEARCH_ENGINE'}->{'value'} = $searchEngines[$answer-1]->{'defname'};
           $defaultEngine = $answer;
         }
       }
@@ -708,7 +712,13 @@ sub compareFiles {
       $seen{$entry} = 1;
       # FamDB file
       if ( $famdb_prefix ne "" && $famdb_prefix ne $1 ) {
-         die "There appears to be more than one FamDB database in the $LIBDIR/famdb directory: $famdb_prefix and $1\n\n";
+         my $other = $1;
+         if ( $famdb_prefix eq "min_init" || $other eq "min_init" ) {
+           die "There appears to be more than one FamDB database in the\n" . 
+               "$LIBDIR/famdb directory: $famdb_prefix and $other\n" .
+               "Please remove the minimial library 'min_init' and rerun configure\n\n";
+         }  
+         die "There appears to be more than one FamDB database in the $LIBDIR/famdb directory: $famdb_prefix and $other\n\n";
       }
       $famdb_prefix = $1;
       if ( $2 eq "0" ) {

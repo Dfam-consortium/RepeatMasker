@@ -503,7 +503,7 @@ my $date = localtime( time() );
 my $DEBUG = 0;
 $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 ||
                 ( exists $options{'debug'} 
-                  && $options{'debug'} & 1 ) );
+                  && $options{'debug'} ) );
 
 # Windows does not support the use of ":" in a filename.
 $date =~ s/[ ,\t,\n:]//g;
@@ -616,6 +616,11 @@ elsif ( $engine eq "ncbi" ) {
     die "Cannot execute $RMBLASTN_PRGM";
   }
   print "Search Engine: NCBI/RMBLAST [ " . $searchEngine->getVersion() . " ]\n";
+}
+elsif ( $engine eq "" ) {
+  die "\nThe default search engine is not configured!  Please use the command line\n"
+    . "parameter '-engine <rmblast|crossmatch|hmmer>' to specify which engine to\n"
+    . "use or rerun the configure script to set the default engine.\n";
 }
 else {
   die "Search engine ( $engine ) is unknown to RepeatMasker.  Please check "
@@ -2009,7 +2014,7 @@ sub search {
   if (    $searchEngine->isa( "NCBIBlastSearchEngine" )
        && $lib =~ /refine/ )
   {
-    $bandwidth = -1;
+    $bandwidth = '0';
   }
 
   my $cycle = 1;
@@ -2658,6 +2663,7 @@ sub runTRFStage {
   my $DIRECTORY           = shift;
   my $seqDB               = shift;
 
+  my $saveDEBUG = $DEBUG;
   $DEBUG = 0;
   my ( $workingVol, $workingDir, $workingFile ) =
       File::Spec->splitpath( $outfile );
@@ -2816,7 +2822,7 @@ sub runTRFStage {
                       $options->{'inv'}, $outfile,    $refineableHashRef,
                       $refinementHash,   $batchNum,   $stage
   );
-  $DEBUG = 0;
+  $DEBUG = $saveDEBUG;
 
   return ( $trfResults->size() );
 }
@@ -2937,15 +2943,15 @@ sub runStage {
     $resultsCollection->filterContainedResults( value => $masklevel );
   }
 
-  if ( $DEBUG ) {
-    print "Pre-MaskLevel Annotations:\n";
-    for ( my $i = 0 ; $i < $resultsCollection->size() ; $i++ ) {
-      print "#$i:  "
-          . $resultsCollection->get( $i )
-          ->toStringFormatted( SearchResult::NoAlign );
-    }
-    print "\n";
-  }
+  #if ( $DEBUG ) {
+  #  print "Pre-MaskLevel Annotations:\n";
+  #  for ( my $i = 0 ; $i < $resultsCollection->size() ; $i++ ) {
+  #    print "#$i:  "
+  #        . $resultsCollection->get( $i )
+  #        ->toStringFormatted( SearchResult::NoAlign );
+  #  }
+  #  print "\n";
+  #}
 
   # shortcutlib & shortlib & masklib
   if ( $stage == 401 || $stage == 501 || $stage == 502 || $stage == 452 ) {
@@ -2955,7 +2961,7 @@ sub runStage {
   #
   # Mask level filtering
   #
-  print "Using: masklevel = $masklevel\n" if ( 0 );
+  #print "Using: masklevel = $masklevel\n" if ( 1 );
   $resultsCollection->maskLevelFilter( value => $masklevel );
 
   #print $CLASS
@@ -3986,7 +3992,7 @@ sub runHMMERSearchStages {
       }
 
       $resultsCollection->write( $outfile, SearchResult::AlignWithQuerySeq );
-      unlink( $maskfile );
+      unlink( $maskfile ) unless($DEBUG);
       unlink( "$maskfile.log" );
 
     }
@@ -4672,7 +4678,7 @@ sub runSearchStages {
 
       my $refIdx = 0;
       foreach my $ele ( @{ $refinementHash{$refinementClass} } ) {
-        print OUT ">ref" . $refIdx++ . "\n";
+        print OUT ">ref" . $refIdx++ . " - $ele->{'id'}\n";
         $index++;
         my $seq = $ele->{'seq'};
         $seq =~ s/(\S{50})/$1\n/g;
@@ -4731,7 +4737,6 @@ sub runSearchStages {
             $current->getQueryEnd() - $current->getQueryStart() + 1;
 
         if ( $origLen - $refinedLen > 10 ) {
-
           # Unlikely candidate -- does not fully align
           $resultsCollection->remove( $i );
         }
@@ -4742,7 +4747,7 @@ sub runSearchStages {
       }
 
       $resultsCollection->write( $outfile, SearchResult::AlignWithQuerySeq );
-      unlink( $maskfile );
+      unlink( $maskfile ) unless ($DEBUG);
       unlink( "$maskfile.log" );
 
     }
@@ -4982,6 +4987,7 @@ sub isRefineable {
 sub preMaskLevelFilter {
   my $searchResults = shift;
 
+  my $saveDEBUG = $DEBUG;
   $DEBUG = 0;
   print "preMaskLevelFilter( \$searchResults ); Called\n"
       if ( $DEBUG );
@@ -5055,7 +5061,7 @@ sub preMaskLevelFilter {
     }
     print "\n";
   }
-  $DEBUG = 0;
+  $DEBUG = $saveDEBUG;
 }
 
 ##-------------------------------------------------------------------------##
@@ -5076,6 +5082,7 @@ sub filterResults {
   my $searchResults = shift;
   my $tax           = shift;
 
+  my $saveDEBUG = $DEBUG;
   $DEBUG = 0;
   print "filterResults( \%options, $chooseClass, $fragCnt,"
       . " $lib, \$searchResults ); Called\n"
@@ -5918,7 +5925,7 @@ sub filterResults {
     }
     print "\n";
   }
-  $DEBUG = 0;
+  $DEBUG = $saveDEBUG;
 }    # sub filterResults
 
 ##-------------------------------------------------------------------------##
@@ -6132,7 +6139,7 @@ sub postProcessSearch {
       );
     }
 
-    print "TRANSLATING: $begin-$end to $globalBegin-$globalEnd\n" if ( $DEBUG );
+    #print "TRANSLATING: $begin-$end to $globalBegin-$globalEnd\n" if ( $DEBUG );
     $result->setQueryStart( $globalBegin );
     $result->setQueryEnd( $globalEnd );
   }
@@ -6398,7 +6405,8 @@ sub fragmentAnnotations {
   my $excisions         = shift;
   my $numX              = shift;
 
-  my $DEBUG            = 0;
+  my $saveDEBUG = $DEBUG; 
+  $DEBUG = 0;
   my $newSearchResults = SearchResultCollection->new();
   my %deleteHash       = ();
   my @groupedAnnots    = ();
@@ -6514,7 +6522,7 @@ sub fragmentAnnotations {
     }
   );
 
-  $DEBUG = 0;
+  $DEBUG = $saveDEBUG;
 
   return ( \@groupedAnnots );
 }
@@ -6536,7 +6544,8 @@ sub createSubElements {
   my $subSegmentList = shift;
   my $numX           = shift;
 
-  my $DEBUG = 0;
+  my $saveDEBUG = $DEBUG;
+  $DEBUG = 0;
 
   my $parentQueryStart  = $parentElement->getQueryStart();
   my $parentQueryEnd    = $parentElement->getQueryEnd();
@@ -6717,6 +6726,8 @@ sub createSubElements {
     }
     $newResultColl->add( $newSegment );
   }
+
+  $DEBUG = $saveDEBUG;
 
   return $newResultColl;
 
@@ -7686,6 +7697,21 @@ sub initLibrariesFromFamdb {
     }else {
       print "  Families : " . commify($dbHMMCnt) . "\n\n";
     }
+
+    ## For minimal DB installs, -species is not an option.
+    if ( $dbTitle eq "Sequencing_artifacts_only" ) {
+      die "\nERROR: A database of TE families is not present.\n" .
+          "         Either install the Dfam famDB root partition and additional\n" .
+          "         optional partitions or use the -lib option and provide your\n" .
+          "         own custom TE FASTA library file.\n\n".
+          "  To install Dfam FamDB partitions, simply download the root ('0') partition\n" .
+          "  from https://www.dfam.org/releases/current/families/FamDB/ into your\n".
+          "  RepeatMasker/Libraries/famdb folder and rerun the RepeatMasker 'configure'\n" .
+          "  tool to complete the installation. See the FamDB release notes and partition\n" .
+          "  descriptions https://www.dfam.org/releases/current/families/FamDB/README.txt\n" .
+          "  for further details.\n\n";
+    }
+
     # TODO Print total Taxa count
     # Lookup species in famdb and resolve orgFlag
     # NOTE: orgFlag is a bit of a legacy concept that will probably disappear
