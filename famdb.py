@@ -63,7 +63,6 @@ from famdb_classes import FamDB
 # Command-line utilities
 def command_info(args):
     """The 'info' command displays some of the stored metadata."""
-
     db_info = args.db_dir.get_db_info()
     counts = args.db_dir.get_counts()
     f_info = args.db_dir.get_metadata()
@@ -113,7 +112,7 @@ def command_names(args):
 
     elif args.format == "json":
         obj = []
-        for (tax_id, is_exact, partition, names) in entries:
+        for tax_id, is_exact, partition, names in entries:
             names_obj = [{"kind": name[0], "value": name[1]} for name in names]
             obj += [{"id": tax_id, "partition": partition, "names": names_obj}]
         print(json.dumps(obj))
@@ -527,6 +526,7 @@ def command_fasta_all(args):
     to FASTA format for use by RepeatMasker
     """
     args.format = "fasta_name"
+    args.include_class_in_name = True
     print_families(args, args.db_dir.fasta_all("/DF"), True, 1)
     print_families(args, args.db_dir.fasta_all("/Aux"), True, 1)
 
@@ -821,6 +821,11 @@ with a given clade, optionally filtered by additional criteria",
     args = parser.parse_args()
     logging.getLogger().setLevel(getattr(logging, args.log_level.upper()))
 
+    if "func" in args and args.func is command_append:
+        mode = "r+"
+    else:
+        mode = "r"
+
     if "term" in args:
         args.term = " ".join(args.term)
 
@@ -836,30 +841,27 @@ with a given clade, optionally filtered by additional criteria",
 
     if args.db_dir and os.path.isdir(args.db_dir):
         try:
-            if "func" in args and args.func is command_append:
-                mode = "r+"
-            else:
-                mode = "r"
-
             args.db_dir = FamDB(args.db_dir, mode)
         except:
             args.db_dir = None
-            exc_value = sys.exc_info()[1]
+            # exc_value = sys.exc_info()[1]
             # LOGGER.error("Error reading file: %s", exc_value)
             # if LOGGER.getEffectiveLevel() <= logging.DEBUG:
             #    raise
             raise
     else:
-        LOGGER.error(
-            "Please specify a directory to operate on with the -i/--db_dir option."
-        )
-        return
+        # LOGGER.info(" No file directory specified, minimal initialization used")
+        # args.db_dir = FamDB(args.db_dir, mode, min=True)
+        LOGGER.error("Please specify a file to operate on with the -i/--file option.")
 
+    if not args.db_dir:
+        return
+    
     if "func" in args:
         try:
             args.func(args)
         except Exception as e:
-            print(f"Double-Check Command {e}")
+            print(f"Double-Check Command: {e}")
     else:
         parser.print_help()
 

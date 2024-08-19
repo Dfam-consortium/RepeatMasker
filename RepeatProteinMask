@@ -10,7 +10,7 @@
 ##      all hits using blastx.
 ##
 #******************************************************************************
-#* Copyright (C) Institute for Systems Biology 2005-2019 Developed by
+#* Copyright (C) Institute for Systems Biology 2005-2024 Developed by
 #* Arian Smit and Robert Hubley.
 #*
 #* This work is licensed under the Open Source License v2.1.  To view a copy
@@ -86,7 +86,7 @@ RepeatModeler
 
 =head1 COPYRIGHT
 
-Copyright 2005-2019 Institute for Systems Biology
+Copyright 2005-2024 Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -195,6 +195,25 @@ my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
 my $ABBLASTX_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastx";
 my $XDFORMAT_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
 my $ABBLAST_DIR = $config->{'ABBLAST_DIR'}->{'value'};
+
+#
+# Setup the search engine                                              
+#                                                                           
+my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};       
+if ( exists $options{'engine'} ) {                               
+  if ( $options{'engine'} =~                                            
+       /^(ncbi|rmblast|wublast|abblast)$/i )      
+  {                                                                     
+    $engine = lc( $options{'engine'} );                   
+  }                               
+  else {                                                                       
+    die "I have never heard of the search engine $options{'engine'}.  Please\n"
+        . "use rmblast/ncbi or abblast/wublast.\n";                       
+  }                               
+}                                 
+# Save normalized engine name back into options as well
+$options{'engine'} = $engine;
+
 
 # This will miss alot. But in GC rich DNA a lower score
 # will cause false positives

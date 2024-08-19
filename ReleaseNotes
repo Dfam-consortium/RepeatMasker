@@ -1,3 +1,20 @@
+4.1.7
+  - Handle the case were the default search engine is not configured
+    and require the user to provide it using -e/-engine.
+  - Use the global alignment bandwidth simulation for the refinement
+    step.
+  - Allow for minimal database install and warn when used with -species.
+  - Fixed a bug on configure with setting the default search engine when
+    only one search engine is configured.
+  - RepeatProteinMask wasn't obtaining the correct search engine if
+    configure didn't set it up correctly.
+  - FamDB wasn't exporting RepeatMasker.lib with class-name suffixes.
+    This had an impact on the RepeatModeler/RepeatClassifier package
+    but not on RepeatMasker itself. Upgraded to FamDB 1.0.3
+  - Fixed an issue with parsing RepBase.  Some records were not being
+    parsed correctly for records that do not include the keyword "repbase"
+    following the identifier.
+  - New semantantics for NCBIBlastSearchEngine bandwidth interpretation.
 4.1.6
   - Upgraded to FamDB 1.0.2 to support Dfam 3.8 and the new partitioned
     database format.

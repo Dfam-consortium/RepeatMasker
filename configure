@@ -363,7 +363,7 @@ if ( ! $hasFamDBRoot ) {
   do { 
     print "   *** No libraries present ***\n\n";
     print "Choose:\n";
-    print "   1. Download minimal Dfam df_version (partition 0) using wget or curl\n";
+    print "   1. Download minimal $df_version (partition 0) using wget or curl\n";
     print "      (please see https://dfam.org/releases/current/families/FamDB/README.txt for full list of Dfam partitions.)\n";
     print "   2. Exit and download libraries manually (Dfam $df_version or newer).\n";
     print "\n\nEnter Selection: ";
