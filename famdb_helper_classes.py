@@ -632,6 +632,8 @@ class Family:  # pylint: disable=too-many-instance-attributes
                     for spec in matches.group(1).split(","):
                         name = spec.strip()
                         if name:
+                            name = name.replace("[", "")
+                            name = name.replace("]", "")
                             tax_id = lookup.get(name.lower())
                             if tax_id is not None:
                                 family.clades += [tax_id]

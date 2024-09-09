@@ -331,7 +331,7 @@ if ( -e "$LIBDIR/famdb/merge.working" ) {
   my $dlTime = `cat $LIBDIR/famdb/merge.working`;
   die "It appears a previous attempt to merge Dfam and Repbase failed on $dlTime" . 
       "The files in $LIBDIR/famdb may be corrupt.\n" .
-      "Please remove all files from this folder and rerun configure to retry.\n\n";
+      "Please remove all files from this folder, install new Dfam files, and rerun configure to retry.\n\n";
 }  
  
 if ( -e "$LIBDIR/famdb/download.working" ) {

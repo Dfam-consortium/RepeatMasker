@@ -537,10 +537,7 @@ def command_append(args):
     existing famdb file.
     """
 
-    # TODO rework this
-    lookup = {}
-    with open(REPBASE_FILE) as file:
-        lookup = json.load(file)
+    lookup = args.db_dir.get_all_taxa_names()
 
     header = None
 
@@ -856,7 +853,7 @@ with a given clade, optionally filtered by additional criteria",
 
     if not args.db_dir:
         return
-    
+
     if "func" in args:
         try:
             args.func(args)

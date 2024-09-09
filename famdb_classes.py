@@ -683,6 +683,21 @@ up with the 'names' command.""",
                 return node
         return None
 
+    def get_all_taxa_names(self):
+        taxa = set()
+        for partition in self.names_dump:
+            for key in self.names_dump[partition].keys():
+                taxa.add(key)
+        sanitized_dict = {}
+        for taxon in taxa:
+            sanitized_dict[
+                self.get_taxon_name(taxon, kind="sanitized scientific name")[0].lower()
+            ] = taxon
+            sanitized_dict[
+                self.get_taxon_name(taxon, kind="sanitized synonym")[0].lower()
+            ] = taxon
+        return sanitized_dict
+
 
 class FamDB:
 
@@ -1110,6 +1125,9 @@ class FamDB:
             fam = self.files[file].get_family_by_accession(accession)
             if fam:
                 return self.files[file].filter_stages(accession, stages)
+
+    def get_all_taxa_names(self):
+        return self.files[0].get_all_taxa_names()
 
     # File Utils
     def close(self):
