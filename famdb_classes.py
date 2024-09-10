@@ -21,6 +21,7 @@ from famdb_globals import (
     GROUP_TAXANAMES,
     MISSING_FILE,
     HELP_URL,
+    COPYRIGHT_TEXT,
 )
 from famdb_helper_methods import (
     sanitize_name,
@@ -32,6 +33,8 @@ from famdb_helper_methods import (
     filter_name,
     get_family,
     accession_bin,
+    gen_min_data,
+    gen_min_map,
 )
 
 
@@ -60,6 +63,15 @@ class FamDBLeaf:
             )
 
         self.filename = filename
+
+        # if filename == "min_init":
+        #     # Create an in-memory HDF5 file
+        #     self.file = h5py.File(filename, "w", driver="core", backing_store=False)
+        #     self.added = {"consensus": 0, "hmm": 0}
+        #     self.__write_metadata()
+        # else:
+        #     self.file = h5py.File(filename, mode)
+
         self.file = h5py.File(filename, mode)
         self.mode = mode
 
@@ -241,9 +253,9 @@ class FamDBLeaf:
         # Create links
         fam_link = f"/{group_path}/{family.accession}"
         if family.name:
-            self.file.require_group(GROUP_LOOKUP_BYNAME)[
-                str(family.name)
-            ] = h5py.SoftLink(fam_link)
+            self.file.require_group(GROUP_LOOKUP_BYNAME)[str(family.name)] = (
+                h5py.SoftLink(fam_link)
+            )
         # In FamDB format version 0.5 we removed the /Families/ByAccession group as it's redundant
         # (all the data is in Families/<datasets> *and* HDF5 suffers from poor performance when
         # the number of entries in a group exceeds 200-500k.
@@ -311,9 +323,11 @@ class FamDBLeaf:
 
         # Filter out DF/DR or not at all depending on flags
         if curated_only:
-            return list(filter(lambda x: (x[1] == "F"), group.keys()))
+        #    return list(filter(lambda x: (x[1] == "F"), group.keys()))
+            return list(filter(lambda x: filter_curated(x,True), group.keys()))
         elif uncurated_only:
-            return list(filter(lambda x: (x[1] == "R"), group.keys()))
+        #    return list(filter(lambda x: (x[1] == "R"), group.keys()))
+            return list(filter(lambda x: filter_curated(x,False), group.keys()))
         else:
             return list(group.keys())
 
@@ -324,6 +338,13 @@ class FamDBLeaf:
         IDs are returned as a nested list, for example
         [ 1, [ 2, [3, [4]], [5], [6, [7]] ] ]
         where '2' may have been the passed-in 'tax_id'.
+
+        Where a lineage crosses between files, a string indicator is used instead of
+        the int tax_id. The indicator takes the form "FLAG:tax_id", and the FamDB
+        class uses the FLAG to determine what type of link is indicated, and the tax_id
+        to continue building the lineage in a different file. The Lineage class uses
+        the indicators to stitch serialized lineage trees together to form the final
+        lineage.
         """
 
         group_nodes = self.file[GROUP_NODES]
@@ -333,7 +354,9 @@ class FamDBLeaf:
         if descendants:
 
             def descendants_of(tax_id):
-                descendants = [int(tax_id)]
+                descendants = [
+                    int(tax_id)
+                ]  # h5py is based on numpy, need to cast numpy base64 to python int for serialization in Lineage class
                 for child in group_nodes[str(tax_id)]["Children"]:
                     # only list the decendants of the target node if it's not being combined with another decendant lineage
                     if not kwargs.get("for_combine") and str(child) in group_nodes:
@@ -350,9 +373,13 @@ class FamDBLeaf:
             while tax_id:
                 node = group_nodes[str(tax_id)]
                 if "Parent" in node:
+                    # test if parent is in this file
                     if str(node["Parent"][0]) in group_nodes:
                         tax_id = node["Parent"][0]
-                        tree = [tax_id, tree]
+                        tree = [
+                            int(tax_id),
+                            tree,
+                        ]  # h5py is based on numpy, need to cast numpy base64 to python int for serialization in Lineage class
                     else:
                         tree = [f"{ROOT_LINK}{tax_id}", tree]
                         tax_id = None
@@ -396,6 +423,23 @@ class FamDBLeaf:
 class FamDBRoot(FamDBLeaf):
     def __init__(self, filename, mode="r"):
         super(FamDBRoot, self).__init__(filename, mode)
+
+        # if filename == "min_init":
+        #     tax_db, partition_nodes, min_map, dum_fams = gen_min_data()
+        #     self.write_taxa_names(tax_db, partition_nodes)
+        #     self.set_partition_info(0)
+        #     self.set_file_info(min_map)
+        #     self.set_db_info(
+        #         "Minimal Dfam",
+        #         "min_init",
+        #         self.file.attrs["created"],
+        #         "A minimal instantiation of Dfam, comprising only the root taxon node and contaminate sequences",
+        #         COPYRIGHT_TEXT,
+        #     )
+        #     self.write_taxonomy(tax_db, [1])
+        #     for fam in dum_fams:
+        #         self.add_family(fam)
+        #     self.finalize()
 
         if mode == "r" or mode == "r+":
             self.names_dump = {
@@ -641,9 +685,43 @@ up with the 'names' command.""",
                 return node
         return None
 
+    def get_all_taxa_names(self):
+        taxa = set()
+        for partition in self.names_dump:
+            for key in self.names_dump[partition].keys():
+                taxa.add(key)
+        sanitized_dict = {}
+        for taxon in taxa:
+            sanitized_dict[
+                self.get_taxon_name(taxon, kind="sanitized scientific name")[0].lower()
+            ] = taxon
+            sanitized_dict[
+                self.get_taxon_name(taxon, kind="sanitized synonym")[0].lower()
+            ] = taxon
+        return sanitized_dict
+
 
 class FamDB:
-    def __init__(self, db_dir, mode):
+
+    def __init__(self, db_dir, mode, min=False):
+        #     if min:
+        #         FamDB.min_init(self)
+        #     else:
+        #         FamDB.full_init(self, db_dir, mode)
+
+        # def min_init(self):
+        #     """
+        #     Initialize a single taxon (root) with a fixed set of sequences
+        #     """
+        #     self.files = {}
+        #     self.files[0] = FamDBRoot("min_init", "r")
+        #     self.db_dir = "min_init"
+        #     self.file_map = gen_min_map()["file_map"]
+        #     self.uuid = "min_init"
+        #     self.db_version = "min_init"
+        #     self.db_date = time.ctime(time.time())
+
+        # def full_init(self, db_dir, mode):
         """
         Initialize from a directory containing a *partitioned* famdb dataset
         """
@@ -1049,6 +1127,9 @@ class FamDB:
             fam = self.files[file].get_family_by_accession(accession)
             if fam:
                 return self.files[file].filter_stages(accession, stages)
+
+    def get_all_taxa_names(self):
+        return self.files[0].get_all_taxa_names()
 
     # File Utils
     def close(self):

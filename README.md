@@ -6,11 +6,12 @@ Please refer to: Smit, AFA, Hubley, R. & Green, P "RepeatMasker" at
 http://www.repeatmasker.org
 
 IMPORTANT:
-The github 'master' branch only contains the source code files for
-the latest release of RepeatMasker.  A complete distribution including
-the source files, and a copy of the Dfam database (curated families)
-may be found at the RepeatMasker website:
-http://www.repeatmasker.org/RepeatMasker/
+The github 'master' branch does not contain any TE libraries.  As of
+4.1.7, you may use the release as-is for custom library searches 
+(e.g "-lib mylib.fasta").  For searches against community developed
+TE libraries, you will need to download and install one or more of the
+Dfam database FamDB partition.  See the RepeatMasker website for more
+information: http://www.repeatmasker.org/RepeatMasker/
 ```
 
 RepeatMasker

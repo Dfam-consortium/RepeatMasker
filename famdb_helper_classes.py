@@ -632,7 +632,9 @@ class Family:  # pylint: disable=too-many-instance-attributes
                     for spec in matches.group(1).split(","):
                         name = spec.strip()
                         if name:
-                            tax_id = lookup.get(name)
+                            name = name.replace("[", "")
+                            name = name.replace("]", "")
+                            tax_id = lookup.get(name.lower())
                             if tax_id is not None:
                                 family.clades += [tax_id]
                             else:
@@ -708,5 +710,5 @@ class Family:  # pylint: disable=too-many-instance-attributes
                     else:
                         family.consensus += re.sub(r"[^A-Za-z]", "", line)
 
-        if header_cb:
-            header_cb(header)
+        # if header_cb:
+        #     header_cb(header)

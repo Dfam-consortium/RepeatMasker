@@ -41,7 +41,7 @@ RepeatMasker
 
 =head1 COPYRIGHT
 
-Copyright 2003-2019 Robert Hubley, Institute for Systems Biology
+Copyright 2003-2024 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -93,7 +93,7 @@ if ( getcwd() ne $FindBin::RealBin ) {
 #   -t=s: String parameters
 #   -t=i: Number parameters
 #
-my @getopt_args = ( '-version', '-perlbin=s' );
+my @getopt_args = ( '-version', '-perlbin=s', '-force_rebuild' );
 
 # Add configuration parameters as additional command-line options
 push @getopt_args, RepeatMaskerConfig::getCommandLineOptions();
@@ -254,7 +254,6 @@ if ( $? ) {
 print " -- Setting perl interpreter...\n";
 my @progFiles = (
                   "RepeatMasker",
-                  "DateRepeats",
                   "ProcessRepeats",
                   "RepeatProteinMask",
                   "DupMasker",
@@ -282,8 +281,11 @@ my $perlLocEsc = $perlLocation;
 $perlLocEsc =~ s/\//\\\//g;
 
 foreach my $file ( @progFiles ) {
-  system(
-         "$perlLocation -i -0pe \'s/^#\\!.*perl.*/#\\!$perlLocEsc/g\;' $file" );
+  if ( -s $file ) {
+    system("$perlLocation -i -0pe \'s/^#\\!.*perl.*/#\\!$perlLocEsc/g\;' $file" );
+  }else {
+    die "    $file is missing from RepeatMasker distribution";
+  }
 }
 
 ##
@@ -329,7 +331,7 @@ if ( -e "$LIBDIR/famdb/merge.working" ) {
   my $dlTime = `cat $LIBDIR/famdb/merge.working`;
   die "It appears a previous attempt to merge Dfam and Repbase failed on $dlTime" . 
       "The files in $LIBDIR/famdb may be corrupt.\n" .
-      "Please remove all files from this folder and rerun configure to retry.\n\n";
+      "Please remove all files from this folder, install new Dfam files, and rerun configure to retry.\n\n";
 }  
  
 if ( -e "$LIBDIR/famdb/download.working" ) {
@@ -352,6 +354,7 @@ $hasRepbase = 1 if ( -s "$LIBDIR/RMRBSeqs.embl" );
 
 # Now compare current files with previously processed files
 my ( $hasFamDBRoot, $mergeRB, $rebuildRMLib, $gzip, $famdb_prefix ) = compareFiles( $LIBDIR, $rmlibConfig );
+$rebuildRMLib = 1 if ( $options{'force_rebuild'} );
 
 
 if ( ! $hasFamDBRoot ) {
@@ -361,7 +364,7 @@ if ( ! $hasFamDBRoot ) {
   do { 
     print "   *** No libraries present ***\n\n";
     print "Choose:\n";
-    print "   1. Download minimal Dfam df_version (partition 0) using wget or curl\n";
+    print "   1. Download minimal $df_version (partition 0) using wget or curl\n";
     print "      (please see https://dfam.org/releases/current/families/FamDB/README.txt for full list of Dfam partitions.)\n";
     print "   2. Exit and download libraries manually (Dfam $df_version or newer).\n";
     print "\n\nEnter Selection: ";
@@ -652,6 +655,8 @@ sub searchEngineMenu {
           }
         }else {
           $searchEngines[ $answer - 1 ]->{'status'} = 2;
+          # RMH: Added 8/7/24 -- didn't set default engine if only one engine was chosen
+          $RepeatMaskerConfig::configuration->{'DEFAULT_SEARCH_ENGINE'}->{'value'} = $searchEngines[$answer-1]->{'defname'};
           $defaultEngine = $answer;
         }
       }
@@ -708,7 +713,13 @@ sub compareFiles {
       $seen{$entry} = 1;
       # FamDB file
       if ( $famdb_prefix ne "" && $famdb_prefix ne $1 ) {
-         die "There appears to be more than one FamDB database in the $LIBDIR/famdb directory: $famdb_prefix and $1\n\n";
+         my $other = $1;
+         if ( $famdb_prefix eq "min_init" || $other eq "min_init" ) {
+           die "There appears to be more than one FamDB database in the\n" . 
+               "$LIBDIR/famdb directory: $famdb_prefix and $other\n" .
+               "Please remove the minimial library 'min_init' and rerun configure\n\n";
+         }  
+         die "There appears to be more than one FamDB database in the $LIBDIR/famdb directory: $famdb_prefix and $other\n\n";
       }
       $famdb_prefix = $1;
       if ( $2 eq "0" ) {
