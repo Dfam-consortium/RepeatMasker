@@ -538,6 +538,10 @@ def command_append(args):
     """
 
     lookup = args.db_dir.get_all_taxa_names()
+    repbase_lookup = {}
+    with open(REPBASE_FILE) as file:
+        repbase_lookup = json.load(file)
+    lookup.update(repbase_lookup)
 
     header = None
 
