@@ -137,7 +137,9 @@ my $REPEATMASKER_DIR = "$FindBin::Bin";
 my $FAMDB = "$REPEATMASKER_DIR/famdb.py";
 
 my $dbInfo = `$FAMDB -i $LIBDIR/$FamDBDir info`;
-if ( $dbInfo !~ /Database:\s+Dfam\s+withRBRM/ ) {
+if ( $dbInfo =~ /Sequencing_artifacts_only/ ) {
+  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary --name 'RBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+} elsif ( $dbInfo !~ /Database:\s+Dfam\s+withRBRM/ ) {
   system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
 }else {
   # No need to re-append name/desc
