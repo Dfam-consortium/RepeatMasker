@@ -93,7 +93,7 @@ if ( getcwd() ne $FindBin::RealBin ) {
 #   -t=s: String parameters
 #   -t=i: Number parameters
 #
-my @getopt_args = ( '-version', '-perlbin=s' );
+my @getopt_args = ( '-version', '-perlbin=s', '-force_rebuild' );
 
 # Add configuration parameters as additional command-line options
 push @getopt_args, RepeatMaskerConfig::getCommandLineOptions();
@@ -354,6 +354,7 @@ $hasRepbase = 1 if ( -s "$LIBDIR/RMRBSeqs.embl" );
 
 # Now compare current files with previously processed files
 my ( $hasFamDBRoot, $mergeRB, $rebuildRMLib, $gzip, $famdb_prefix ) = compareFiles( $LIBDIR, $rmlibConfig );
+$rebuildRMLib = 1 if ( $options{'force_rebuild'} );
 
 
 if ( ! $hasFamDBRoot ) {

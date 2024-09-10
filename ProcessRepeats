@@ -7957,7 +7957,9 @@ sub joinDNATransposonFragments {
         if ( $member->{'annot'}->getPctDiverge() < $lastAnnot->getPctDiverge() )
         {
           my $totalLastLength =
-              $lastAnnot->getQueryEnd() - $lastAnnot->getSubjStart();
+                $lastAnnot->getQueryEnd() - $lastAnnot->getQueryStart();
+          # RMH: 9/10/24 : Bug fix this was using mixed sequence coordinates
+          #      $lastAnnot->getQueryEnd() - $lastAnnot->getSubjStart();
           my $lastRemainder = $totalLastLength - getOverlapSize(
                                             $member->{'annot'}->getQueryStart(),
                                             $member->{'annot'}->getQueryEnd(),
@@ -7985,8 +7987,9 @@ sub joinDNATransposonFragments {
         }
         else {
           my $totalLastLength =
-              $member->{'annot'}->getQueryEnd() -
-              $member->{'annot'}->getSubjStart();
+              $member->{'annot'}->getQueryEnd() - $member->{'annot'}->getQueryStart();
+          # RMH: 9/10/24 : Bug fix this was using mixed sequence coordinates
+          #    $member->{'annot'}->getQueryEnd() - $member->{'annot'}->getSubjStart();
           my $lastRemainder = $totalLastLength - getOverlapSize(
                                             $lastAnnot->getQueryStart(),
                                             $lastAnnot->getQueryEnd(),

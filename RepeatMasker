@@ -8016,7 +8016,6 @@ sub initLibrariesFromFamdb {
         $cOpt = "" if ( $options{'uncurated'} );
         my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
                        $species . "' $cOpt --ancestors --descendants -f embl_meta";
-        #print "Running $famdbCmd\n";
         open IN,"$famdbCmd|";
         my $acc;
         my $name;

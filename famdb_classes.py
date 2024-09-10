@@ -323,9 +323,11 @@ class FamDBLeaf:
 
         # Filter out DF/DR or not at all depending on flags
         if curated_only:
-            return list(filter(lambda x: (x[1] == "F"), group.keys()))
+        #    return list(filter(lambda x: (x[1] == "F"), group.keys()))
+            return list(filter(lambda x: filter_curated(x,True), group.keys()))
         elif uncurated_only:
-            return list(filter(lambda x: (x[1] == "R"), group.keys()))
+        #    return list(filter(lambda x: (x[1] == "R"), group.keys()))
+            return list(filter(lambda x: filter_curated(x,False), group.keys()))
         else:
             return list(group.keys())
 

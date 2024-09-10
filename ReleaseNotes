@@ -15,6 +15,11 @@
     parsed correctly for records that do not include the keyword "repbase"
     following the identifier.
   - New semantantics for NCBIBlastSearchEngine bandwidth interpretation.
+  - Fixed a divide-by-zero error in ProcessRepeat's merging of 
+    DNA tranpsoson overlapping fragments.
+  - FamDB fixed inconsistency between curated/uncurated counts vs
+    exports.
+
 4.1.6
   - Upgraded to FamDB 1.0.2 to support Dfam 3.8 and the new partitioned
     database format.
