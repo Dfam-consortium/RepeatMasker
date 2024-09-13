@@ -195,7 +195,9 @@ sub getLineage {
 
   my $result = $this->_invokeFamDB([ "lineage", "--ancestors", "--format=semicolon", $species ]);
 
-  if ( $result =~ /(\d+):\s*(.*)\s*\[(\d+)\]/ ) {
+  # RMH: 2024-09-13: Famdb added the partition to the format of this output line.  This broke
+  # the parsing of the lineage.
+  if ( $result =~ /(\d+)\(\d+\):\s*(.*)\s*\[(\d+)\]/ ) {
     my ( $taxId, $lineage, $count ) = ( $1, $2, $3 );
     $lineage =~ s/^\s*|\s*$//g;
     @lineage = split ';', $lineage;

@@ -1,3 +1,11 @@
+4.1.7-p1
+  - This is a critical fix to the 4.1.7 release.  The -species option
+    was not being interpreted correctly by RepeatMasker/ProcessRepeats.
+    The most obvious change for mammals/primates was that the output
+    format (*.tbl file) looked different than it had before.  Under the
+    hood this also changed the way some species were handled in the 
+    library searches. 
+
 4.1.7
   - Handle the case were the default search engine is not configured
     and require the user to provide it using -e/-engine.
@@ -10,7 +18,7 @@
     configure didn't set it up correctly.
   - FamDB wasn't exporting RepeatMasker.lib with class-name suffixes.
     This had an impact on the RepeatModeler/RepeatClassifier package
-    but not on RepeatMasker itself. Upgraded to FamDB 1.0.3
+    but not on RepeatMasker itself. Upgraded to FamDB 1.0.5
   - Fixed an issue with parsing RepBase.  Some records were not being
     parsed correctly for records that do not include the keyword "repbase"
     following the identifier.
