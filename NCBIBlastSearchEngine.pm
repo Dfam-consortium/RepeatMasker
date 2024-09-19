@@ -543,9 +543,7 @@ sub getParameters {
     ##  +bandwidth: use legacy MaskerAid tranlsations
     ##              for minScore to RMBlast parameters.
     ##              [default]
-    ##  0 bandwidth: use pseudo-global alignment 
-    ##               translations for RepeatMasker's
-    ##               refinement stage.
+    ##  0 bandwidth: unused? special case
     ##  -bandwidth: use bandwidth magnitude, in addition
     ##              to minScore to simulate a bandwidth
     ##              in RMBlast. This uses the gap penalties
@@ -557,7 +555,11 @@ sub getParameters {
     ##    xdrop_gap_final:
     ##
 
-    # The RepeatMasker refinement case.  NOTE: This is not equivalent
+    # NOTE: This was assigned to the refinement case in 4.1.7
+    # and led to tons of refinement alignments.  Reverting to
+    # the previous method ( bandwidth = "-1" ) for Repeatmasker
+    # refinement.
+    # NOTE: This is not equivalent
     # to "undefined".  It must have a value of "0".
     if ( $this->getBandwidth() eq "0" ) {
       $parameters .=                                                           

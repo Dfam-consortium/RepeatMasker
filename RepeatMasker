@@ -1212,41 +1212,7 @@ JOBLOOP:
   ## TODO: This is where we used to make the cut file.  This
   ##       option should be rolled into a new utility which
   ##       annotates/cuts based on the annotation database.
-
-  #
-  # Report batch overlap boundaries for anyone who cares
-  #
-  my $overlapBoundariesHashRef = $batcher->getOverlapBoundaries();
-  if ( keys( %{$overlapBoundariesHashRef} ) > 0 ) {
-    if ( $compressCatFile ) {
-      system(
-         "echo \"## Batch Overlap Boundaries\" | gzip -c  >> $fullcatfile.gz" );
-    }
-    else {
-      system( "echo \"## Batch Overlap Boundaries\" >> $fullcatfile" );
-    }
-    foreach my $fragSeqName ( keys( %{$overlapBoundariesHashRef} ) ) {
-      my $overlapList =
-          join( ", ", @{ $overlapBoundariesHashRef->{$fragSeqName} } );
-      if ( $compressCatFile ) {
-        system(   "echo \"##   $fragSeqName  $overlapList\" | "
-                . "gzip -c  >>  $fullcatfile.gz" );
-      }
-      else {
-        system( "echo \"##   $fragSeqName  $overlapList\" >>  $fullcatfile" );
-      }
-    }
-  }
-
-  # Rename final cat file
-  if ( -s "$fullcatfile.gz" ) {
-    rename "$fullcatfile.gz", "$file.cat.gz";
-  }
-  elsif ( -s "$fullcatfile" ) {
-    rename "$fullcatfile", "$file.cat";
-  }
-  rename $fullcutfile, "$file.cut" if -s $fullcutfile;
-
+  
   #
   # Setup options for processRepeats
   #
@@ -1264,29 +1230,53 @@ JOBLOOP:
     $speed = "default";
   }
 
+  ## Build cat file header
   my $engine     = $searchEngine->getPathToEngine();
   my @path       = split( /[\\\/]/, $engine );
   my $engineInfo =
       "run with " . pop( @path ) . " version " . $searchEngine->getVersion();
 
   if ( $compressCatFile ) {
-    open( CATOUT, "| gzip -c >>$file.cat.gz" );
+    open( CATOUT, "| gzip -c >$file.cat.gz" );
   }
   else {
-    open( CATOUT, ">>$file.cat" );
+    open( CATOUT, ">$file.cat" );
   }
-
+  print CATOUT "## RepeatMasker version $version , $speed mode\n";
+  print CATOUT "## $engineInfo\n";
+  print CATOUT "## RM Library: $dbversion\n";
   print CATOUT "## Total Sequences: " . $db->getSeqCount() . "\n";
   print CATOUT "## Total Length: " . $db->getSeqLength() . "\n";
   print CATOUT "## Total NonMask ( excluding >20bp runs of N/X bases ): "
       . $db->getXNLength() . "\n";
   print CATOUT "## Total NonSub ( excluding all non ACGT bases ):"
       . $db->getSubtLength() . "\n";
-  print CATOUT "RepeatMasker version $version , $speed mode\n";
-  print CATOUT "$engineInfo\nRM Library: $dbversion\n";
+  undef $db;
+  #
+  # Report batch overlap boundaries for anyone who cares
+  #
+  my $overlapBoundariesHashRef = $batcher->getOverlapBoundaries();
+  if ( keys( %{$overlapBoundariesHashRef} ) > 0 ) {
+    print CATOUT "## Batch Overlap Boundaries\n";
+    foreach my $fragSeqName ( keys( %{$overlapBoundariesHashRef} ) ) {
+      my $overlapList =
+          join( ", ", @{ $overlapBoundariesHashRef->{$fragSeqName} } );
+      print CATOUT "##   $fragSeqName  $overlapList\n";
+    }
+  }
+  print CATOUT "## RAW Annotations:\n";
   close CATOUT;
 
-  undef $db;
+  # Rename final cat file
+  if ( -s "$fullcatfile.gz" ) {
+    system("cat $fullcatfile.gz >> $file.cat.gz");
+    unlink "$fullcatfile.gz";
+  }
+  elsif ( -s "$fullcatfile" ) {
+    system("cat $fullcatfile >> $file.cat");
+    unlink "$fullcatfile";
+  }
+  rename $fullcutfile, "$file.cut" if -s $fullcutfile;
 
   # TODO: Check on .seqending stuff in SEQDBI
 
@@ -1347,9 +1337,15 @@ JOBLOOP:
     #
     # For timing only
     #my $t0 = gettimeofday( );
-    &systemint(
-        "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
+    #&systemint(
+    #    "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
+    #    unless $options{'is_only'};
+        &systemint(
+         "$REPEATMASKER_DIR/ProcessRepeatsPerSeq " . "$prOptions" )
         unless $options{'is_only'};
+
+## RMH: TODO REMOVE
+    print "Running: $prOptions\n";
 
     # For timing only
     #if ( $DEBUG ) {
@@ -2014,7 +2010,9 @@ sub search {
   if (    $searchEngine->isa( "NCBIBlastSearchEngine" )
        && $lib =~ /refine/ )
   {
-    $bandwidth = '0';
+    # RMH: Reverted 9/24
+    #$bandwidth = '0';
+    $bandwidth = '-1';
   }
 
   my $cycle = 1;
@@ -3635,6 +3633,7 @@ sub runHMMERSearchStages {
         ## Primates
         ##
         my $aluIdx = 1;
+        print "is a $options{'species'} a primate?" .  $tax->isA( $options{'species'}, "primates" ) . "\n";
         if ( $tax->isA( $options{'species'}, "primates" ) == 1 ) {
 
           # 11/9/2015

@@ -336,15 +336,15 @@ foreach my $file ( @ARGV ) {
     elsif ( /^##\s*Total\s+NonSub.*:\s*(\d+)/i ) {
       $lenSearchedSeqsExcludingAmbig = $1;
     }
-    elsif ( /^RepeatMasker|run|RepBase|RM/ ) {
+    elsif ( /^(##\s*)?RepeatMasker|run|RepBase|RM/ ) {
       my @bit = split;
       $versionmode = $_ if $bit[ 0 ] eq 'RepeatMasker';
-      $engine = $1 if /^(run with.*)/;
+      $engine = $1 if /(run with.*)/;
       # Since 4.1.1 we are now using famdb.  The version is reported a bit
       # differently.
       #     RM Library: CONS-Dfam_withRBRM_3.3
       #     
-      if ( /^(RepBase.*)/ || /^RM Library:\s+(\S.*)/ ) {
+      if ( /(RepBase.*)/ || /RM Library:\s+(\S.*)/ ) {
         $dbversion = $1;
         last;
       }
@@ -6045,15 +6045,16 @@ sub generateOutput {
     printf $OUT "               number of      length   percentage\n";
     printf $OUT "               elements*    occupied  of sequence\n";
     printf $OUT "--------------------------------------------------\n";
+    # RMH: 20240917 - Fix total for Retroelements, it previously didn't include Penelope (PLE) in it's total.
     printf $OUT "Retroelements       %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINE'}->{'count'} +
-        $aggregateStats{'SINE'}->{'count'} + $aggregateStats{'LTR'}->{'count'},
+        $aggregateStats{'SINE'}->{'count'} + $aggregateStats{'LTR'}->{'count'} + $aggregateStats{"PLE"}->{'count'},
         $aggregateStats{'LINE'}->{'length'} +
         $aggregateStats{'SINE'}->{'length'} +
-        $aggregateStats{'LTR'}->{'length'},
+        $aggregateStats{'LTR'}->{'length'} + $aggregateStats{'PLE'}->{'length'},
         ( $aggregateStats{'LINE'}->{'length'} +
           $aggregateStats{'SINE'}->{'length'} +
-          $aggregateStats{'LTR'}->{'length'} ) * 100 * $usePerc / $totseqlen;
+          $aggregateStats{'LTR'}->{'length'} + $aggregateStats{'PLE'}->{'length'} ) * 100 * $usePerc / $totseqlen;
     printf $OUT "   SINEs:           %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'SINE'}->{'count'}, $aggregateStats{'SINE'}->{'length'},
         $aggregateStats{'SINE'}->{'length'} * 100 * $usePerc / $totseqlen;
