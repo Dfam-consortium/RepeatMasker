@@ -186,8 +186,8 @@ my $DEBUG     = 0;
 #     structure is as follows:
 #         $refinementHash{ "b#s#i#" }->{ ConsensusID } = ( annot1ref, annot2ref, ...)
 #
-my %refinementHash = ();    # Contains refined annotations ordered by catID
 my %chainSeq1Length;
+my %refinementHash = ();    # Contains refined annotations ordered by catID
 
 # A bug in 5.8 produces way too many warnings
 if ( $] && $] >= 5.008003 ) {
@@ -394,9 +394,10 @@ sub parseCATFile {
   }
 
   # Glocal variables ( global to callback but local to parseCATFile )
-  my $searchResults = undef;
+  my $searchResults = SearchResultCollection->new();
   my $prevID = undef;
   my $records_processed = 0;
+  my $annotation_idx = 0;
   my $batchNum = 0;
 
   sub callback {
@@ -405,29 +406,68 @@ sub parseCATFile {
     bless $record, "PRSearchResult";
     $records_processed++;
     my $seq_id = $record->getQueryName();
-    if ( $seq_id eq $prevID || $seq_id eq "refinement" ) {
-      # TODO: This is where we can do some initial processing ( e.g setup the PRID )
-      $searchResults->add( $record );
-    }else {
-      if ( $prevID ) {
-        print "Processing seq $prevID\n";
-        
-        if (    $searchResults->size()
-             && $searchResults->get( 0 )->getLineageId !~ /\[?[mc]_b.*/ )
-        {
-          die "\n    The input file:\n        $file\n"
-              . "    was generated using an older RepeatMasker format.\n"
-              . "    Please use ProcessRepeats from RepeatMasker v3.3.0\n"
-              . "    to process this file.\n\n";
-        }
 
-        %aggregateStats = &processSequence( $batchNum, $file, $engine, $searchResults, \%seq1Lengths, \%aggregateStats );
-        $batchNum++;
-
-        $searchResults = undef;
+    if ( $prevID && $seq_id ne "refinement" && $seq_id ne $prevID ) {
+      print "Processing seq $prevID\n";
+      
+      if (    $searchResults->size()
+           && $searchResults->get( 0 )->getLineageId !~ /\[?[mc]_b.*/ )
+      {
+        die "\n    The input file:\n        $file\n"
+            . "    was generated using an older RepeatMasker format.\n"
+            . "    Please use ProcessRepeats from RepeatMasker v3.3.0\n"
+            . "    to process this file.\n\n";
       }
+
+      %aggregateStats = &processSequence( $batchNum, $file, $engine, $searchResults, \%seq1Lengths, \%aggregateStats );
+      $batchNum++;
+
+      # Beware...global variable
+      %refinementHash = ();
+      $searchResults = undef;
       $searchResults = SearchResultCollection->new();
+ 
+    }
+
+    $record->setClassName( "Unspecified" )
+        if ( $record->getClassName() eq "" );
+    $record->setOrientation( "+" )
+        if ( $record->getOrientation() ne "C" );
+
+    ## TODO: A few new things here:
+    ##  1. We should separate out refinment annotations directly into a
+    ##     refinement hash.
+    ##  2. We should correct the orientation tag
+    ##  3. We should number the annotations PRID
+    if ( $seq_id eq "refinement" && $record->getLineageId() =~ /\[/ ) {
+      my $catID = $record->getLineageId();
+      die "Missing cat file ID for refined element!"
+          . Dumper( $record ) . "\n"
+          if ( $catID eq "" );
+      $catID =~ s/[\[\]]//g;
+      push @{ $refinementHash{$catID}->{ $record->getHitName() } },
+          ( $record );
+    }else {
+      # PRID is only set for normal annotations ( not refinements )
+      $record->setPRID( $annotation_idx );
+
+      # Remove TE variant suffixes
+      my $HitName = $record->getHitName();
+      $HitName =~ s/_short_$//;
+      # RMH 11/21/12: Added for Dfam
+      $HitName =~ s/_offset$//;
+      $record->setHitName( $HitName );
+
       $searchResults->add( $record );
+
+      my $seq_len = $record->getQueryEnd() + $record->getQueryRemaining(); 
+
+      # Update sequence length hash ( longest if different! )
+      $seq1Lengths{ $seq_id } = $seq_len
+          if ( !defined $seq1Lengths{ $seq_id }
+               || $seq1Lengths{ $seq_id } < $seq_len );
+
+      $annotation_idx++;
       $prevID = $seq_id;
     }
   }
@@ -504,30 +544,31 @@ sub processSequence  {
   #
   # Separate out refined annotations
   #
-  my $annotIter = $sortedAnnotationsList->getIterator();
+  #  my $annotIter = $sortedAnnotationsList->getIterator();
+  #%refinementHash = ();
 ##TODO: move this to the parseCATFile function
-  while ( $annotIter->hasNext() ) {
-    my $currentAnnot = $annotIter->next();
-
-    if ( $currentAnnot->getClassName() eq "" ) {
-      $currentAnnot->setClassName( "Unspecified" );
-    }
-    if ( $currentAnnot->getLineageId() =~ /\[/ ) {
-      $annotIter->remove();
-      $currentAnnot->setOrientation( "+" )
-          if ( $currentAnnot->getOrientation() ne "C" );
-
-      my $catID = $currentAnnot->getLineageId();
-      die "Missing cat file ID for refined element!"
-          . Dumper( $currentAnnot ) . "\n"
-          if ( $catID eq "" );
-      $catID =~ s/[\[\]]//g;
-      push @{ $refinementHash{$catID}->{ $currentAnnot->getHitName() } },
-          ( $currentAnnot );
-    }
-  }
+  #while ( $annotIter->hasNext() ) {
+  #  my $currentAnnot = $annotIter->next();
+  #
+  #  if ( $currentAnnot->getClassName() eq "" ) {
+  #    $currentAnnot->setClassName( "Unspecified" );
+  #  }
+  #  if ( $currentAnnot->getLineageId() =~ /\[/ ) {
+  #    $annotIter->remove();
+  #    $currentAnnot->setOrientation( "+" )
+  #        if ( $currentAnnot->getOrientation() ne "C" );
+  #
+  #    my $catID = $currentAnnot->getLineageId();
+  #    die "Missing cat file ID for refined element!"
+  #        . Dumper( $currentAnnot ) . "\n"
+  #        if ( $catID eq "" );
+  #    $catID =~ s/[\[\]]//g;
+  #    push @{ $refinementHash{$catID}->{ $currentAnnot->getHitName() } },
+  #        ( $currentAnnot );
+  #  }
+  #}
 ##TODO REMOVE
-  print "Refinements separated\n";
+  #print "Refinements separated\n";
 
 ###TODO: FIX THIS
   open( OUTRAW, ">$file.ori.out" ) if ( $options{'u'} || !$poundformat );
@@ -542,40 +583,43 @@ sub processSequence  {
   $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 ##TODO REMOVE
 print "annotations sorted\n";
-  my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
+
+my $cycleAnnotIter;
+my $i;
+#my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
 ####TODO: This needs to be passed in to this function
-  my $i              = -1;
-  while ( $cycleAnnotIter->hasNext() ) {
-    $i++;
-    my $currentAnnot = $cycleAnnotIter->next();
-
-    $currentAnnot->setPRID( $i );
-    $currentAnnot->setOrientation( "+" )
-        if ( $currentAnnot->getOrientation() ne "C" );
-
-    # Do this early so we capture all information before it is changed.
-    # NOTE: I may make derived elements links to the cat file for
-    #       memory brevity.
-    if ( $options{'source'} ) {
-      $currentAnnot->addDerivedFromAnnot( $currentAnnot );
-      $currentAnnot->setAlignData( undef );
-    }
-
-    my $HitName = $currentAnnot->getHitName();
-    $HitName =~ s/_short_$//;
-
-    # RMH 11/21/12: Added for Dfam
-    $HitName =~ s/_offset$//;
-    $currentAnnot->setHitName( $HitName );
-    if ( !defined $seq1Lengths{ $currentAnnot->getQueryName() }
-         || $seq1Lengths{ $currentAnnot->getQueryName() } <
-         ( $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining() ) )
-    {
-      $seq1Lengths{ $currentAnnot->getQueryName() } =
-          $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining();
-    }
-  }
-
+#  my $i              = -1;
+#  while ( $cycleAnnotIter->hasNext() ) {
+#    $i++;
+#    my $currentAnnot = $cycleAnnotIter->next();
+#
+#    $currentAnnot->setPRID( $i );
+#    $currentAnnot->setOrientation( "+" )
+#        if ( $currentAnnot->getOrientation() ne "C" );
+#
+#    # Do this early so we capture all information before it is changed.
+#    # NOTE: I may make derived elements links to the cat file for
+#    #       memory brevity.
+#    if ( $options{'source'} ) {
+#      $currentAnnot->addDerivedFromAnnot( $currentAnnot );
+#      $currentAnnot->setAlignData( undef );
+#    }
+#
+#    my $HitName = $currentAnnot->getHitName();
+#    $HitName =~ s/_short_$//;
+#
+#    # RMH 11/21/12: Added for Dfam
+#    $HitName =~ s/_offset$//;
+#    $currentAnnot->setHitName( $HitName );
+#    if ( !defined $seq1Lengths{ $currentAnnot->getQueryName() }
+#         || $seq1Lengths{ $currentAnnot->getQueryName() } <
+#         ( $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining() ) )
+#    {
+#      $seq1Lengths{ $currentAnnot->getQueryName() } =
+#          $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining();
+#    }
+#  }
+#
   print "\ncycle 1 ";
 
   #printHitArrayList( $sortedAnnotationsList );
