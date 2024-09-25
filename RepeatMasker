@@ -1337,15 +1337,12 @@ JOBLOOP:
     #
     # For timing only
     #my $t0 = gettimeofday( );
-    #&systemint(
-    #    "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
-    #    unless $options{'is_only'};
-        &systemint(
-         "$REPEATMASKER_DIR/ProcessRepeatsPerSeq " . "$prOptions" )
+## RMH: TODO REMOVE
+    print "RepeatMasker: Running: $prOptions\n";
+    &systemint(
+        "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
         unless $options{'is_only'};
 
-## RMH: TODO REMOVE
-    print "Running: $prOptions\n";
 
     # For timing only
     #if ( $DEBUG ) {

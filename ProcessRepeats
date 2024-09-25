@@ -360,8 +360,8 @@ foreach my $file ( @ARGV ) {
     }
   }
   close INCAT;
-## TODO REMOVE:
-  print "Header Read\n";
+
+  print "ProcessRepeats: Adjudicating alignments\n";
 
   # Do it all
   %aggregateStats = &parseCATFile ( $catfile, $engine, \%seq1Lengths, \%aggregateStats, 0 );
@@ -375,6 +375,15 @@ foreach my $file ( @ARGV ) {
   print "\ndone\n"
 } # For each file
 
+
+###
+### DONE
+###
+
+
+#########################################################################
+##subroutines
+#########################################################################
 
 sub parseCATFile {
   my $file = shift;
@@ -408,7 +417,7 @@ sub parseCATFile {
     my $seq_id = $record->getQueryName();
 
     if ( $prevID && $seq_id ne "refinement" && $seq_id ne $prevID ) {
-      print "Processing seq $prevID\n";
+      print "Processing seq $prevID\n" if ( $DEBUG );
       
       if (    $searchResults->size()
            && $searchResults->get( 0 )->getLineageId !~ /\[?[mc]_b.*/ )
@@ -451,6 +460,12 @@ sub parseCATFile {
       # PRID is only set for normal annotations ( not refinements )
       $record->setPRID( $annotation_idx );
 
+      # Save original information for more detailed reporting ( if requested )
+      if ( $options{'source'} ) {
+        $record->addDerivedFromAnnot( $record );
+        $record->setAlignData( undef );
+      }
+
       # Remove TE variant suffixes
       my $HitName = $record->getHitName();
       $HitName =~ s/_short_$//;
@@ -459,7 +474,6 @@ sub parseCATFile {
       $record->setHitName( $HitName );
 
       $searchResults->add( $record );
-
       my $seq_len = $record->getQueryEnd() + $record->getQueryRemaining(); 
 
       # Update sequence length hash ( longest if different! )
@@ -487,7 +501,7 @@ sub parseCATFile {
 
   # Trailing case
   if ( $searchResults->size() > 0 ) {
-    print "Processing seq $prevID\n";
+    print "Processing seq $prevID\n" if ( $DEBUG );
         
     if (    $searchResults->size()
          && $searchResults->get( 0 )->getLineageId !~ /\[?[mc]_b.*/ )
@@ -517,16 +531,6 @@ sub parseCATFile {
 }
 
 
-
-##
-##
-##  End of main loops
-##
-##
-
-#########################################################################
-##subroutines
-#########################################################################
 
 sub processSequence  {
   my $batchNum = shift;
@@ -582,7 +586,7 @@ sub processSequence  {
   #
   $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 ##TODO REMOVE
-print "annotations sorted\n";
+print "annotations sorted\n" if ( $DEBUG );
 
 my $cycleAnnotIter;
 my $i;
@@ -620,7 +624,7 @@ my $i;
 #    }
 #  }
 #
-  print "\ncycle 1 ";
+  print "\ncycle 1 " if ( $DEBUG );
 
   #printHitArrayList( $sortedAnnotationsList );
   my ( $chainBegRef, $chainEndRef ) = &cycleReJoin( $sortedAnnotationsList );
@@ -634,7 +638,7 @@ my $i;
   #          Rename Satellite Shifted Copies
   #          build DNA transposon equivalency datastructure
   ##########################################################################
-  print "\ncycle 2 ";
+  print "\ncycle 2 " if ( $DEBUG );
 
   # Sort by name, begin position, and end position descending
   $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
@@ -1196,7 +1200,7 @@ CYCLE2:
     #printHitArrayList( $sortedAnnotationsList );
 
     # Sort by name, begin position, and end position descending
-    print "\ncycle 3 ";
+    print "\ncycle 3 " if ( $DEBUG );
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
     $i              = -1;
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
@@ -1490,7 +1494,7 @@ CYCLE3:
 
     #printHitArrayList( $sortedAnnotationsList );
     # Sort by name, begin position, and end position descending
-    print "\ncycle 4 ";
+    print "\ncycle 4 " if ( $DEBUG );
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 
     $i = -1;
@@ -1672,7 +1676,7 @@ CYCLE3:
     #printHitArrayList( $sortedAnnotationsList );
 
     # Sort by name, begin position, and end position descending
-    print "\ncycle 5 ";
+    print "\ncycle 5 " if ( $DEBUG );
 
     if ( keys( %refinementHash ) ) {
 
@@ -2249,7 +2253,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 6 ";
+    print "\ncycle 6 " if ( $DEBUG );
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
     $i              = -1;
     $DEBUG          = 0;
@@ -2647,7 +2651,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 7 ";
+    print "\ncycle 7 " if ( $DEBUG );
 
     ##
     ## Name joined fragments & pick consensus adjustment
@@ -2984,7 +2988,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 8 ";
+    print "\ncycle 8 " if ( $DEBUG );
 
     ##
     ## Merge joined overlapping fragments into one fragment
@@ -3306,7 +3310,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 9 ";
+    print "\ncycle 9 " if ( $DEBUG );
 
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 
@@ -3909,7 +3913,7 @@ CYCLE9:
     #
     ########################################################################
 
-    print "\ncycle 10 ";
+    print "\ncycle 10 " if ( $DEBUG );
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 
     $i              = -1;
@@ -5315,7 +5319,7 @@ sub generateOutput {
   my $sortedAnnotationsList          = shift;
   my $batchNum                       = shift;
 
-  print "\nGenerating output..."; 
+  print "\nGenerating output..." if ( $DEBUG ); 
 
   my $i              = -1;
   my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
@@ -5323,7 +5327,6 @@ sub generateOutput {
   my $DEBUG = 0;
 
   # Local to cycle
-  my $lastid = 0;
   my $pastAnnot;
 
   # Globals created for stats
@@ -5432,7 +5435,7 @@ sub generateOutput {
       $pastAnnot = $currentAnnot;
     }
   }
-  print "\n";
+  print "\n" if ( $DEBUG );
 
   #
   # Now go through the dataset and renumber the ids starting
@@ -5440,6 +5443,9 @@ sub generateOutput {
   #
   $cycleAnnotIter = $sortedAnnotationsList->getIterator();
   my %id = ();
+  if ( ! exists $aggregateStats{'lastid'} ) {
+    $aggregateStats{'lastid'} = 0;
+  }
   while ( $cycleAnnotIter->hasNext() ) {
     my $currentAnnot = $cycleAnnotIter->next();
 
@@ -5462,8 +5468,9 @@ sub generateOutput {
       $id{$tmpID} = $id{ $currentAnnot->getLeftLinkedHit()->getPRID() };
     }
     else {
-      print "Setting to new number $lastid + 1\n" if ( $DEBUG );
-      $id{$tmpID} = ++$lastid;
+      $aggregateStats{'lastid'}++;
+      print "Setting to new number " . ( $aggregateStats{'lastid'} ) . "\n" if ( $DEBUG );
+      $id{$tmpID} = $aggregateStats{'lastid'};
     }
   }    # End while
        #printHitArrayList( $sortedAnnotationsList );
@@ -5477,12 +5484,12 @@ sub generateOutput {
   # Some option to do this
   if ( $options{'html'} ) {
     &printHTMLAnnots( "$file.out.html", \%id, \%seq1Lengths, \%colWidths,
-                      $sortedAnnotationsList );
+                      $sortedAnnotationsList, $batchNum );
   }
 
   if ( $options{'a'} ) {
     &printAlignAnnots( "$file.align", \%id, \%seq1Lengths, \%colWidths,
-                       $sortedAnnotationsList );
+                       $sortedAnnotationsList, $batchNum );
   }
 
   #
@@ -5780,7 +5787,7 @@ sub generateOutput {
   close OUTGFF  if $options{'gff'};
   close OUTPOLY if $options{'poly'};
 
-  print "\n";
+  print "\n" if ( $DEBUG );
 
   return %aggregateStats;
 }
@@ -5819,7 +5826,7 @@ sub generateTableOutput {
   my $usePerc  = 1;
   my $exclnote = "";
   if ( -f $options{'maskSource'} ) {
-    print "\nmasking";
+    print "\nProcessRepeats: Masking sequences\n";
     my $db = FastaDB->new(
                            fileName    => $options{'maskSource'},
                            openMode    => SeqDBI::ReadOnly,
@@ -5865,6 +5872,7 @@ sub generateTableOutput {
     $maskedlength  = $aggregateStats{'annotatedlength'};
   }
 
+  print "ProcessRepeats: Generating table output\n";
   my $totallength =
       $aggregateStats{'SINE'}->{'length'} +
       $aggregateStats{'PLE'}->{'length'} +
@@ -6579,10 +6587,15 @@ sub printAlignAnnots {
   my $seq1lengths = shift;
   my %colWidths   = %{ shift() };
   my $annots      = shift;
+  my $batchNum    = shift;
 
   my $ALIGNOUT = new FileHandle;
 
-  open $ALIGNOUT, ">$fileName" || die "Cannot open $fileName: $!\n";
+  if ( $batchNum == 0 ) {
+    open $ALIGNOUT, ">$fileName" || die "Cannot open $fileName: $!\n";
+  }else {
+    open $ALIGNOUT, ">>$fileName" || die "Cannot open $fileName: $!\n";
+  }
 
   #
   # Print the align file.
@@ -6695,20 +6708,21 @@ sub printHTMLAnnots {
   my $seq1lengths = shift;
   my %colWidths   = %{ shift() };
   my $annots      = shift;
+  my $batchNum    = shift;
 
   my $HTMLOUT = new FileHandle;
 
   my $hdrTmplFile = "$FindBin::RealBin/HTMLAnnotHeader.html";
 
-  open $HTMLOUT, ">$fileName" || die "Cannot open $fileName\n";
+  if ( $batchNum == 0 ) {
+    open $HTMLOUT, ">$fileName" || die "Cannot open $fileName\n";
 
-  open HDR, "<$hdrTmplFile"
-      || die "printHTMLAnnots(): Cannot open header template $hdrTmplFile\n";
-  while ( <HDR> ) {
-    print $HTMLOUT $_;
-  }
-  close HDR;
-
+    open HDR, "<$hdrTmplFile"
+        || die "printHTMLAnnots(): Cannot open header template $hdrTmplFile\n";
+    while ( <HDR> ) {
+      print $HTMLOUT $_;
+    }
+    close HDR;
   my $widthposquery = $colWidths{'BeginAlign'} + $colWidths{'EndAlign'} +
       $colWidths{'LeftOver'} + 2;
   my $widthposrepeat = $colWidths{'Seq2Begin'} + $colWidths{'Seq2End'} +
@@ -6873,6 +6887,10 @@ sub printHTMLAnnots {
 
   print $HTMLOUT "</pre>\n";
   print $HTMLOUT "</div>\n";
+  }else {
+    open $HTMLOUT, ">>$fileName" || die "Cannot open $fileName\n";
+  }
+
 
   #
   # Print the out file.
@@ -6956,7 +6974,6 @@ sub printHTMLAnnots {
     print $HTMLOUT "<pre>";
 
     if ( defined $currentAnnot->getDerivedFromAnnot() ) {
-
       # print link
       print $HTMLOUT
 "<a href=\"javascript:;\" onmousedown=\"toggleDiv(\'hsps$hspsID\');\">+</a>";
