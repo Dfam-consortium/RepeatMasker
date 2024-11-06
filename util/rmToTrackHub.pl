@@ -34,7 +34,8 @@ rmToTrackHub.pl - generate track hub files for a UCSC bigRmsk track
 
 =head1 SYNOPSIS
 
-  rmToTrackHub.pl [-version] [options]
+  rmToTrackHub.pl [-version]
+                  [-only_beds][-force]
                   -genome <ucsc genome> 
                   -out <repeatmasker *.out[.gz]> 
                   -hubname <track_hub_name>
@@ -60,9 +61,13 @@ The options are:
 
 Displays the version of the program
 
-=item -f
+=item -force
 
 Force overwriting files in the hub directory if they already exist.
+
+=item -only_beds
+
+Only generate the bigBed files for the RepeatMasker output files.
 
 =back
 
@@ -70,7 +75,7 @@ Force overwriting files in the hub directory if they already exist.
 
 =head1 COPYRIGHT
 
-Copyright 2022 Robert Hubley, Institute for Systems Biology
+Copyright 2022-2024 Robert Hubley, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -93,7 +98,7 @@ use CrossmatchSearchEngine;
 use SearchResultCollection;
 use SearchResult;
 
-my $Version = "0.2";
+my $Version = "0.3";
 my $oldFormat = 0;  # Must be global for callback
 my @alignMap  = (); # Must be global for callback
 my $alignPos  = 0;  # dito
@@ -111,7 +116,8 @@ my @getopt_args = (
                     '-genome=s',
                     '-hubname=s',
                     '-out=s',
-                    '-f',
+                    '-force|f',
+                    '-only_beds',
                     '-align=s'
 );
 
@@ -199,59 +205,63 @@ $cmd = "$BEDTOBIGBED_PRGM -tab -as=$FindBin::RealBin/bigRmskAlignBed.as -type=be
 system($cmd);
 }
 
-print "# Making trackDB.txt\n";
-open OUT,">$hubname/trackDB.txt" or die "Could not create trackDB.txt file!\n";
-print OUT "track myTrackName\n";
-print OUT "superTrack on show\n";
-print OUT "shortLabel myShortLabel\n";
-print OUT "longLabel My Long Label\n\n";
-print OUT "\ttrack subTrackLabel\n";
-print OUT "\tparent myTrackName\n";
-print OUT "\ttype bigRmsk 9 +\n";
-print OUT "\tvisibility hide\n";
-print OUT "\tbigDataUrl $outFile.bb\n";
-if ( $alignFile ) {
-  print OUT "\txrefDataUrl $alignFile.bb\n";
+unless ( $options{'only_beds'} ) {
+  print "# Making trackDB.txt\n";
+  open OUT,">$hubname/trackDB.txt" or die "Could not create trackDB.txt file!\n";
+  print OUT "track myTrackName\n";
+  print OUT "superTrack on show\n";
+  print OUT "shortLabel myShortLabel\n";
+  print OUT "longLabel My Long Label\n\n";
+  print OUT "\ttrack subTrackLabel\n";
+  print OUT "\tparent myTrackName\n";
+  print OUT "\ttype bigRmsk 9 +\n";
+  print OUT "\tvisibility hide\n";
+  print OUT "\tbigDataUrl $outFile.bb\n";
+  if ( $alignFile ) {
+    print OUT "\txrefDataUrl $alignFile.bb\n";
+  }
+  print OUT "\tshortLabel Subb Track Short Label\n";
+  print OUT "\tlongLabel  Sub Track Long Label with up to 80 characters...\n";
+  print OUT "\thtml subTrackDescription.html\n";
+  print OUT "\tpriority 30\n";
+  close OUT;
+
+  print "# Making subTrackDescription.html\n";
+  open OUT,">$hubname/subTrackDescription.html" or die "Could not create index.html file!\n";
+  print OUT "<html><h1>My Sub Track Description</h1></html>\n";
+  close OUT;
+
+  print "# Making hub.txt\n";
+  open OUT,">$hubname/hub.txt" or die "Could not create hub.txt file!\n";
+  print OUT "hub myHubWithoutSpaces\n";
+  print OUT "shortLabel My Hubs Name\n";
+  print OUT "longLabel My Hub Long Label up to 80 characters vs shortLabel limited to 17\n";
+  print OUT "genomesFile genomes.txt\n";
+  print OUT "email myEmail\@myDomain\n";
+  print OUT "descriptionUrl index.html\n";
+  close OUT;
+
+  print "# Making genomes.txt\n";
+  open OUT,">$hubname/genomes.txt" or die "Could not create genomes.txt file!\n";
+  print OUT "genome $genome\n";
+  print OUT "trackDb trackDB.txt\n";
+  close OUT;
+
+  print "# Making index.html\n";
+  open OUT,">$hubname/index.html" or die "Could not create index.html file!\n";
+  print OUT "<html><h1>My Track Hub</h1></html>\n";
+  close OUT;
+
+
+  print "\nDone building trackHub!  Please move/copy the directory '$hubname/'\n";
+  print "to a webserver and point the UCSC genome browser at your trackhub using\n";
+  print "this page: https://genome.ucsc.edu/cgi-bin/hgHubConnect.  Your trackhub\n";
+  print "URL will look something like this: 'http:://yourdomain/$hubname/hub.txt'\n";
+  print "For more help with UCSC trackhubs and settings please see the help page\n";
+  print "at: https://genome.ucsc.edu/goldenPath/help/hubQuickStart.html\n\n";
+}else {
+  print "\nDone building bigBED file(s).\n";
 }
-print OUT "\tshortLabel Subb Track Short Label\n";
-print OUT "\tlongLabel  Sub Track Long Label with up to 80 characters...\n";
-print OUT "\thtml subTrackDescription.html\n";
-print OUT "\tpriority 30\n";
-close OUT;
-
-print "# Making subTrackDescription.html\n";
-open OUT,">$hubname/subTrackDescription.html" or die "Could not create index.html file!\n";
-print OUT "<html><h1>My Sub Track Description</h1></html>\n";
-close OUT;
-
-print "# Making hub.txt\n";
-open OUT,">$hubname/hub.txt" or die "Could not create hub.txt file!\n";
-print OUT "hub myHubWithoutSpaces\n";
-print OUT "shortLabel My Hubs Name\n";
-print OUT "longLabel My Hub Long Label up to 80 characters vs shortLabel limited to 17\n";
-print OUT "genomesFile genomes.txt\n";
-print OUT "email myEmail\@myDomain\n";
-print OUT "descriptionUrl index.html\n";
-close OUT;
-
-print "# Making genomes.txt\n";
-open OUT,">$hubname/genomes.txt" or die "Could not create genomes.txt file!\n";
-print OUT "genome $genome\n";
-print OUT "trackDb trackDB.txt\n";
-close OUT;
-
-print "# Making index.html\n";
-open OUT,">$hubname/index.html" or die "Could not create index.html file!\n";
-print OUT "<html><h1>My Track Hub</h1></html>\n";
-close OUT;
-
-
-print "\nDone building trackHub!  Please move/copy the directory '$hubname/'\n";
-print "to a webserver and point the UCSC genome browser at your trackhub using\n";
-print "this page: https://genome.ucsc.edu/cgi-bin/hgHubConnect.  Your trackhub\n";
-print "URL will look something like this: 'http:://yourdomain/$hubname/hub.txt'\n";
-print "For more help with UCSC trackhubs and settings please see the help page\n";
-print "at: https://genome.ucsc.edu/goldenPath/help/hubQuickStart.html\n\n";
 
 exit;
 

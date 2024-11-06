@@ -405,6 +405,7 @@ sub parseCATFile {
   # Glocal variables ( global to callback but local to parseCATFile )
   my $searchResults = SearchResultCollection->new();
   my $prevID = undef;
+  my $prevRMBatchNum = undef;
   my $records_processed = 0;
   my $annotation_idx = 0;
   my $batchNum = 0;
@@ -415,7 +416,14 @@ sub parseCATFile {
     bless $record, "PRSearchResult";
     $records_processed++;
     my $seq_id = $record->getQueryName();
-
+    
+    ## THERE ARE TWO CASES HERE:
+    #      1. Large single sequence that has been split into multiple batches ( each
+    #         with it's own refinement section ).
+    #      2. A single batch with multiple sequences and a single refinement section.
+    #
+    #      Only process if we:
+    #          - switch IDs and the next ID doesn't have the same batch number
     if ( $prevID && $seq_id ne "refinement" && $seq_id ne $prevID ) {
       print "Processing seq $prevID\n" if ( $DEBUG );
       
@@ -443,11 +451,6 @@ sub parseCATFile {
     $record->setOrientation( "+" )
         if ( $record->getOrientation() ne "C" );
 
-    ## TODO: A few new things here:
-    ##  1. We should separate out refinment annotations directly into a
-    ##     refinement hash.
-    ##  2. We should correct the orientation tag
-    ##  3. We should number the annotations PRID
     if ( $seq_id eq "refinement" && $record->getLineageId() =~ /\[/ ) {
       my $catID = $record->getLineageId();
       die "Missing cat file ID for refined element!"
