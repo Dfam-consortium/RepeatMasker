@@ -2957,6 +2957,8 @@ sub runStage {
   # Mask level filtering
   #
   #print "Using: masklevel = $masklevel\n" if ( 1 );
+## TODO: This may not be necessary for rmblast....validate and remove to
+##       improve performance.  Check preMaskLevelFilter as well.
   $resultsCollection->maskLevelFilter( value => $masklevel );
 
   #print $CLASS
@@ -7643,7 +7645,6 @@ sub initLibrariesFromFamdb {
 
     my $modelPrefix = "CONS-";
     $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
-
     my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb info ";
     open IN,"$famdbCmd |";
     my $dbTitle;

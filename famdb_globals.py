@@ -7,25 +7,39 @@ GROUP_FAMILIES = "Families"
 GROUP_LOOKUP_BYNAME = "Lookup/ByName"
 GROUP_LOOKUP_BYACC = "Lookup/ByAccession"
 GROUP_LOOKUP_BYSTAGE = "Lookup/ByStage"
-GROUP_NODES = "Taxonomy/Nodes"
-GROUP_TAXANAMES = "Partitions"
+GROUP_LOOKUP_BYTAXON = "Lookup/ByTaxon"
+GROUP_NODES = "Taxonomy"
+GROUP_REPEATPEPS = "RepeatPeps"
+GROUP_FILE_HISTORY = "File_History"
+
+DATA_CHILDREN = "Children"
+DATA_PARENT = "Parent"
+DATA_VAL_CHILDREN = "Val_Children"
+DATA_VAL_PARENT = "Val_Parent"
+DATA_TAXANAMES = "TaxaNames"
+DATA_PARTITION = "Partition"
+DATA_NAMES_CACHE = "NamesCache"
+
+# key variables used in partition and export
+META_DB_VERSION = "db_version"
+META_DB_DESCRIPTION = "db_description"
+META_DB_NAME = "db_name"
+META_DB_DATE = "db_date"
+META_DB_COPYRIGHT = "db_copyright"
+META_CREATED = "created"
+META_FAMDB_VERSION = "famdb_version"
+META_META = "meta"
+META_UUID = "uuid"
+META_FILE_MAP = "file_map"
+META_FILE_INFO = "file_info"
+
 
 # DF####### or DF########## or DR####### or DR##########
 dfam_acc_pat = re.compile("^(D[FR])([0-9]{2})([0-9]{2})([0-9]{2})[0-9]{3,6}$")
 
 # The current version of the file format
-FILE_VERSION = "1.0"
+FAMDB_VERSION = "2.0.0"
 
-# The version of the famdb python package
-GENERATOR_VERSION = "1.0.2"
-
-LEAF_LINK = "leaf_link:"
-ROOT_LINK = "root_link:"
-
-# TODO: Finalize the location of the dfam export utilities
-REPBASE_FILE = "Libraries/RMRB_spec_to_tax.json"
-
-# TODO: make command-line options to customize these
 DESCRIPTION = (
     "Dfam - A database of transposable element (TE) sequence alignments and HMMs."
 )
@@ -61,7 +75,7 @@ You may also obtain a copy of the CC0 license here:
 http://creativecommons.org/publicdomain/zero/1.0/legalcode
 """
 
-FILE_DESCRIPTION = f"""This is famdb.py version {GENERATOR_VERSION}.
+FILE_DESCRIPTION = f"""This is famdb.py version {FAMDB_VERSION}.
 
 example commands, including the most commonly used options:
 
@@ -149,3 +163,5 @@ SOUNDEX_LOOKUP = {
     "H": None,
     "W": None,
 }
+
+TEST_DIR = "/tmp/famdb_test"
