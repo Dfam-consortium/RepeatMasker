@@ -133,6 +133,7 @@ sub write {
   close OUT;
 }
 
+
 ##-------------------------------------------------------------------------##
 
 =head2 toString()
@@ -160,13 +161,14 @@ sub toString() {
   return $str;
 }
 
+
 ##-------------------------------------------------------------------------##
 
 =head2 maskLevelFilter()
 
   Use: $numRemoved = $obj->maskLevelFilter(
-                                -value => 80,
-                                [-inputSeq => SearchResult::Query
+                                value => 80,
+                                [inputSeq => SearchResult::Query
                                             SearchResult::Subject] );
 
     value : Integer - masklevel
@@ -189,8 +191,20 @@ sub toString() {
   lower scoring hit will be removed to favor a contained short higher 
   scoring hit ).  
 
+  E.g this will return both of these hits at masklevel 99:
+
+  460  6.67 0.00 0.00  Seq1 1 60 (40) Cons2 1  60 (0) 
+  484  0.00 0.00 0.00  Seq1 1 50 (50) Cons1 11 60 (0)  
+
+  KEEP  -------------------460--------------------------------> 
+  KEEP  -------------------484---------------------->
+
+
   Returns the count of entries filtered out. Does *not* alter
   the sort order of the remaining SearchResultCollection.
+
+  NOTE: This is the default filter used by RepeatMasker, (see runStage())
+        and the in-engine filter is turned off by default.  
 
 =cut
 
@@ -355,15 +369,16 @@ sub maskLevelFilter {
 
   return ( $numRemoved );
 
-}    # sub maskLevelFilter
+}  # sub maskLevelFilter
+
 
 ##-------------------------------------------------------------------------##
 
 =head2 filterContainedResults()
 
   Use: $numRemoved = $obj->filterContainedResults(
-                                -value => 80,
-                                [-inputSeq => SearchResult::Query
+                                value => 80,
+                                [inputSeq => SearchResult::Query
                                             SearchResult::Subject] );
 
     value : Integer - masklevel
@@ -469,13 +484,16 @@ sub filterContainedResults {
 
 }    # sub filterContainedResults
 
+
 ##-------------------------------------------------------------------------##
 
 =head2 maskLevelFilterMaskerAid()
 
+  ##### EXPERIMENTAL #####
+
   Use: $numRemoved = $obj->maskLevelFilter(
-                                -value => 80,
-                                [-inputSeq => SearchResult::Query
+                                value => 80,
+                                [inputSeq => SearchResult::Query
                                             SearchResult::Subject] );
 
     value : Integer - masklevel
@@ -490,6 +508,9 @@ sub filterContainedResults {
 
   Returns the count of entries filtered out. Does *not* alter
   the sort order of the remaining SearchResultCollection.
+
+  NOTE: This is an experimental routine and is not used by 
+        any production tools.
 
 =cut
 
@@ -598,13 +619,16 @@ sub maskLevelFilterMaskerAid {
 
 }    # sub maskLevelFilterMaskerAid
 
+
 ##-------------------------------------------------------------------------##
 
 =head2 crossmatchMaskLevelFilter()
 
+  ##### EXPERIMENTAL #####
+
   Use: $numRemoved = $obj->crossmatchMaskLevelFilter(
-                                -value => 80,
-                                [-inputSeq => SearchResult::Query
+                                value => 80,
+                                [inputSeq => SearchResult::Query
                                             SearchResult::Subject] );
 
     value : Integer - masklevel
@@ -632,9 +656,8 @@ sub maskLevelFilterMaskerAid {
   460  6.67 0.00 0.00  Seq1 1 60 (40) Cons2 1  60 (0)  <==DELETE
   484  0.00 0.00 0.00  Seq1 1 50 (50) Cons1 11 60 (0)  
 
-  i.e:
-  -------------------DELETE-----------------------------------> 
-  -------------------------------------------------->
+  DELETE -------------------460--------------------------------> 
+  KEEP   -------------------484---------------------->
 
   despite the fact that the low scoring hit has 16% of its bases 
   outside the query domain.  This is because the other hit is fully
@@ -680,8 +703,8 @@ sub maskLevelFilterMaskerAid {
       }
     );
 
-  NOTE: This is an experimental routine and should only be used for
-  testing at this time. 
+  NOTE: This is an experimental routine and is not used by 
+        any production tools.
 
 =cut
 
@@ -842,5 +865,296 @@ sub crossmatchMaskLevelFilter {
   return ( $origSize - $this->size() );
 
 }
+
+##-------------------------------------------------------------------------##
+
+=head2 overlapFilter()
+
+  Use: $numRemoved = $obj->overlapFilter(
+                                overlapFrac => 0.8
+                                [target => 'query'|'subject'|'both'],
+                                [considerSubjectOrientation => 0|1] );
+
+    overlapFrac : Float - The fraction of overlap of either alignment
+                          that will trigger the filter. A value between
+                          0 and 1.
+    target      : String - 'query' (default), or 'subject' or 'both'
+    considerSubjectOrientation : Boolean - 0 (default) or 1
+                            
+  The overlapFrac controls the reporting of matches based on the 
+  overlap of aligned bases (query, subject or both). A greedy search
+  over subsets (by query, by subject, or by both), where each subset is
+  processed in ascending order of score.  An alignment is filtered out
+  if it scores lower and is overlapped by a surving higher scoring alignment
+  by more than overlapFrac bases.
+ 
+  This notably differs from the maskLevel filter in that the folllowing
+  alignment will be resolved by removing the lower scoring alignment
+  rather than keeping them both:
+
+  E.g this will return both of these hits at overlapFrac 0.99 and
+  target = query:
+
+  460  6.67 0.00 0.00  Seq1 1 60 (40) Cons2 1  60 (0) 
+  484  0.00 0.00 0.00  Seq1 1 50 (50) Cons1 11 60 (0)  
+
+  DELETE -------------------460--------------------------------> 
+  KEEP   -------------------484---------------------->
+
+
+  Returns the count of entries filtered out. Does *not* alter
+  the sort order of the remaining SearchResultCollection.
+
+  NOTE: This is currently used by Refiner but not RepeatMasker.
+        
+=cut
+
+##-------------------------------------------------------------------------##
+sub overlapFilter {
+    my $this       = shift;
+    my %parameters = @_;
+  
+    my $subroutine = ( caller( 0 ) )[ 0 ] . "::" . ( caller( 0 ) )[ 3 ];
+  
+    croak $CLASS
+        . "::$subroutine: Missing or invalid overlapFrac value "
+        . "parameter ( overlapFrac = "
+        . $parameters{'overlapFrac'} . " )!\n"
+        if ( !( $parameters{'overlapFrac'} =~ /[\d\.]+/ ) ||
+             $parameters{'overlapFrac'} < 0 || $parameters{'overlapFrac'} > 1);
+    my $overlapFrac = $parameters{'overlapFrac'};
+  
+    croak $CLASS
+        . "::$subroutine: Invalid target parameter "
+        . "parameter ( target = "
+        . $parameters{'target'}
+        . ")!\n"
+        if (
+             defined $parameters{'target'}
+             && !(    $parameters{'target'} eq 'query'
+                  || $parameters{'target'} eq 'subject'
+                  || $parameters{'target'} eq 'both' )
+        );
+
+    croak $CLASS
+        . "::$subroutine: Invalid considerSubjectOrientation parameter "
+        . "parameter ( considerSubjectOrientation = "
+        . $parameters{'considerSubjectOrientation'}
+        . ")!\n"
+        if (
+             defined $parameters{'considerSubjectOrientation'}
+             && !(    $parameters{'considerSubjectOrientation'} eq '0' 
+                   || $parameters{'considerSubjectOrientation'} eq '1' )
+        );
+
+    my $target = 'query';
+    $target = lc $parameters{'target'} if defined $parameters{'target'};
+
+    my $considerSubjectOrientation = 0;
+    $considerSubjectOrientation = $parameters{'considerSubjectOrientation'}
+        if defined $parameters{'considerSubjectOrientation'};
+   
+    my $n = $this->size();
+    return $this if $n < 2;  # trivial early exit: nothing to mask
+
+    #
+    # Build an array of indices [0..n-1]
+    #
+    my @indices = (0 .. $n-1);
+
+    #
+    # Sort that array by the relevant logic,
+    # without reordering $this itself.
+    #
+    # If $target eq 'both', we do (queryName ASC, subjName ASC, score DESC).
+    # Adapt as needed for 'query' or 'subject' only.
+    #
+    if ( $target eq 'query' ) {
+      @indices = sort {
+          my $x = $this->get($a);
+          my $y = $this->get($b);
+  
+          my $cmp = $x->getQueryName() cmp $y->getQueryName();
+          return $cmp if $cmp != 0;
+          
+          # Score descending
+          return $y->getScore() <=> $x->getScore();
+      } @indices;
+    }elsif ( $target eq 'subject' ) {
+      @indices = sort {
+          my $x = $this->get($a);
+          my $y = $this->get($b);
+  
+          my $cmp = $x->getSubjName() cmp $y->getSubjName();
+          return $cmp if $cmp != 0;
+          
+          # Score descending
+          return $y->getScore() <=> $x->getScore();
+      } @indices;
+    }else{
+      @indices = sort {
+          my $x = $this->get($a);
+          my $y = $this->get($b);
+  
+          my $cmp = $x->getQueryName() cmp $y->getQueryName();
+          return $cmp if $cmp != 0;
+          $cmp = $x->getSubjName() cmp $y->getSubjName();
+          return $cmp if $cmp != 0;
+          
+          # Score descending
+          return $y->getScore() <=> $x->getScore();
+      } @indices;
+    }
+
+    #
+    #  Group the *indices* by (queryName, subjName) if 'both',
+    #  or by queryName if $target eq 'query', or by subjName if 'subject'.
+    #
+    #  We'll build a hash: groupKey => array_of_indices
+    #
+    my %groups;
+    for my $idx (@indices) {
+        my $item = $this->get($idx);
+
+        # Build the grouping key depending on $target
+        my $key;
+        if ($target eq 'query') {
+            $key = $item->getQueryName();
+        }
+        elsif ($target eq 'subject') {
+            $key = $item->getSubjName();
+        }
+        else {  # both
+            $key = $item->getQueryName() . "\t" . $item->getSubjName();
+        }
+
+        push @{ $groups{$key} }, $idx;
+    }
+
+    #
+    # We'll maintain a set (or hash) of masked indices to remove at the end
+    #
+    my %maskedIndex;
+
+    #
+    # We'll also keep arrays sorted by queryStart or subjStart
+    # for early-break logic, but only if needed:
+    #
+    my $needQuerySorted   = ($target eq 'query'   || $target eq 'both');
+    my $needSubjectSorted = ($target eq 'subject' || $target eq 'both');
+
+    #
+    #  For each group, do the standard "masking" logic
+    #  in descending score order (which we already have in the sorted index list).
+    #
+    foreach my $key (keys %groups) {
+        my @group = @{ $groups{$key} };
+
+        # The group is in descending score order from our index sort,
+        # so the highest scoring item is first, etc.
+
+        # Keep track of accepted sequence ranges in sorted order
+        my @querySortedIdx;   # for early-break on query
+        my @subjectSortedIdx; # for early-break on subject
+
+        for my $idx (@group) {
+
+            # If this index was already masked by a previous group pass, skip it
+            #  (This might happen if an item belongs to multiple groups? Usually doesn't, but let's be safe.)
+            next if exists $maskedIndex{$idx};
+
+            my $masked = 0;
+            my $item = $this->get($idx);
+            my ($aqs, $aqe) = ($item->getQueryStart(), $item->getQueryEnd());
+            my ($ass, $ase) = ($item->getSubjStart(), $item->getSubjEnd());
+            my $aStrand = $item->getOrientation() ? '-' : '+';
+
+            #---------------------------
+            # Query side check
+            #---------------------------
+            my $qidx_insert_idx = -1;
+            if ($needQuerySorted) {
+                my $annotQlen = $aqe - $aqs + 1;
+                $qidx_insert_idx = 0;
+                # NOTE: This is only slightly better than O(n) as the ranges are sorted and
+                #       we can break early.  This deserves an interval tree to be efficient.
+                for (my $i = 0; $i <= $#querySortedIdx; $i++) {
+                  last if ( $querySortedIdx[$i]->[0] > $aqe );
+                  # only increment the insert index up until the last index that is less then
+                  # the current start
+                  if ( $querySortedIdx[$i]->[0] < $aqs ) {
+                    # insert one after
+                    $qidx_insert_idx = $i+1;
+                  }
+                  if ( $aqs <= $querySortedIdx[$i]->[1] && $querySortedIdx[$i]->[0] <= $aqe ) {
+                    my $otherQlen = $querySortedIdx[$i]->[1] - $querySortedIdx[$i]->[0] + 1;
+                    my $qStart = ($aqs > $querySortedIdx[$i]->[0]) ? $aqs : $querySortedIdx[$i]->[0];
+                    my $qEnd   = ($aqe < $querySortedIdx[$i]->[1]) ? $aqe : $querySortedIdx[$i]->[1];
+                    my $overlapLen   = $qEnd - $qStart + 1;
+                    my $minLen       = ($annotQlen < $otherQlen) ? $annotQlen : $otherQlen;
+                    my $qFrac        = $overlapLen / $minLen;
+                    if ($qFrac >= $overlapFrac) {
+                        $maskedIndex{$idx} = 1;
+                        $masked = 1;
+                        last;
+                    }
+                 }
+               }
+            }
+
+            #---------------------------
+            # Subject side check
+            #---------------------------
+            my $sidx_insert_idx = -1;
+            if (!$masked && $needSubjectSorted) {
+                my $annotSlen = $ase - $ass + 1;
+                $sidx_insert_idx = 0;
+                for (my $i=0; $i <= $#subjectSortedIdx; $i++) {
+                    last if ( $subjectSortedIdx[$i]->[0] > $ase );
+                    if ( $subjectSortedIdx[$i]->[0] < $ass ) {
+                      $sidx_insert_idx = $i+1;
+                    }
+                    if ( $ass <= $subjectSortedIdx[$i]->[1] && $subjectSortedIdx[$i]->[0] <= $ase ) {
+                      my $otherSlen = $subjectSortedIdx[$i]->[1] - $subjectSortedIdx[$i]->[0] + 1;
+                      my $bStrand = $subjectSortedIdx[$i]->[2];
+                      my $sStart = ($ass > $subjectSortedIdx[$i]->[0]) ? $ass : $subjectSortedIdx[$i]->[0];
+                      my $sEnd   = ($ase < $subjectSortedIdx[$i]->[1]) ? $ase : $subjectSortedIdx[$i]->[1];
+                      my $overlapLen   = $sEnd - $sStart + 1;
+                      my $minLen       = ($annotSlen < $otherSlen) ? $annotSlen : $otherSlen;
+                      my $sFrac        = $overlapLen / $minLen;
+                      if ( $sFrac >= $overlapFrac ) {
+                        if ( ! $considerSubjectOrientation || $aStrand eq $bStrand ) {
+                          $maskedIndex{$idx} = 1;
+                          $masked = 1;
+                          last;
+                        }
+                      }
+                    }
+                }
+            }
+
+            unless ($masked) {
+                # Insert into the sorted arrays
+                if ($needQuerySorted) {
+                    splice(@querySortedIdx, $qidx_insert_idx, 0, [$aqs, $aqe]);
+                }
+                if ($needSubjectSorted) {
+                    splice(@subjectSortedIdx, $sidx_insert_idx, 0, [$ass, $ase, $aStrand]);
+                }
+            }
+        }
+    }
+
+    #
+    # 6) Remove masked items from the collection in descending index order
+    #
+    my @toRemove = sort { $b <=> $a } keys %maskedIndex;
+    for my $delIdx (@toRemove) {
+        $this->remove($delIdx);  # remove in descending order so subsequent indices aren't messed up
+    }
+
+    return scalar(@toRemove);
+}
+
 
 1;

@@ -1212,41 +1212,7 @@ JOBLOOP:
   ## TODO: This is where we used to make the cut file.  This
   ##       option should be rolled into a new utility which
   ##       annotates/cuts based on the annotation database.
-
-  #
-  # Report batch overlap boundaries for anyone who cares
-  #
-  my $overlapBoundariesHashRef = $batcher->getOverlapBoundaries();
-  if ( keys( %{$overlapBoundariesHashRef} ) > 0 ) {
-    if ( $compressCatFile ) {
-      system(
-         "echo \"## Batch Overlap Boundaries\" | gzip -c  >> $fullcatfile.gz" );
-    }
-    else {
-      system( "echo \"## Batch Overlap Boundaries\" >> $fullcatfile" );
-    }
-    foreach my $fragSeqName ( keys( %{$overlapBoundariesHashRef} ) ) {
-      my $overlapList =
-          join( ", ", @{ $overlapBoundariesHashRef->{$fragSeqName} } );
-      if ( $compressCatFile ) {
-        system(   "echo \"##   $fragSeqName  $overlapList\" | "
-                . "gzip -c  >>  $fullcatfile.gz" );
-      }
-      else {
-        system( "echo \"##   $fragSeqName  $overlapList\" >>  $fullcatfile" );
-      }
-    }
-  }
-
-  # Rename final cat file
-  if ( -s "$fullcatfile.gz" ) {
-    rename "$fullcatfile.gz", "$file.cat.gz";
-  }
-  elsif ( -s "$fullcatfile" ) {
-    rename "$fullcatfile", "$file.cat";
-  }
-  rename $fullcutfile, "$file.cut" if -s $fullcutfile;
-
+  
   #
   # Setup options for processRepeats
   #
@@ -1264,29 +1230,53 @@ JOBLOOP:
     $speed = "default";
   }
 
+  ## Build cat file header
   my $engine     = $searchEngine->getPathToEngine();
   my @path       = split( /[\\\/]/, $engine );
   my $engineInfo =
       "run with " . pop( @path ) . " version " . $searchEngine->getVersion();
 
   if ( $compressCatFile ) {
-    open( CATOUT, "| gzip -c >>$file.cat.gz" );
+    open( CATOUT, "| gzip -c >$file.cat.gz" );
   }
   else {
-    open( CATOUT, ">>$file.cat" );
+    open( CATOUT, ">$file.cat" );
   }
-
+  print CATOUT "## RepeatMasker version $version , $speed mode\n";
+  print CATOUT "## $engineInfo\n";
+  print CATOUT "## RM Library: $dbversion\n";
   print CATOUT "## Total Sequences: " . $db->getSeqCount() . "\n";
   print CATOUT "## Total Length: " . $db->getSeqLength() . "\n";
   print CATOUT "## Total NonMask ( excluding >20bp runs of N/X bases ): "
       . $db->getXNLength() . "\n";
   print CATOUT "## Total NonSub ( excluding all non ACGT bases ):"
       . $db->getSubtLength() . "\n";
-  print CATOUT "RepeatMasker version $version , $speed mode\n";
-  print CATOUT "$engineInfo\nRM Library: $dbversion\n";
+  undef $db;
+  #
+  # Report batch overlap boundaries for anyone who cares
+  #
+  my $overlapBoundariesHashRef = $batcher->getOverlapBoundaries();
+  if ( keys( %{$overlapBoundariesHashRef} ) > 0 ) {
+    print CATOUT "## Batch Overlap Boundaries\n";
+    foreach my $fragSeqName ( keys( %{$overlapBoundariesHashRef} ) ) {
+      my $overlapList =
+          join( ", ", @{ $overlapBoundariesHashRef->{$fragSeqName} } );
+      print CATOUT "##   $fragSeqName  $overlapList\n";
+    }
+  }
+  print CATOUT "## RAW Annotations:\n";
   close CATOUT;
 
-  undef $db;
+  # Rename final cat file
+  if ( -s "$fullcatfile.gz" ) {
+    system("cat $fullcatfile.gz >> $file.cat.gz");
+    unlink "$fullcatfile.gz";
+  }
+  elsif ( -s "$fullcatfile" ) {
+    system("cat $fullcatfile >> $file.cat");
+    unlink "$fullcatfile";
+  }
+  rename $fullcutfile, "$file.cut" if -s $fullcutfile;
 
   # TODO: Check on .seqending stuff in SEQDBI
 
@@ -1347,9 +1337,12 @@ JOBLOOP:
     #
     # For timing only
     #my $t0 = gettimeofday( );
+    print "\n\n";
+    #print "RepeatMasker: Running: $prOptions\n";
     &systemint(
         "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
         unless $options{'is_only'};
+
 
     # For timing only
     #if ( $DEBUG ) {
@@ -2014,7 +2007,9 @@ sub search {
   if (    $searchEngine->isa( "NCBIBlastSearchEngine" )
        && $lib =~ /refine/ )
   {
-    $bandwidth = '0';
+    # RMH: Reverted 9/24
+    #$bandwidth = '0';
+    $bandwidth = '-1';
   }
 
   my $cycle = 1;
@@ -2962,6 +2957,8 @@ sub runStage {
   # Mask level filtering
   #
   #print "Using: masklevel = $masklevel\n" if ( 1 );
+## TODO: This may not be necessary for rmblast....validate and remove to
+##       improve performance.  Check preMaskLevelFilter as well.
   $resultsCollection->maskLevelFilter( value => $masklevel );
 
   #print $CLASS
@@ -3635,6 +3632,7 @@ sub runHMMERSearchStages {
         ## Primates
         ##
         my $aluIdx = 1;
+        print "is a $options{'species'} a primate?" .  $tax->isA( $options{'species'}, "primates" ) . "\n";
         if ( $tax->isA( $options{'species'}, "primates" ) == 1 ) {
 
           # 11/9/2015
@@ -7647,7 +7645,6 @@ sub initLibrariesFromFamdb {
 
     my $modelPrefix = "CONS-";
     $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
-
     my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb info ";
     open IN,"$famdbCmd |";
     my $dbTitle;
@@ -7859,7 +7856,7 @@ sub initLibrariesFromFamdb {
   # The first directory in the search path containing
   # the desired library type is used.
   #
-  my $speciesWord = $species || "";
+  my $speciesWord = lc($species || "");
   $speciesWord =~ s/\s+/_/g;
   # 2023/11/14
   #   New "uncurated" flag requires suffixes for cached libraries
@@ -7894,24 +7891,15 @@ sub initLibrariesFromFamdb {
         rmtree("$path/$dbLabel/$speciesWord" . ".working",0,1);
       }
       if ( -d "$path/$dbLabel/general" ) {
-        #if (
-        #     (
-        #          $searchEngine->isa( "WUBlastSearchEngine" )
-        #       && ( my @pathFiles = glob( "$path/$dbLabel/general/*.ahd" ) )
-        #     )
-        #     || (   $searchEngine->isa( "NCBIBlastSearchEngine" )
-        #         && ( my @pathFiles = glob( "$path/$dbLabel/general/*.nhr" ) )
-        #        )
-        #     || (    $searchEngine->isa( "CrossmatchSearchEngine" )
-        #          && -s "$path/$dbLabel/general/l1.lib"
-        #          && -s "$path/$dbLabel/general/refineableHash.dat" )
-        #     || (   $searchEngine->isa( "HMMERSearchEngine" ) )
-        #    )
-        #{
-        # The general directory may not have anything in it.  Fallback on the .working
-        # flag to ensure it was built correctly.
-        $generalCacheDir = "$path/$dbLabel/general";
-        #}
+        if ( $searchEngine->isa( "NCBIBlastSearchEngine" ) && 
+             -s "$path/$dbLabel/general/is.lib" && 
+             ! -s "$path/$dbLabel/general/is.lib.nhr") {
+             # Must build frozen version of is.lib
+             $generalCacheDir = "";
+        }else {
+          # Fallback on .working to makes sure this gets built for hmmer/crossmatch
+          $generalCacheDir = "$path/$dbLabel/general";
+        }
       }elsif ( -d "$path/$dbLabel/general" . ".working" ){
         # Make sure checkpointing name has been cleared in previous run
         print "\n  It appears that RepeatMasker attempted to generate a cached general library\n"

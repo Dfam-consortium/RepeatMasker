@@ -1,3 +1,11 @@
+Unreleased
+  - Fix table format for non-mammals.  The "Retroelements" heading
+    didn't include Penelope elements ( "PLE/" ) in it's tabulation.
+
+  TODO: Fix refinement parameters!
+
+
+
 4.1.7-p1
   - This is a critical fix to the 4.1.7 release.  The -species option
     was not being interpreted correctly by RepeatMasker/ProcessRepeats.

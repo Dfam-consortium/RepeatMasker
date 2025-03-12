@@ -16,20 +16,28 @@ Pre-requisites
 
   - TRF 4.09 or higher ( http://tandem.bu.edu/trf/trf.html )
   
-  - A search engine.  We currently support:
+  - A search engine (at least one required).  We currently support:
 
-       crossmatch : http://www.phrap.org
        rmblast :  http://www.repeatmasker.org/RMBlast.html
+       crossmatch : http://www.phrap.org
        nhmmer : Pre release version - 
               ftp://selab.janelia.org/pub/pickup/hmmer3.1-snap20121016.1.tgz 
               ( Dfam required )
        abblast/wublast : http://blast.advbiocomp.com/licensing/
 
-  - Dfam and/or RepeatMasker libraries.  The curated families from
-    Dfam 3.1 are included in this release. Updates and the complete
-    (curated & uncrated) Dfam libraries can be found at: www.dfam.org.
+  - TE Libraries - RepeatMasker is not distributed with a TE library, however
+    it may be used with user-supplied libraries using the '-lib' option. TE 
+    libraries in FamDB H5 format may be downloaded from Dfam at:
+
+         https://www.dfam.org/releases/current/families/FamDB
+
+    and installed in the Libraries/famdb directory.  The files are divided 
+    by taxa groups and numbered starting from '0' ( aka the root partition )
+    which contains required information for RepeatMasker/FamDB.  In addition
+    the last Repbase RepeatMasker Edition may be downloaded and combined with Dfam.
     The RepBase RepeatMasker Library can be obtained at: 
-    http://www.girinst.org
+
+          http://www.girinst.org
        
 
 Installation 
@@ -46,26 +54,29 @@ Installation
          % gunzip RepeatMasker-open-4-#-#.tar.gz
          % tar xvf RepeatMasker-open-4-#-#.tar
 
-  2. RepeatMasker comes with a copy of the curated portion of 
-     Dfam ( Libraries/Dfam.h5 ).  This is a small library ( at 
-     this time ).  There are two options for supplementing the
+  2. RepeatMasker is currently not distributed with a database. The program 
+     may be used immediately with custom databases ("-lib mylib.fa" option) 
+     or you may download TE libraries and configure them for use with 
+     RepeatMasker. There are two options for supplementing/updating the 
      main RepeatMasker library:
 
-       - The complete Dfam ( curated and uncurated families ) library
-         may be downloaded from www.dfam.org in famdb HDF5 format and
-         used to replace the distributed "Libraries/dfam.h5" file. For
-         example:
+     - The Dfam database may be downloaded from www.dfam.org in famdb HDF5 
+       format (partitioned by taxa). The root ("dfam##_full.0.h5") partition 
+       is required if you plan to use Dfam, however any combination of 
+       additional partitions may also be downloaded and configured. 
+       For example:
 
-             % wget https://www.dfam.org/releases/Dfam_3.2/families/Dfam.h5.gz
-             % gunzip Dfam.h5.gz
-             ## NOTE: This will overwrite the distributed Dfam.h5 file.
-             % mv Dfam.h5 /usr/local/RepeatMasker/Libraries
+             % wget https://www.dfam.org/releases/current/families/FamDB/dfam39_full.1.h5.gz
+             % gunzip dfam39_full.1.h5.gz 
+             % mv dfam39_full.1.h5 /usr/local/RepeatMasker/Libraries/famdb
+
+             NOTE: Only partitions from the same Dfam release should be 
+                   in this directory. 
 
      and/or
-
-       - The RepBase RepeatMasker Edition ( final version 10/26/2018 )
-         may be downloaded from www.girinst.org and unpaked in the
-         RepeatMasker directory.  For example:
+     - The RepBase RepeatMasker Edition ( final version 10/26/2018 ) may be 
+       downloaded from www.girinst.org and unpaked in the RepeatMasker 
+       directory. For example:
 
              % cp RepBaseRepeatMaskerEdition-20181026.tar.gz /usr/local/RepeatMasker/
              % cd /usr/local/RepeatMasker
@@ -101,3 +112,5 @@ directory in the programs library path.  The default path is:
 NOTE: If the program cannot save libraries in either path 1 or 2, the
 libraries will need to be created each time the program runs.  This
 will slow down runs on shorter sequences.
+
+

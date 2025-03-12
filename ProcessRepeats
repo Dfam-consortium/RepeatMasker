@@ -186,8 +186,8 @@ my $DEBUG     = 0;
 #     structure is as follows:
 #         $refinementHash{ "b#s#i#" }->{ ConsensusID } = ( annot1ref, annot2ref, ...)
 #
-my %refinementHash = ();    # Contains refined annotations ordered by catID
 my %chainSeq1Length;
+my %refinementHash = ();    # Contains refined annotations ordered by catID
 
 # A bug in 5.8 produces way too many warnings
 if ( $] && $] >= 5.008003 ) {
@@ -295,13 +295,16 @@ else {
 #
 # Loop over input files
 #
+my $batchNum = 0;
 foreach my $file ( @ARGV ) {
-  if ( $file =~ /.*\.gz$/ ) {
-    open( INCAT, "gunzip -c $file |" ) || die "Can\'t open file $file\n";
-  }
-  else {
-    open( INCAT, $file ) || die "Can\'t open file $file\n";
-  }
+  my %seq1Lengths = ();
+  my %aggregateStats = ();
+  
+  # Create some filename constants
+  my $catfile = $file;
+  $file =~ s/\.(temp)?cat(.gz)?$//;
+  my $filename = $file;
+  $filename =~ s/(.*\/)//;
 
   # INITIALIZE CAT FILE DATA
   #   Read the cat file and calculate:
@@ -311,6 +314,12 @@ foreach my $file ( @ARGV ) {
   #     - The length of each sequence
   #     - The fraction GC the version the masked length and the dbversion.
   #   Also...grab batch overlap boundaries if information is present.
+  if ( $catfile =~ /.*\.gz$/ ) {
+    open( INCAT, "gunzip -c $catfile |" ) || die "Can\'t open file $catfile\n";
+  }
+  else {
+    open( INCAT, $catfile ) || die "Can\'t open file $catfile\n";
+  }
   my %batchOverlapBoundaries         = ();
   my $numSearchedSeqs                = 0;
   my $lenSearchedSeqs                = 0;
@@ -319,7 +328,6 @@ foreach my $file ( @ARGV ) {
   my $versionmode                    = "";
   my $engine                         = "";
   my $dbversion                      = "";
-
   while ( <INCAT> ) {
     if ( /^##\s*(\S+)\s+([\d\s,]+)/ ) {
       $batchOverlapBoundaries{$1} = [ sort( split( /,/, $2 ) ) ];
@@ -336,73 +344,240 @@ foreach my $file ( @ARGV ) {
     elsif ( /^##\s*Total\s+NonSub.*:\s*(\d+)/i ) {
       $lenSearchedSeqsExcludingAmbig = $1;
     }
-    elsif ( /^RepeatMasker|run|RepBase|RM/ ) {
+    elsif ( /^(##\s*)?RepeatMasker|run|RepBase|RM/ ) {
       my @bit = split;
       $versionmode = $_ if $bit[ 0 ] eq 'RepeatMasker';
-      $engine = $1 if /^(run with.*)/;
+      $engine = $1 if /(run with.*)/;
       # Since 4.1.1 we are now using famdb.  The version is reported a bit
       # differently.
       #     RM Library: CONS-Dfam_withRBRM_3.3
       #     
-      if ( /^(RepBase.*)/ || /^RM Library:\s+(\S.*)/ ) {
+      if ( /(RepBase.*)/ || /RM Library:\s+(\S.*)/ ) {
         $dbversion = $1;
-        last;
       }
+    }elsif ( /^##\s+RAW Annotations/ ) {
+      last;
     }
   }
   close INCAT;
 
-  #
-  #  Parse the cat file into an object
-  #
-  my $sortedAnnotationsList = undef;
+  print "ProcessRepeats: Adjudicating alignments\n";
 
-  # Always read in alignment data
-  $sortedAnnotationsList = &parseCATFile( file => $file );
+  # Do it all
+  %aggregateStats = &parseCATFile ( $catfile, $engine, \%seq1Lengths, \%aggregateStats, 0 );
 
-  #
-  # Separate out refined annotations
-  #
-  my $annotIter = $sortedAnnotationsList->getIterator();
-  while ( $annotIter->hasNext() ) {
-    my $currentAnnot = $annotIter->next();
+  &generateTableOutput( \%options, \%seq1Lengths, \%aggregateStats, 
+                         $file, $filename, $dbversion, $numSearchedSeqs, 
+                         $lenSearchedSeqs, $lenSearchedSeqsExcludingXNRuns, 
+                         $versionmode, $engine,
+                         $poundformat );
 
-    if ( $currentAnnot->getClassName() eq "" ) {
-      $currentAnnot->setClassName( "Unspecified" );
+  print "\ndone\n"
+} # For each file
+
+
+###
+### DONE
+###
+
+
+#########################################################################
+##subroutines
+#########################################################################
+
+sub parseCATFile {
+  my $file = shift;
+  my $engine = shift;
+  my %seq1Lengths = %{ shift() };
+  my %aggregateStats = %{ shift() };
+  my $noAlignData = shift;
+
+  my $INCAT;
+  if ( $file =~ /.*\.gz$/ ) {
+    open( $INCAT, "gunzip -c $file |" )
+        || die "Can\'t open file $file\n";
+  }
+  else {
+    open( $INCAT, "$file" )
+        || die "Can\'t open file $file\n";
+  }
+
+  # Glocal variables ( global to callback but local to parseCATFile )
+  my $searchResults = SearchResultCollection->new();
+  my $prevID = undef;
+  my $prevRMBatchNum = undef;
+  my $records_processed = 0;
+  my $annotation_idx = 0;
+  my $batchNum = 0;
+
+  sub callback {
+    my $record = shift;
+    # recast
+    bless $record, "PRSearchResult";
+    $records_processed++;
+    my $seq_id = $record->getQueryName();
+    
+    ## THERE ARE TWO CASES HERE:
+    #      1. Large single sequence that has been split into multiple batches ( each
+    #         with it's own refinement section ).
+    #      2. A single batch with multiple sequences and a single refinement section.
+    #
+    #      Only process if we:
+    #          - switch IDs and the next ID doesn't have the same batch number
+    if ( $prevID && $seq_id ne "refinement" && $seq_id ne $prevID ) {
+      print "Processing seq $prevID\n" if ( $DEBUG );
+      
+      if (    $searchResults->size()
+           && $searchResults->get( 0 )->getLineageId !~ /\[?[mc]_b.*/ )
+      {
+        die "\n    The input file:\n        $file\n"
+            . "    was generated using an older RepeatMasker format.\n"
+            . "    Please use ProcessRepeats from RepeatMasker v3.3.0\n"
+            . "    to process this file.\n\n";
+      }
+
+      %aggregateStats = &processSequence( $batchNum, $file, $engine, $searchResults, \%seq1Lengths, \%aggregateStats );
+      $batchNum++;
+
+      # Beware...global variable
+      %refinementHash = ();
+      $searchResults = undef;
+      $searchResults = SearchResultCollection->new();
+ 
     }
-    if ( $currentAnnot->getLineageId() =~ /\[/ ) {
-      $annotIter->remove();
-      $currentAnnot->setOrientation( "+" )
-          if ( $currentAnnot->getOrientation() ne "C" );
 
-      my $catID = $currentAnnot->getLineageId();
+    $record->setClassName( "Unspecified" )
+        if ( $record->getClassName() eq "" );
+    $record->setOrientation( "+" )
+        if ( $record->getOrientation() ne "C" );
+
+    if ( $seq_id eq "refinement" && $record->getLineageId() =~ /\[/ ) {
+      my $catID = $record->getLineageId();
       die "Missing cat file ID for refined element!"
-          . Dumper( $currentAnnot ) . "\n"
+          . Dumper( $record ) . "\n"
           if ( $catID eq "" );
       $catID =~ s/[\[\]]//g;
-      push @{ $refinementHash{$catID}->{ $currentAnnot->getHitName() } },
-          ( $currentAnnot );
+      push @{ $refinementHash{$catID}->{ $record->getHitName() } },
+          ( $record );
+    }else {
+      # PRID is only set for normal annotations ( not refinements )
+      $record->setPRID( $annotation_idx );
+
+      # Save original information for more detailed reporting ( if requested )
+      if ( $options{'source'} ) {
+        $record->addDerivedFromAnnot( $record );
+        $record->setAlignData( undef );
+      }
+
+      # Remove TE variant suffixes
+      my $HitName = $record->getHitName();
+      $HitName =~ s/_short_$//;
+      # RMH 11/21/12: Added for Dfam
+      $HitName =~ s/_offset$//;
+      $record->setHitName( $HitName );
+
+      $searchResults->add( $record );
+      my $seq_len = $record->getQueryEnd() + $record->getQueryRemaining(); 
+
+      # Update sequence length hash ( longest if different! )
+      $seq1Lengths{ $seq_id } = $seq_len
+          if ( !defined $seq1Lengths{ $seq_id }
+               || $seq1Lengths{ $seq_id } < $seq_len );
+
+      $annotation_idx++;
+      $prevID = $seq_id;
     }
   }
 
-  # Create some filename constants
-  my $catfile = $file;
-  $file =~ s/\.(temp)?cat(.gz)?$//;
-  my $filename = $file;
-  $filename =~ s/(.*\/)//;
+  if ( $noAlignData ) {
+        CrossmatchSearchEngine::parseOutput(
+                                                         searchOutput => $INCAT,
+                                                         excludeAlignments => 1,
+                                                         callback => \&callback
+                                            );
+  }
+  else {
+        CrossmatchSearchEngine::parseOutput( searchOutput => $INCAT,
+                                             callback => \&callback );
+  }
+  close $INCAT;
 
-  unless ( $sortedAnnotationsList->size() > 0 ) {
+  # Trailing case
+  if ( $searchResults->size() > 0 ) {
+    print "Processing seq $prevID\n" if ( $DEBUG );
+        
+    if (    $searchResults->size()
+         && $searchResults->get( 0 )->getLineageId !~ /\[?[mc]_b.*/ )
+    {
+       die "\n    The input file:\n        $file\n"
+              . "    was generated using an older RepeatMasker format.\n"
+              . "    Please use ProcessRepeats from RepeatMasker v3.3.0\n"
+              . "    to process this file.\n\n";
+    }
+
+    %aggregateStats = &processSequence( $batchNum, $file, $engine, $searchResults, \%seq1Lengths, \%aggregateStats );
+    $batchNum++;
+
+    $searchResults = undef;
+  }
+
+  unless ( $records_processed > 0 ) {
     my $filenaam = $file;
-    $filenaam = $options{'orifile'} if $options{'orifile'};
+#####TODO move this block back up to the caller ( return num of records processed )
+    #$filenaam = $options{'orifile'} if $options{'orifile'};
     open( OUT, ">$file.out" );
     print "\n\n\nNo repetitive sequences were detected in $filenaam\n";
     print OUT "There were no repetitive sequences detected in $filenaam\n";
     close( OUT );
-    next;
   }
+  return %aggregateStats;
+}
 
-  print "processing output: ";
 
+
+sub processSequence  {
+  my $batchNum = shift;
+  my $file = shift;
+  my $engine = shift;
+  my $sortedAnnotationsList = shift;
+  my %seq1Lengths    = %{ shift() };
+  my %aggregateStats = %{ shift() };
+
+
+  # File is the full path to the catfile,
+  # convert file prefix
+  $file =~ s/\.(temp)?cat(.gz)?$//;
+
+  #
+  # Separate out refined annotations
+  #
+  #  my $annotIter = $sortedAnnotationsList->getIterator();
+  #%refinementHash = ();
+##TODO: move this to the parseCATFile function
+  #while ( $annotIter->hasNext() ) {
+  #  my $currentAnnot = $annotIter->next();
+  #
+  #  if ( $currentAnnot->getClassName() eq "" ) {
+  #    $currentAnnot->setClassName( "Unspecified" );
+  #  }
+  #  if ( $currentAnnot->getLineageId() =~ /\[/ ) {
+  #    $annotIter->remove();
+  #    $currentAnnot->setOrientation( "+" )
+  #        if ( $currentAnnot->getOrientation() ne "C" );
+  #
+  #    my $catID = $currentAnnot->getLineageId();
+  #    die "Missing cat file ID for refined element!"
+  #        . Dumper( $currentAnnot ) . "\n"
+  #        if ( $catID eq "" );
+  #    $catID =~ s/[\[\]]//g;
+  #    push @{ $refinementHash{$catID}->{ $currentAnnot->getHitName() } },
+  #        ( $currentAnnot );
+  #  }
+  #}
+##TODO REMOVE
+  #print "Refinements separated\n";
+
+###TODO: FIX THIS
   open( OUTRAW, ">$file.ori.out" ) if ( $options{'u'} || !$poundformat );
 
   #
@@ -413,41 +588,46 @@ foreach my $file ( @ARGV ) {
   #         when we modify Seq1Beg/End
   #
   $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
-  my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
-  my %seq1Lengths    = ();
-  my $i              = -1;
-  while ( $cycleAnnotIter->hasNext() ) {
-    $i++;
-    my $currentAnnot = $cycleAnnotIter->next();
+##TODO REMOVE
+print "annotations sorted\n" if ( $DEBUG );
 
-    $currentAnnot->setPRID( $i );
-    $currentAnnot->setOrientation( "+" )
-        if ( $currentAnnot->getOrientation() ne "C" );
-
-    # Do this early so we capture all information before it is changed.
-    # NOTE: I may make derived elements links to the cat file for
-    #       memory brevity.
-    if ( $options{'source'} ) {
-      $currentAnnot->addDerivedFromAnnot( $currentAnnot );
-      $currentAnnot->setAlignData( undef );
-    }
-
-    my $HitName = $currentAnnot->getHitName();
-    $HitName =~ s/_short_$//;
-
-    # RMH 11/21/12: Added for Dfam
-    $HitName =~ s/_offset$//;
-    $currentAnnot->setHitName( $HitName );
-    if ( !defined $seq1Lengths{ $currentAnnot->getQueryName() }
-         || $seq1Lengths{ $currentAnnot->getQueryName() } <
-         ( $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining() ) )
-    {
-      $seq1Lengths{ $currentAnnot->getQueryName() } =
-          $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining();
-    }
-  }
-
-  print "\ncycle 1 ";
+my $cycleAnnotIter;
+my $i;
+#my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
+####TODO: This needs to be passed in to this function
+#  my $i              = -1;
+#  while ( $cycleAnnotIter->hasNext() ) {
+#    $i++;
+#    my $currentAnnot = $cycleAnnotIter->next();
+#
+#    $currentAnnot->setPRID( $i );
+#    $currentAnnot->setOrientation( "+" )
+#        if ( $currentAnnot->getOrientation() ne "C" );
+#
+#    # Do this early so we capture all information before it is changed.
+#    # NOTE: I may make derived elements links to the cat file for
+#    #       memory brevity.
+#    if ( $options{'source'} ) {
+#      $currentAnnot->addDerivedFromAnnot( $currentAnnot );
+#      $currentAnnot->setAlignData( undef );
+#    }
+#
+#    my $HitName = $currentAnnot->getHitName();
+#    $HitName =~ s/_short_$//;
+#
+#    # RMH 11/21/12: Added for Dfam
+#    $HitName =~ s/_offset$//;
+#    $currentAnnot->setHitName( $HitName );
+#    if ( !defined $seq1Lengths{ $currentAnnot->getQueryName() }
+#         || $seq1Lengths{ $currentAnnot->getQueryName() } <
+#         ( $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining() ) )
+#    {
+#      $seq1Lengths{ $currentAnnot->getQueryName() } =
+#          $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining();
+#    }
+#  }
+#
+  print "\ncycle 1 " if ( $DEBUG );
 
   #printHitArrayList( $sortedAnnotationsList );
   my ( $chainBegRef, $chainEndRef ) = &cycleReJoin( $sortedAnnotationsList );
@@ -461,7 +641,7 @@ foreach my $file ( @ARGV ) {
   #          Rename Satellite Shifted Copies
   #          build DNA transposon equivalency datastructure
   ##########################################################################
-  print "\ncycle 2 ";
+  print "\ncycle 2 " if ( $DEBUG );
 
   # Sort by name, begin position, and end position descending
   $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
@@ -993,14 +1173,10 @@ CYCLE2:
   #  If we do not have a pound formatted database we are done!
   #
   if ( !$poundformat ) {
-    &generateOutput(
-                     \%options,              \%seq1Lengths,
-                     $file,                  $filename,
-                     $dbversion,             $numSearchedSeqs,
-                     $lenSearchedSeqs,       $lenSearchedSeqsExcludingXNRuns,
-                     $versionmode,           $engine,
-                     $sortedAnnotationsList, $poundformat
-    );
+    %aggregateStats = &generateOutput( \%options, \%seq1Lengths, 
+                                   \%aggregateStats, $file,
+                                   $engine, $sortedAnnotationsList,
+                                   $batchNum );
   }
   else {
 
@@ -1027,7 +1203,7 @@ CYCLE2:
     #printHitArrayList( $sortedAnnotationsList );
 
     # Sort by name, begin position, and end position descending
-    print "\ncycle 3 ";
+    print "\ncycle 3 " if ( $DEBUG );
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
     $i              = -1;
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
@@ -1321,7 +1497,7 @@ CYCLE3:
 
     #printHitArrayList( $sortedAnnotationsList );
     # Sort by name, begin position, and end position descending
-    print "\ncycle 4 ";
+    print "\ncycle 4 " if ( $DEBUG );
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 
     $i = -1;
@@ -1503,7 +1679,7 @@ CYCLE3:
     #printHitArrayList( $sortedAnnotationsList );
 
     # Sort by name, begin position, and end position descending
-    print "\ncycle 5 ";
+    print "\ncycle 5 " if ( $DEBUG );
 
     if ( keys( %refinementHash ) ) {
 
@@ -2080,7 +2256,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 6 ";
+    print "\ncycle 6 " if ( $DEBUG );
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
     $i              = -1;
     $DEBUG          = 0;
@@ -2478,7 +2654,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 7 ";
+    print "\ncycle 7 " if ( $DEBUG );
 
     ##
     ## Name joined fragments & pick consensus adjustment
@@ -2815,7 +2991,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 8 ";
+    print "\ncycle 8 " if ( $DEBUG );
 
     ##
     ## Merge joined overlapping fragments into one fragment
@@ -3137,7 +3313,7 @@ CYCLE3:
     #
     ########################################################################
 
-    print "\ncycle 9 ";
+    print "\ncycle 9 " if ( $DEBUG );
 
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 
@@ -3740,7 +3916,7 @@ CYCLE9:
     #
     ########################################################################
 
-    print "\ncycle 10 ";
+    print "\ncycle 10 " if ( $DEBUG );
     $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
 
     $i              = -1;
@@ -4560,28 +4736,21 @@ CYCLE10:
       $pastAnnot = $currentAnnot;
 
     }    # CYCLE 10
-         #printHitArrayList( $sortedAnnotationsList );
-    &generateOutput(
-                     \%options,              \%seq1Lengths,
-                     $file,                  $filename,
-                     $dbversion,             $numSearchedSeqs,
-                     $lenSearchedSeqs,       $lenSearchedSeqsExcludingXNRuns,
-                     $versionmode,           $engine,
-                     $sortedAnnotationsList, $poundformat
-    );
-  }    # else....if ( ! $poundformat
-  print "\ndone\n";
-}    # For each file
+    #printHitArrayList( $sortedAnnotationsList );
 
-##
-##
-##  End of main loops
-##
-##
-
-#########################################################################
-##subroutines
-#########################################################################
+    #
+    # Generate output for this cat file!
+    #
+    %aggregateStats = &generateOutput( \%options, \%seq1Lengths, 
+                                   \%aggregateStats, $file,
+                                   $engine, $sortedAnnotationsList,
+                                   $batchNum );
+ 
+  }   # else....if ( ! $poundformat
+   
+  return ( %aggregateStats );
+ 
+  } # sub processSequence();
 
 sub getVNTRRange {
   my $elementName = shift;
@@ -5147,18 +5316,13 @@ sub getEquivArray {
 sub generateOutput {
   my %options                        = %{ shift() };
   my %seq1Lengths                    = %{ shift() };
+  my %aggregateStats                 = %{ shift() };
   my $file                           = shift;
-  my $filename                       = shift;
-  my $dbversion                      = shift;
-  my $numSearchedSeqs                = shift;
-  my $lenSearchedSeqs                = shift;
-  my $lenSearchedSeqsExcludingXNRuns = shift;
-  my $versionmode                    = shift;
   my $engine                         = shift;
   my $sortedAnnotationsList          = shift;
-  my $poundformat                    = shift;
+  my $batchNum                       = shift;
 
-  print "\nGenerating output... ";
+  print "\nGenerating output..." if ( $DEBUG ); 
 
   my $i              = -1;
   my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
@@ -5166,24 +5330,14 @@ sub generateOutput {
   my $DEBUG = 0;
 
   # Local to cycle
-  my $lastid = 0;
   my $pastAnnot;
 
   # Globals created for stats
-  my %totlength       = ();
-  my %uniqCount       = ();
   my %checked         = ();
-  my $seq_cnt         = 0;
-  my $frac_GC         = 0;
-  my $totseqlen       = 0;
-  my $nonNSeqLen      = 0;
-  my $totalSeqLen     = 0;
-  my $maskedpercent   = 0;
-  my $maskedlength    = 0;
-  my $annotatedlength = 0;
 
   # Aggregate Stats ( Default match is to "OTHER" )
-  my %aggregateStats = (
+  if ( ! exists $aggregateStats{'SINE'} ) {
+    %aggregateStats = (
                          'SINE'    => { 'RE' => 'SINE' },
                          'LINE'    => { 'RE' => '^LINE' },
                          'PLE'     => { 'RE' => '^PLE' },
@@ -5207,7 +5361,8 @@ sub generateOutput {
                          'SATEL'   => { 'RE' => 'Satel' },
                          'SIMPLE'  => { 'RE' => 'Simple' },
                          'LOWCOMP' => { 'RE' => '^Low' },
-  );
+                      );
+  }
 
   # calculate stats
   while ( $cycleAnnotIter->hasNext() ) {
@@ -5220,9 +5375,9 @@ sub generateOutput {
     #
     my $CN = $currentAnnot->getClassName();
     $CN =~ s/\?$//;    # I'm counting them with the class, even if I'm not sure
-    if ( !defined $uniqCount{$CN} ) {
-      $uniqCount{$CN} = 0;
-      $totlength{$CN} = 0 if !defined $totlength{$CN};
+    if ( !defined $aggregateStats{'uniqCount'}->{$CN} ) {
+      $aggregateStats{'uniqCount'}->{$CN} = 0;
+      $aggregateStats{'totlength'}->{$CN} = 0 if !defined $aggregateStats{'totlength'}->{$CN};
     }
 
     # Define length of coverage based on possibly overlapping
@@ -5255,18 +5410,21 @@ sub generateOutput {
     }
 
     # Class Name Stats
-    $uniqCount{$CN}++ unless $checked;
-    $totlength{$CN}  += $length;
-    $annotatedlength += $length;
+    $aggregateStats{'uniqCount'}->{$CN}++ unless $checked;
+    $aggregateStats{'totlength'}->{$CN} += $length;
+    $aggregateStats{'annotatedlength'} += $length;
 
     # Aggregate Stats
     my $cataloged = 0;
     foreach my $aggKey ( keys( %aggregateStats ) ) {
-      my $regExp = $aggregateStats{$aggKey}->{'RE'};
-      if ( $CN =~ /$regExp/ ) {
-        $aggregateStats{$aggKey}->{'count'}++ unless $checked;
-        $aggregateStats{$aggKey}->{'length'} += $length;
-        $cataloged = 1;
+      if ( ref $aggregateStats{$aggKey} eq ref {} &&
+           exists $aggregateStats{$aggKey}->{'RE'}) { 
+        my $regExp = $aggregateStats{$aggKey}->{'RE'};
+        if ( $CN =~ /$regExp/ ) {
+          $aggregateStats{$aggKey}->{'count'}++ unless $checked;
+          $aggregateStats{$aggKey}->{'length'} += $length;
+          $cataloged = 1;
+        }
       }
     }
     if ( !$cataloged ) {
@@ -5280,12 +5438,17 @@ sub generateOutput {
       $pastAnnot = $currentAnnot;
     }
   }
+  print "\n" if ( $DEBUG );
 
   #
-  # Now go through the dataset and renumber the ids
+  # Now go through the dataset and renumber the ids starting
+  # from 1
   #
   $cycleAnnotIter = $sortedAnnotationsList->getIterator();
   my %id = ();
+  if ( ! exists $aggregateStats{'lastid'} ) {
+    $aggregateStats{'lastid'} = 0;
+  }
   while ( $cycleAnnotIter->hasNext() ) {
     my $currentAnnot = $cycleAnnotIter->next();
 
@@ -5308,8 +5471,9 @@ sub generateOutput {
       $id{$tmpID} = $id{ $currentAnnot->getLeftLinkedHit()->getPRID() };
     }
     else {
-      print "Setting to new number $lastid + 1\n" if ( $DEBUG );
-      $id{$tmpID} = ++$lastid;
+      $aggregateStats{'lastid'}++;
+      print "Setting to new number " . ( $aggregateStats{'lastid'} ) . "\n" if ( $DEBUG );
+      $id{$tmpID} = $aggregateStats{'lastid'};
     }
   }    # End while
        #printHitArrayList( $sortedAnnotationsList );
@@ -5323,12 +5487,12 @@ sub generateOutput {
   # Some option to do this
   if ( $options{'html'} ) {
     &printHTMLAnnots( "$file.out.html", \%id, \%seq1Lengths, \%colWidths,
-                      $sortedAnnotationsList );
+                      $sortedAnnotationsList, $batchNum );
   }
 
   if ( $options{'a'} ) {
     &printAlignAnnots( "$file.align", \%id, \%seq1Lengths, \%colWidths,
-                       $sortedAnnotationsList );
+                       $sortedAnnotationsList, $batchNum );
   }
 
   #
@@ -5337,24 +5501,89 @@ sub generateOutput {
   $cycleAnnotIter = $sortedAnnotationsList->getIterator();
   my $headerWritten = 0;
   my $pastAnnot     = undef;
-  open( OUTFULL, ">$file.out" ) || die "can't create $file.out\n";
-  $options{'xm'}
-      && ( open( OUTXM, ">$file.out.xm" )
-           || die "can't create $file.out.xm\n" );
-  $options{'ace'}
-      && ( open( OUTACE, ">$file.out.ace" )
-           || die "can't create $file.out.ace\n" );
-  $options{'poly'}
-      && ( open( OUTPOLY, ">$file.polyout" )
-           || die "can't create $file.out.polyout\n" );
+  if ( $batchNum == 0 ) {
+    open( OUTFULL, ">$file.out" ) || die "can't create $file.out\n";
+    my $widthposquery = $colWidths{'BeginAlign'} + $colWidths{'EndAlign'} +
+        $colWidths{'LeftOver'} + 2;
+    my $widthposrepeat = $colWidths{'Seq2Begin'} + $colWidths{'Seq2End'} +
+        $colWidths{'LeftUnaligned'} + 2;
 
+    # First line of header
+    if ( $engine =~ /nhmmer/ || $engine =~ /nhmmscan/ ) {
+      printf OUTFULL "%${colWidths{'SW'}}s  %${colWidths{'PctSubst'}}s "
+          . "%${colWidths{'PctDelete'}}s "
+          . "%${colWidths{'PctInsert'}}s  "
+          . "%-${colWidths{'Seq1Name'}}s  "
+          . "%-${widthposquery}s   "
+          . "%-${colWidths{'HitName'}}s %-${colWidths{'class'}}s "
+          . "%${widthposrepeat}s\n", 'bit', 'perc', 'perc', 'perc', 'query',
+          'position in query', 'matching', 'repeat', 'position in repeat';
+    }
+    else {
+      printf OUTFULL "%${colWidths{'SW'}}s  %${colWidths{'PctSubst'}}s "
+          . "%${colWidths{'PctDelete'}}s "
+          . "%${colWidths{'PctInsert'}}s  "
+          . "%-${colWidths{'Seq1Name'}}s  "
+          . "%-${widthposquery}s   "
+          . "%-${colWidths{'HitName'}}s %-${colWidths{'class'}}s "
+          . "%${widthposrepeat}s\n", 'SW', 'perc', 'perc', 'perc', 'query',
+          'position in query', 'matching', 'repeat', 'position in repeat';
+    }
+
+    # Second line of header
+    printf OUTFULL "%${colWidths{'SW'}}s  %${colWidths{'PctSubst'}}s "
+        . "%${colWidths{'PctDelete'}}s "
+        . "%${colWidths{'PctInsert'}}s  "
+        . "%-${colWidths{'Seq1Name'}}s  "
+        . "%-${colWidths{'BeginAlign'}}s "
+        . "%-${colWidths{'EndAlign'}}s "
+        . "%${colWidths{'LeftOver'}}s   "
+        . "%-${colWidths{'HitName'}}s "
+        . "%-${colWidths{'class'}}s "
+        . "%-${colWidths{'Seq2Begin'}}s "
+        . "%-${colWidths{'Seq2End'}}s "
+        . "%-${colWidths{'LeftUnaligned'}}s ", 'score', 'div.', 'del.',
+        'ins.', 'sequence', 'begin', 'end', '(left)', 'repeat',
+        'class/family', 'begin', 'end', '(left)', 'ID';
+
+    unless ( $options{'no_id'} ) {
+      printf OUTFULL "%${colWidths{'ID'}}s", 'ID';
+    }
+
+    printf OUTFULL "\n\n";
+  }else {
+    open( OUTFULL, ">>$file.out" ) || die "can't append to $file.out\n";
+  }
+  if ( $options{'xm'} ) {
+    if ( $batchNum == 0 ) {
+      open( OUTXM, ">$file.out.xm" ) || die "can't create $file.out.xm\n";
+    }else {
+      open( OUTXM, ">>$file.out.xm" ) || die "can't append to $file.out.xm\n";
+    }
+  }
+  if ( $options{'ace'} ) {
+    if ( $batchNum == 0 ) {
+      open( OUTACE, ">$file.out.ace" ) || die "can't create $file.out.ace\n";
+    }else {
+      open( OUTACE, ">>$file.out.ace" ) || die "can't append to $file.out.ace\n";
+    }
+  }
+  if ( $options{'poly'} ) {
+    if ( $batchNum == 0 ) {
+      open( OUTPOLY, ">$file.polyout" )
+          || die "can't create $file.out.polyout\n";
+    }else {
+      open( OUTPOLY, ">>$file.polyout" )
+          || die "can't append to $file.out.polyout\n";
+    }
+  }
   if ( $options{'gff'} ) {
-    open( OUTGFF, ">$file.out.gff" ) || die "can't create $file.out.gff\n";
-    print OUTGFF "##gff-version 3\n";
-    #printf OUTGFF "##date %4d-%02d-%02d\n", ( localtime )[ 5 ] + 1900,
-    #    ( localtime )[ 4 ] + 1, ( localtime )[ 3 ];    # date as 1999-09-24...
-    #( my $seqname = $file ) =~ s/^.*\///;
-    #print OUTGFF "##sequence-region $seqname\n";
+    if ( $batchNum == 0 ) {
+      open( OUTGFF, ">$file.out.gff" ) || die "can't create $file.out.gff\n";
+      print OUTGFF "##gff-version 3\n";
+    }else {
+      open( OUTGFF, ">>$file.out.gff" ) || die "can't append to $file.out.gff\n";
+    }
   }
 
   my $currentQueryName = "";
@@ -5492,9 +5721,6 @@ sub generateOutput {
       }
 
       my $source = "RepeatMasker";
-      #if ( $currentAnnot->getHitName =~ /Alu/ ) {
-      #  $source = 'RepeatMasker_SINE';
-      #}
       print OUTGFF ""
           . $currentAnnot->getQueryName() . "\t"
           . $source
@@ -5515,58 +5741,6 @@ sub generateOutput {
           . $currentAnnot->getSubjEnd() . "\n";
     }
 
-    if ( !$headerWritten ) {
-      my $widthposquery = $colWidths{'BeginAlign'} + $colWidths{'EndAlign'} +
-          $colWidths{'LeftOver'} + 2;
-      my $widthposrepeat = $colWidths{'Seq2Begin'} + $colWidths{'Seq2End'} +
-          $colWidths{'LeftUnaligned'} + 2;
-
-      # First line of header
-      if ( $engine =~ /nhmmer/ || $engine =~ /nhmmscan/ ) {
-        printf OUTFULL "%${colWidths{'SW'}}s  %${colWidths{'PctSubst'}}s "
-            . "%${colWidths{'PctDelete'}}s "
-            . "%${colWidths{'PctInsert'}}s  "
-            . "%-${colWidths{'Seq1Name'}}s  "
-            . "%-${widthposquery}s   "
-            . "%-${colWidths{'HitName'}}s %-${colWidths{'class'}}s "
-            . "%${widthposrepeat}s\n", 'bit', 'perc', 'perc', 'perc', 'query',
-            'position in query', 'matching', 'repeat', 'position in repeat';
-      }
-      else {
-        printf OUTFULL "%${colWidths{'SW'}}s  %${colWidths{'PctSubst'}}s "
-            . "%${colWidths{'PctDelete'}}s "
-            . "%${colWidths{'PctInsert'}}s  "
-            . "%-${colWidths{'Seq1Name'}}s  "
-            . "%-${widthposquery}s   "
-            . "%-${colWidths{'HitName'}}s %-${colWidths{'class'}}s "
-            . "%${widthposrepeat}s\n", 'SW', 'perc', 'perc', 'perc', 'query',
-            'position in query', 'matching', 'repeat', 'position in repeat';
-      }
-
-      # Second line of header
-      printf OUTFULL "%${colWidths{'SW'}}s  %${colWidths{'PctSubst'}}s "
-          . "%${colWidths{'PctDelete'}}s "
-          . "%${colWidths{'PctInsert'}}s  "
-          . "%-${colWidths{'Seq1Name'}}s  "
-          . "%-${colWidths{'BeginAlign'}}s "
-          . "%-${colWidths{'EndAlign'}}s "
-          . "%${colWidths{'LeftOver'}}s   "
-          . "%-${colWidths{'HitName'}}s "
-          . "%-${colWidths{'class'}}s "
-          . "%-${colWidths{'Seq2Begin'}}s "
-          . "%-${colWidths{'Seq2End'}}s "
-          . "%-${colWidths{'LeftUnaligned'}}s ", 'score', 'div.', 'del.',
-          'ins.', 'sequence', 'begin', 'end', '(left)', 'repeat',
-          'class/family', 'begin', 'end', '(left)', 'ID';
-
-      unless ( $options{'no_id'} ) {
-        printf OUTFULL "%${colWidths{'ID'}}s", 'ID';
-      }
-
-      printf OUTFULL "\n\n";
-
-      $headerWritten = 1;
-    }
 
     if ( $options{'lcambig'} ) {
 
@@ -5616,9 +5790,37 @@ sub generateOutput {
   close OUTGFF  if $options{'gff'};
   close OUTPOLY if $options{'poly'};
 
-  ##
-  ##  Table Output
-  ##
+  print "\n" if ( $DEBUG );
+
+  return %aggregateStats;
+}
+
+
+
+##
+##  Table Output
+##
+sub generateTableOutput {
+  my %options                        = %{ shift() };
+  my %seq1Lengths                    = %{ shift() };
+  my %aggregateStats                 = %{ shift() };
+  my $file                           = shift;
+  my $filename                       = shift;
+  my $dbversion                      = shift;
+  my $numSearchedSeqs                = shift;
+  my $lenSearchedSeqs                = shift;
+  my $lenSearchedSeqsExcludingXNRuns = shift;
+  my $versionmode                    = shift;
+  my $engine                         = shift;
+  my $poundformat                    = shift;
+
+  my $seq_cnt         = 0;
+  my $frac_GC         = 0;
+  my $totseqlen       = 0;
+  my $nonNSeqLen      = 0;
+  my $totalSeqLen     = 0;
+  my $maskedpercent   = 0;
+  my $maskedlength    = 0;
 
   #
   # Now mask so we can get stats on the seq for the table output
@@ -5627,7 +5829,7 @@ sub generateOutput {
   my $usePerc  = 1;
   my $exclnote = "";
   if ( -f $options{'maskSource'} ) {
-    print "\nmasking";
+    print "\nProcessRepeats: Masking sequences\n";
     my $db = FastaDB->new(
                            fileName    => $options{'maskSource'},
                            openMode    => SeqDBI::ReadOnly,
@@ -5636,6 +5838,8 @@ sub generateOutput {
     my $maskFormat = '';
     $maskFormat = 'x'      if ( $options{'x'} );
     $maskFormat = 'xsmall' if ( $options{'xsmall'} );
+    # Here $file.".out" should be the the full path to the temporary directory
+    # the a file name of the form foo.fa.out
     ( $seq_cnt, $totseqlen, $nonNSeqLen, $frac_GC, $maskedlength ) =
         &maskSequence( $maskFormat, $db, "$file.out",
                        $options{'maskSource'} . ".masked" );
@@ -5656,7 +5860,7 @@ sub generateOutput {
     }
     $totalSeqLen   = $totseqlen;
     $nonNSeqLen    = "($lenSearchedSeqsExcludingXNRuns bp excl N/X-runs)";
-    $maskedlength  = $annotatedlength;
+    $maskedlength  = $aggregateStats{'annotatedlength'};
     $maskedpercent = ( $maskedlength / $totseqlen ) * 100;
     $frac_GC       = "Unknown";
   }
@@ -5668,9 +5872,10 @@ sub generateOutput {
     $totseqlen     = 1;
     $nonNSeqLen    = "";
     $maskedpercent = 0;
-    $maskedlength  = $annotatedlength;
+    $maskedlength  = $aggregateStats{'annotatedlength'};
   }
 
+  print "ProcessRepeats: Generating table output\n";
   my $totallength =
       $aggregateStats{'SINE'}->{'length'} +
       $aggregateStats{'PLE'}->{'length'} +
@@ -5693,6 +5898,10 @@ sub generateOutput {
     $customLib = $customLib . "\"" . $options{'lib'} . "\"";
   }
 
+  #$aggregateStats{'uniqCount'}->{$CN}++ unless $checked;
+  #$aggregateStats{'totlength'}->{$CN} += $length;
+  #$aggregateStats{'annotatedlength'} += $length;
+
   # future aim is to use same format for at least all mammals
   if ( $options{'primate'} ) {
     my $OUT;
@@ -5713,11 +5922,11 @@ sub generateOutput {
         $aggregateStats{'SINE'}->{'count'}, $aggregateStats{'SINE'}->{'length'},
         $aggregateStats{'SINE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ALUs       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/Alu"}, $totlength{"SINE/Alu"},
-        $totlength{"SINE/Alu"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"SINE/Alu"}, $aggregateStats{'totlength'}->{"SINE/Alu"},
+        $aggregateStats{'totlength'}->{"SINE/Alu"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      MIRs       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/MIR"}, $totlength{"SINE/MIR"},
-        $totlength{"SINE/MIR"} * 100 * $usePerc / $totseqlen;  
+        $aggregateStats{'uniqCount'}->{"SINE/MIR"}, $aggregateStats{'totlength'}->{"SINE/MIR"},
+        $aggregateStats{'totlength'}->{"SINE/MIR"} * 100 * $usePerc / $totseqlen;  
     printf $OUT "\n";
     if ( $aggregateStats{"PLE"}->{'count'} > 0 ) {
       printf $OUT "Penelope         %6d   %10d bp   %5.2f \%\n",
@@ -5729,40 +5938,40 @@ sub generateOutput {
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      LINE1      %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/L1"}, $totlength{"LINE/L1"},
-        $totlength{"LINE/L1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/L1"}, $aggregateStats{'totlength'}->{"LINE/L1"},
+        $aggregateStats{'totlength'}->{"LINE/L1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      LINE2      %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/L2"}, $totlength{"LINE/L2"},
-        $totlength{"LINE/L2"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/L2"}, $aggregateStats{'totlength'}->{"LINE/L2"},
+        $aggregateStats{'totlength'}->{"LINE/L2"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      L3/CR1     %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/CR1"}, $totlength{"LINE/CR1"},
-        $totlength{"LINE/CR1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/CR1"}, $aggregateStats{'totlength'}->{"LINE/CR1"},
+        $aggregateStats{'totlength'}->{"LINE/CR1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "LTR elements:    %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LTR'}->{'count'}, $aggregateStats{'LTR'}->{'length'},
         $aggregateStats{'LTR'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERVL       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVL"}, $totlength{"LTR/ERVL"},
-        $totlength{"LTR/ERVL"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVL"}, $aggregateStats{'totlength'}->{"LTR/ERVL"},
+        $aggregateStats{'totlength'}->{"LTR/ERVL"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERVL-MaLRs %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVL-MaLR"}, $totlength{"LTR/ERVL-MaLR"},
-        $totlength{"LTR/ERVL-MaLR"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVL-MaLR"}, $aggregateStats{'totlength'}->{"LTR/ERVL-MaLR"},
+        $aggregateStats{'totlength'}->{"LTR/ERVL-MaLR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERV_classI %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERV1"}, $totlength{"LTR/ERV1"},
-        $totlength{"LTR/ERV1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERV1"}, $aggregateStats{'totlength'}->{"LTR/ERV1"},
+        $aggregateStats{'totlength'}->{"LTR/ERV1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERV_classII%6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVK"}, $totlength{"LTR/ERVK"},
-        $totlength{"LTR/ERVK"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVK"}, $aggregateStats{'totlength'}->{"LTR/ERVK"},
+        $aggregateStats{'totlength'}->{"LTR/ERVK"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "DNA elements:    %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'DNA'}->{'count'}, $aggregateStats{'DNA'}->{'length'},
         $aggregateStats{'DNA'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "     hAT-Charlie %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/hAT-Charlie"}, $totlength{"DNA/hAT-Charlie"},
-        $totlength{"DNA/hAT-Charlie"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/hAT-Charlie"}, $aggregateStats{'totlength'}->{"DNA/hAT-Charlie"},
+        $aggregateStats{'totlength'}->{"DNA/hAT-Charlie"} * 100 * $usePerc / $totseqlen;
     printf $OUT "     TcMar-Tigger%6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/TcMar-Tigger"}, $totlength{"DNA/TcMar-Tigger"},
-        $totlength{"DNA/TcMar-Tigger"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/TcMar-Tigger"}, $aggregateStats{'totlength'}->{"DNA/TcMar-Tigger"},
+        $aggregateStats{'totlength'}->{"DNA/TcMar-Tigger"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "Unclassified:    %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'OTHER'}->{'count'},
@@ -5821,19 +6030,19 @@ sub generateOutput {
         $aggregateStats{'SINE'}->{'count'}, $aggregateStats{'SINE'}->{'length'},
         $aggregateStats{'SINE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      Alu/B1      %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/Alu"}, $totlength{"SINE/Alu"},
-        $totlength{"SINE/Alu"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"SINE/Alu"}, $aggregateStats{'totlength'}->{"SINE/Alu"},
+        $aggregateStats{'totlength'}->{"SINE/Alu"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      B2-B4       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/B2"} + $uniqCount{"SINE/B4"},
-        $totlength{"SINE/B2"} + $totlength{"SINE/B4"},
-        ( $totlength{"SINE/B2"} + $totlength{"SINE/B4"} ) * 100 * $usePerc /
+        $aggregateStats{'uniqCount'}->{"SINE/B2"} + $aggregateStats{'uniqCount'}->{"SINE/B4"},
+        $aggregateStats{'totlength'}->{"SINE/B2"} + $aggregateStats{'totlength'}->{"SINE/B4"},
+        ( $aggregateStats{'totlength'}->{"SINE/B2"} + $aggregateStats{'totlength'}->{"SINE/B4"} ) * 100 * $usePerc /
         $totseqlen;
     printf $OUT "      IDs         %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/ID"}, $totlength{"SINE/ID"},
-        $totlength{"SINE/ID"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"SINE/ID"}, $aggregateStats{'totlength'}->{"SINE/ID"},
+        $aggregateStats{'totlength'}->{"SINE/ID"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      MIRs        %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/MIR"}, $totlength{"SINE/MIR"},
-        $totlength{"SINE/MIR"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"SINE/MIR"}, $aggregateStats{'totlength'}->{"SINE/MIR"},
+        $aggregateStats{'totlength'}->{"SINE/MIR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     if ( $aggregateStats{"PLE"}->{'count'} > 0 ) {
       printf $OUT "Penelope         %6d   %10d bp   %5.2f \%\n",
@@ -5845,40 +6054,40 @@ sub generateOutput {
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      LINE1       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/L1"}, $totlength{"LINE/L1"},
-        $totlength{"LINE/L1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/L1"}, $aggregateStats{'totlength'}->{"LINE/L1"},
+        $aggregateStats{'totlength'}->{"LINE/L1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      LINE2       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/L2"}, $totlength{"LINE/L2"},
-        $totlength{"LINE/L2"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/L2"}, $aggregateStats{'totlength'}->{"LINE/L2"},
+        $aggregateStats{'totlength'}->{"LINE/L2"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      L3/CR1      %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/CR1"}, $totlength{"LINE/CR1"},
-        $totlength{"LINE/CR1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/CR1"}, $aggregateStats{'totlength'}->{"LINE/CR1"},
+        $aggregateStats{'totlength'}->{"LINE/CR1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "LTR elements:     %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LTR'}->{'count'}, $aggregateStats{'LTR'}->{'length'},
         $aggregateStats{'LTR'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERVL        %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVL"}, $totlength{"LTR/ERVL"},
-        $totlength{"LTR/ERVL"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVL"}, $aggregateStats{'totlength'}->{"LTR/ERVL"},
+        $aggregateStats{'totlength'}->{"LTR/ERVL"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERVL-MaLRs  %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVL-MaLR"}, $totlength{"LTR/ERVL-MaLR"},
-        $totlength{"LTR/ERVL-MaLR"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVL-MaLR"}, $aggregateStats{'totlength'}->{"LTR/ERVL-MaLR"},
+        $aggregateStats{'totlength'}->{"LTR/ERVL-MaLR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERV_classI  %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERV1"}, $totlength{"LTR/ERV1"},
-        $totlength{"LTR/ERV1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERV1"}, $aggregateStats{'totlength'}->{"LTR/ERV1"},
+        $aggregateStats{'totlength'}->{"LTR/ERV1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERV_classII %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVK"}, $totlength{"LTR/ERVK"},
-        $totlength{"LTR/ERVK"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVK"}, $aggregateStats{'totlength'}->{"LTR/ERVK"},
+        $aggregateStats{'totlength'}->{"LTR/ERVK"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "DNA elements:     %6d    %10dbp   %5.2f \%\n",
         $aggregateStats{'DNA'}->{'count'}, $aggregateStats{'DNA'}->{'length'},
         $aggregateStats{'DNA'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      hAT-Charlie %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/hAT-Charlie"}, $totlength{"DNA/hAT-Charlie"},
-        $totlength{"DNA/hAT-Charlie"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/hAT-Charlie"}, $aggregateStats{'totlength'}->{"DNA/hAT-Charlie"},
+        $aggregateStats{'totlength'}->{"DNA/hAT-Charlie"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      TcMar-Tigger%6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/TcMar-Tigger"}, $totlength{"DNA/TcMar-Tigger"},
-        $totlength{"DNA/TcMar-Tigger"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/TcMar-Tigger"}, $aggregateStats{'totlength'}->{"DNA/TcMar-Tigger"},
+        $aggregateStats{'totlength'}->{"DNA/TcMar-Tigger"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "Unclassified:     %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'OTHER'}->{'count'},
@@ -5937,11 +6146,11 @@ sub generateOutput {
         $aggregateStats{'SINE'}->{'count'}, $aggregateStats{'SINE'}->{'length'},
         $aggregateStats{'SINE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      Alu/B1      %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/Alu"}, $totlength{"SINE/Alu"},
-        $totlength{"SINE/Alu"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"SINE/Alu"}, $aggregateStats{'totlength'}->{"SINE/Alu"},
+        $aggregateStats{'totlength'}->{"SINE/Alu"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      MIRs        %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"SINE/MIR"}, $totlength{"SINE/MIR"},
-        $totlength{"SINE/MIR"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"SINE/MIR"}, $aggregateStats{'totlength'}->{"SINE/MIR"},
+        $aggregateStats{'totlength'}->{"SINE/MIR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     if ( $aggregateStats{"PLE"}->{'count'} > 0 ) {
       printf $OUT "Penelope         %6d   %10d bp   %5.2f \%\n",
@@ -5953,14 +6162,14 @@ sub generateOutput {
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      LINE1       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/L1"}, $totlength{"LINE/L1"},
-        $totlength{"LINE/L1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/L1"}, $aggregateStats{'totlength'}->{"LINE/L1"},
+        $aggregateStats{'totlength'}->{"LINE/L1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      LINE2       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/L2"}, $totlength{"LINE/L2"},
-        $totlength{"LINE/L2"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/L2"}, $aggregateStats{'totlength'}->{"LINE/L2"},
+        $aggregateStats{'totlength'}->{"LINE/L2"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      L3/CR1      %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/CR1"}, $totlength{"LINE/CR1"},
-        $totlength{"LINE/CR1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/CR1"}, $aggregateStats{'totlength'}->{"LINE/CR1"},
+        $aggregateStats{'totlength'}->{"LINE/CR1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      RTE         %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINERTE'}->{'count'},
         $aggregateStats{'LINERTE'}->{'length'},
@@ -5970,27 +6179,27 @@ sub generateOutput {
         $aggregateStats{'LTR'}->{'count'}, $aggregateStats{'LTR'}->{'length'},
         $aggregateStats{'LTR'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERVL        %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVL"}, $totlength{"LTR/ERVL"},
-        $totlength{"LTR/ERVL"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVL"}, $aggregateStats{'totlength'}->{"LTR/ERVL"},
+        $aggregateStats{'totlength'}->{"LTR/ERVL"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERVL-MaLRs  %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVL-MaLR"}, $totlength{"LTR/ERVL-MaLR"},
-        $totlength{"LTR/ERVL-MaLR"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVL-MaLR"}, $aggregateStats{'totlength'}->{"LTR/ERVL-MaLR"},
+        $aggregateStats{'totlength'}->{"LTR/ERVL-MaLR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERV_classI  %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERV1"}, $totlength{"LTR/ERV1"},
-        $totlength{"LTR/ERV1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERV1"}, $aggregateStats{'totlength'}->{"LTR/ERV1"},
+        $aggregateStats{'totlength'}->{"LTR/ERV1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      ERV_classII %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/ERVK"}, $totlength{"LTR/ERVK"},
-        $totlength{"LTR/ERVK"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/ERVK"}, $aggregateStats{'totlength'}->{"LTR/ERVK"},
+        $aggregateStats{'totlength'}->{"LTR/ERVK"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "DNA elements:     %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'DNA'}->{'count'}, $aggregateStats{'DNA'}->{'length'},
         $aggregateStats{'DNA'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "      hAT-Charlie %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/hAT-Charlie"}, $totlength{"DNA/hAT-Charlie"},
-        $totlength{"DNA/hAT-Charlie"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/hAT-Charlie"}, $aggregateStats{'totlength'}->{"DNA/hAT-Charlie"},
+        $aggregateStats{'totlength'}->{"DNA/hAT-Charlie"} * 100 * $usePerc / $totseqlen;
     printf $OUT "      TcMar-Tigger%6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/TcMar-Tigger"}, $totlength{"DNA/TcMar-Tigger"},
-        $totlength{"DNA/TcMar-Tigger"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/TcMar-Tigger"}, $aggregateStats{'totlength'}->{"DNA/TcMar-Tigger"},
+        $aggregateStats{'totlength'}->{"DNA/TcMar-Tigger"} * 100 * $usePerc / $totseqlen;
     printf $OUT "\n";
     printf $OUT "Unclassified:     %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'OTHER'}->{'count'},
@@ -6045,15 +6254,16 @@ sub generateOutput {
     printf $OUT "               number of      length   percentage\n";
     printf $OUT "               elements*    occupied  of sequence\n";
     printf $OUT "--------------------------------------------------\n";
+    # RMH: 20240917 - Fix total for Retroelements, it previously didn't include Penelope (PLE) in it's total.
     printf $OUT "Retroelements       %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINE'}->{'count'} +
-        $aggregateStats{'SINE'}->{'count'} + $aggregateStats{'LTR'}->{'count'},
+        $aggregateStats{'SINE'}->{'count'} + $aggregateStats{'LTR'}->{'count'} + $aggregateStats{"PLE"}->{'count'},
         $aggregateStats{'LINE'}->{'length'} +
         $aggregateStats{'SINE'}->{'length'} +
-        $aggregateStats{'LTR'}->{'length'},
+        $aggregateStats{'LTR'}->{'length'} + $aggregateStats{'PLE'}->{'length'},
         ( $aggregateStats{'LINE'}->{'length'} +
           $aggregateStats{'SINE'}->{'length'} +
-          $aggregateStats{'LTR'}->{'length'} ) * 100 * $usePerc / $totseqlen;
+          $aggregateStats{'LTR'}->{'length'} + $aggregateStats{'PLE'}->{'length'} ) * 100 * $usePerc / $totseqlen;
     printf $OUT "   SINEs:           %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'SINE'}->{'count'}, $aggregateStats{'SINE'}->{'length'},
         $aggregateStats{'SINE'}->{'length'} * 100 * $usePerc / $totseqlen;
@@ -6061,14 +6271,14 @@ sub generateOutput {
         $aggregateStats{"PLE"}->{'count'}, $aggregateStats{"PLE"}->{'length'},
         $aggregateStats{"PLE"}->{'length'} * 100 * $usePerc / $totseqlen;
     # Classification change:
-    #    $uniqCount{"LINE/Penelope"}, $totlength{"LINE/Penelope"},
-    #    $totlength{"LINE/Penelope"} * 100 * $usePerc / $totseqlen;
+    #    $uniqCount{"LINE/Penelope"}, $aggregateStats{'totlength'}->{"LINE/Penelope"},
+    #    $aggregateStats{'totlength'}->{"LINE/Penelope"} * 100 * $usePerc / $totseqlen;
     printf $OUT "   LINEs:           %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINE'}->{'count'}, $aggregateStats{'LINE'}->{'length'},
         $aggregateStats{'LINE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "    CRE/SLACS       %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/CRE"}, $totlength{"LINE/CRE"},
-        $totlength{"LINE/CRE"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/CRE"}, $aggregateStats{'totlength'}->{"LINE/CRE"},
+        $aggregateStats{'totlength'}->{"LINE/CRE"} * 100 * $usePerc / $totseqlen;
     printf $OUT "     L2/CR1/Rex     %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LINECR1'}->{'count'},
         $aggregateStats{'LINECR1'}->{'length'},
@@ -6086,8 +6296,8 @@ sub generateOutput {
         $aggregateStats{'LINERTE'}->{'length'},
         $aggregateStats{'LINERTE'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "     L1/CIN4        %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LINE/L1"}, $totlength{"LINE/L1"},
-        $totlength{"LINE/L1"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LINE/L1"}, $aggregateStats{'totlength'}->{"LINE/L1"},
+        $aggregateStats{'totlength'}->{"LINE/L1"} * 100 * $usePerc / $totseqlen;
     printf $OUT "   LTR elements:    %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LTR'}->{'count'}, $aggregateStats{'LTR'}->{'length'},
         $aggregateStats{'LTR'}->{'length'} * 100 * $usePerc / $totseqlen;
@@ -6096,8 +6306,8 @@ sub generateOutput {
         $aggregateStats{'LTRBEL'}->{'length'},
         $aggregateStats{'LTRBEL'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "     Ty1/Copia      %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"LTR/Copia"}, $totlength{"LTR/Copia"},
-        $totlength{"LTR/Copia"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"LTR/Copia"}, $aggregateStats{'totlength'}->{"LTR/Copia"},
+        $aggregateStats{'totlength'}->{"LTR/Copia"} * 100 * $usePerc / $totseqlen;
     printf $OUT "     Gypsy/DIRS1    %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'LTRGYP'}->{'count'},
         $aggregateStats{'LTRGYP'}->{'length'},
@@ -6119,12 +6329,12 @@ sub generateOutput {
         $aggregateStats{'DNATC1'}->{'length'},
         $aggregateStats{'DNATC1'}->{'length'} * 100 * $usePerc / $totseqlen;
     printf $OUT "   En-Spm           %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/En-Spm"}, $totlength{"DNA/En-Spm"},
-        $totlength{"DNA/En-Spm"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/En-Spm"}, $aggregateStats{'totlength'}->{"DNA/En-Spm"},
+        $aggregateStats{'totlength'}->{"DNA/En-Spm"} * 100 * $usePerc / $totseqlen;
     printf $OUT "   MULE-MuDR        %6d   %10d bp   %5.2f \%\n",
-        $uniqCount{"DNA/MuDR"}+$uniqCount{"DNA/MULE-MuDR"}, 
-        $totlength{"DNA/MuDR"}+$totlength{"DNA/MULE-MuDR"},
-        $totlength{"DNA/MuDR"}+$totlength{"DNA/MULE-MuDR"} * 100 * $usePerc / $totseqlen;
+        $aggregateStats{'uniqCount'}->{"DNA/MuDR"}+$aggregateStats{'uniqCount'}->{"DNA/MULE-MuDR"}, 
+        $aggregateStats{'totlength'}->{"DNA/MuDR"}+$aggregateStats{'totlength'}->{"DNA/MULE-MuDR"},
+        $aggregateStats{'totlength'}->{"DNA/MuDR"}+$aggregateStats{'totlength'}->{"DNA/MULE-MuDR"} * 100 * $usePerc / $totseqlen;
     printf $OUT "   PiggyBac         %6d   %10d bp   %5.2f \%\n",
         $aggregateStats{'DNAPIG'}->{'count'},
         $aggregateStats{'DNAPIG'}->{'length'},
@@ -6182,7 +6392,7 @@ sub generateOutput {
     printf $OUT "FamDB: $dbversion\n";
     close $OUT;
   }
-}    # sub generateOutput();
+} # sub generateTableOutput();
 
 ##-------------------------------------------------------------------------##
 ## Use: my ( $chainBegRef, $chainEndRef ) =
@@ -6380,10 +6590,15 @@ sub printAlignAnnots {
   my $seq1lengths = shift;
   my %colWidths   = %{ shift() };
   my $annots      = shift;
+  my $batchNum    = shift;
 
   my $ALIGNOUT = new FileHandle;
 
-  open $ALIGNOUT, ">$fileName" || die "Cannot open $fileName: $!\n";
+  if ( $batchNum == 0 ) {
+    open $ALIGNOUT, ">$fileName" || die "Cannot open $fileName: $!\n";
+  }else {
+    open $ALIGNOUT, ">>$fileName" || die "Cannot open $fileName: $!\n";
+  }
 
   #
   # Print the align file.
@@ -6496,20 +6711,21 @@ sub printHTMLAnnots {
   my $seq1lengths = shift;
   my %colWidths   = %{ shift() };
   my $annots      = shift;
+  my $batchNum    = shift;
 
   my $HTMLOUT = new FileHandle;
 
   my $hdrTmplFile = "$FindBin::RealBin/HTMLAnnotHeader.html";
 
-  open $HTMLOUT, ">$fileName" || die "Cannot open $fileName\n";
+  if ( $batchNum == 0 ) {
+    open $HTMLOUT, ">$fileName" || die "Cannot open $fileName\n";
 
-  open HDR, "<$hdrTmplFile"
-      || die "printHTMLAnnots(): Cannot open header template $hdrTmplFile\n";
-  while ( <HDR> ) {
-    print $HTMLOUT $_;
-  }
-  close HDR;
-
+    open HDR, "<$hdrTmplFile"
+        || die "printHTMLAnnots(): Cannot open header template $hdrTmplFile\n";
+    while ( <HDR> ) {
+      print $HTMLOUT $_;
+    }
+    close HDR;
   my $widthposquery = $colWidths{'BeginAlign'} + $colWidths{'EndAlign'} +
       $colWidths{'LeftOver'} + 2;
   my $widthposrepeat = $colWidths{'Seq2Begin'} + $colWidths{'Seq2End'} +
@@ -6674,6 +6890,10 @@ sub printHTMLAnnots {
 
   print $HTMLOUT "</pre>\n";
   print $HTMLOUT "</div>\n";
+  }else {
+    open $HTMLOUT, ">>$fileName" || die "Cannot open $fileName\n";
+  }
+
 
   #
   # Print the out file.
@@ -6757,7 +6977,6 @@ sub printHTMLAnnots {
     print $HTMLOUT "<pre>";
 
     if ( defined $currentAnnot->getDerivedFromAnnot() ) {
-
       # print link
       print $HTMLOUT
 "<a href=\"javascript:;\" onmousedown=\"toggleDiv(\'hsps$hspsID\');\">+</a>";
@@ -9362,53 +9581,5 @@ sub maskSequence {
            $totBPMasked );
 }
 
-sub parseCATFile {
-  my %nameValuePairs = @_;
-
-  croak( "parseCATFile(): Missing 'file' parameter!\n" )
-      if ( !defined $nameValuePairs{'file'} );
-
-  my $optParams = "";
-  my $resultCollection;
-
-  my $INCAT;
-  if ( $nameValuePairs{'file'} =~ /.*\.gz$/ ) {
-    open( $INCAT, "gunzip -c $nameValuePairs{'file'} |" )
-        || die "Can\'t open file $nameValuePairs{'file'}\n";
-  }
-  else {
-    open( $INCAT, "$nameValuePairs{'file'}" )
-        || die "Can\'t open file $nameValuePairs{'file'}\n";
-  }
-
-  if ( defined $nameValuePairs{'noAlignData'} ) {
-    $resultCollection = CrossmatchSearchEngine::parseOutput(
-                                                         searchOutput => $INCAT,
-                                                         excludeAlignments => 1
-    );
-  }
-  else {
-    $resultCollection =
-        CrossmatchSearchEngine::parseOutput( searchOutput => $INCAT );
-  }
-  close $INCAT;
-
-  if (    $resultCollection->size()
-       && $resultCollection->get( 0 )->getLineageId !~ /\[?[mc]_b.*/ )
-  {
-    die "\n    The input file:\n        $nameValuePairs{'file'}\n"
-        . "    was generated using an older RepeatMasker format.\n"
-        . "    Please use ProcessRepeats from RepeatMasker v3.3.0\n"
-        . "    to process this file.\n\n";
-  }
-
-  # Recast
-  for ( my $i = 0 ; $i < $resultCollection->size() ; $i++ ) {
-    bless $resultCollection->get( $i ), "PRSearchResult";
-  }
-
-  return ( $resultCollection );
-
-}
 
 package main;
