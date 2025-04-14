@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: RepeatMasker
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Arian
+    family-names: Smit
+    email: arian.smit@isbscience.org
+  - given-names: Robert
+    family-names: Hubley
+    email: robert.hubley@isbscience.org
+repository-code: 'https://github.com/Dfam-consortium/RepeatMasker'
+url: 'http://www.repeatmasker.org/'
+keywords:
+  - RepeatMasker
+  - Transposable Elements
+  - Genome Annotation
+license: OSL-2.1
+version: 4.1.8
+date-released: '2025-03-12'
