@@ -1,10 +1,29 @@
-Unreleased
+4.1.9
+  - BUGFIX: When the RepeatMasker adjudicator (ProcessRepeats) is 
+    faced with a huge number of overlapping and redundant alignments 
+    the joining can go awry, creating a infinite loop.  The effect
+    is that ProcessRepeats never completes.
+  - BUGFIX: When using nhmmer/pHMMs and a non-species-level "-species"
+    parameters (e.g. "-species mammals"), RepeatMasker was using an
+    exteremly permissive per-family score cutoff.  This overwhelmed
+    ProcessRepeats with many low-scoring alignments.
+  - BUGFIX: ProcessRepeats dies around line 8190 with a "Division by
+    zero" error.
+  - BUGFIX: Fixed call to famdb for buildSummary.pl in the -species 
+    option.  Updated documentation.
+  - Updated repeatmasker.help.
+
+4.1.8
   - Fix table format for non-mammals.  The "Retroelements" heading
     didn't include Penelope elements ( "PLE/" ) in it's tabulation.
-
-  TODO: Fix refinement parameters!
-
-
+  - ProcessRepeats - A major change in how annotations are processed
+    to reduce PR's memory footprint.  Instead of loading all anntations
+    in memory, they are now streamed and processed a sequnce at a time.
+    For chromosomal assemblies this reduced the memory footprint to
+    the size of the largest chromosome, instead of the whole genome.
+  - Fixed a bug that caused general/is.lib to be left in a unfrozen
+    state for rmblastn.
+  - Updated to Dfam3.9
 
 4.1.7-p1
   - This is a critical fix to the 4.1.7 release.  The -species option

@@ -345,14 +345,18 @@ foreach my $file ( @ARGV ) {
       $lenSearchedSeqsExcludingAmbig = $1;
     }
     elsif ( /^(##\s*)?RepeatMasker|run|RepBase|RM/ ) {
-      my @bit = split;
-      $versionmode = $_ if $bit[ 0 ] eq 'RepeatMasker';
-      $engine = $1 if /(run with.*)/;
+      # ## RepeatMasker version 4.1.9-alpha-1 , default mode
+      # ## run with rmblastn version 2.14.1+
+      # ## RM Library: CONS-Dfam_withRBRM_3.9
+      if ( /(RepeatMasker\s+version\s+\S.*)/ ) {
+        $versionmode = $1;
+      }elsif ( /(run with.*)/  ) {
+        $engine = $1;
       # Since 4.1.1 we are now using famdb.  The version is reported a bit
       # differently.
       #     RM Library: CONS-Dfam_withRBRM_3.3
       #     
-      if ( /(RepBase.*)/ || /RM Library:\s+(\S.*)/ ) {
+      }elsif ( /(RepBase.*)/ || /RM Library:\s+(\S.*)/ ) {
         $dbversion = $1;
       }
     }elsif ( /^##\s+RAW Annotations/ ) {
@@ -1542,7 +1546,8 @@ CYCLE3:
                  )
                  || ( !$currentAnnot->getRightLinkedHit()
                       && $currentEnd < $nextAnnot->getQueryStart() )
-                 || $currentAnnot->getQueryName() ne $nextAnnot->getQueryName()
+                 || $currentAnnot->getQueryName() ne $nextAnnot->getQueryName() 
+                 || $nextAnnot->containsElement( $currentAnnot )
             );
 
         # ASSERT: No more recursion violations
@@ -2919,8 +2924,22 @@ CYCLE3:
           $newLINEName = $winner->getSubjName();
         }
 
+        my $maxJoined = 10000; # To break possible infinite loops
         # Now change the names
         while ( $nextInChain ) {
+
+          # 20250502 - Added to ensure we never get into an infinite loop caused
+          #            by incorrect joins.  This is set really high as there are
+          #            some cases where a larget set of alignments could rationally
+          #            be joined -- large tandem repeats incorrectly included in
+          #            the TE library for example.
+          $maxJoined--;
+          if ( $maxJoined < 0 ) {
+            print "WARNING: Max joins reached at (possible abundant tandem repeat in library):\n";
+            $currentAnnot->print();
+            last;
+          }
+
           if ( $currentAnnot->getClassName() =~ /LTR/ ) {
             if ( isInternal( $nextInChain ) ) {
               if (    $newLTRName
@@ -8206,7 +8225,7 @@ sub joinDNATransposonFragments {
         }
         else {
           my $totalLastLength =
-              $member->{'annot'}->getQueryEnd() - $member->{'annot'}->getQueryStart();
+              $member->{'annot'}->getQueryEnd() - $member->{'annot'}->getQueryStart() + 1;
           # RMH: 9/10/24 : Bug fix this was using mixed sequence coordinates
           #    $member->{'annot'}->getQueryEnd() - $member->{'annot'}->getSubjStart();
           my $lastRemainder = $totalLastLength - getOverlapSize(
@@ -8215,6 +8234,12 @@ sub joinDNATransposonFragments {
                                             $member->{'annot'}->getQueryStart(),
                                             $member->{'annot'}->getQueryEnd()
           );
+
+          if ( $totalLastLength == 0 ) {
+            warn "Unexpected alignment with zero length:\n";
+            $member->{'annot'}->print();
+            $totalLastLength = 1; # avoid divide by zero
+          }
 
           $member->{'annot'}->setPctDiverge(
                                      $lastAnnot->getPctDiverge() + (
