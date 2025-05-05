@@ -1083,15 +1083,24 @@ sub containsElement {
   my $refElement = shift;
 
   # Am I on the left or right of the reference?
-  if ( $this->comparePositionOrder( $refElement ) > 0 ) {
-
+  my $posOrder = $this->comparePositionOrder( $refElement );
+  if ( $posOrder > 0 ) {
     # I am on the right
     my $leftLink = $this->getLeftLinkedHit();
     return 0 if ( $leftLink == undef || $leftLink == $this );
     return 1 if ( $leftLink->comparePositionOrder( $refElement ) < 0 );
   }
-  else {
-
+  elsif ( $posOrder == 0 ) {
+    # I start at the same place as the reference
+    my $leftLink = $this->getLeftLinkedHit();
+    my $rightLink = $this->getLeftLinkedHit();
+    if ( ( $leftLink == undef || $rightLink == $this ) &&
+         ( $rightLink == undef || $rightLink == $this ) ){
+      return 0;
+    }else {
+      return 1;
+    }
+  }else {
     # I am on the left
     my $rightLink = $this->getRightLinkedHit();
     return 0 if ( $rightLink == undef || $rightLink == $this );

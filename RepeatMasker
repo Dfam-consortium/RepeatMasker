@@ -8250,6 +8250,8 @@ sub createLibFromFamdb {
       my $hmm_tau = 0;
       my $hmm_lambda = 0;
       my $hasGA = 0;
+      # A typical mammalian genome is ~3GB.  Here we use the genome size
+      # specified in MB using the HMMER convention.
       my $Zval = 3000;
       my $evalue = 0.02;
       while ( <IN> ) {
@@ -8283,11 +8285,11 @@ sub createLibFromFamdb {
             die "Could not find HMM Lambda is zero in accession $acc!\n" if ( $hmm_lambda == 0 );
             die "Could not find HMM MAXL value for $acc!\n" if ( $hmm_maxl == 0 );
             # From eval2score() originally in hmmstat and now in dfthresh ( see dfthresh for details )
-            my $nseq = $Zval / $hmm_maxl;
+            my $nseq = ($Zval * 1000000) / $hmm_maxl;
             my $sc = $hmm_tau - ((1/$hmm_lambda) * log($evalue/$nseq));
-            print OUT "GA    " . sprintf("0.2f",$sc) . ";\n";
-            print OUT "TC    " . sprintf("0.2f",$sc) . ";\n";
-            print OUT "NC    " . sprintf("0.2f",$sc) . ";\n";
+            print OUT "GA    " . sprintf("%0.2f",$sc) . ";\n";
+            print OUT "TC    " . sprintf("%0.2f",$sc) . ";\n";
+            print OUT "NC    " . sprintf("%0.2f",$sc) . ";\n";
           }
           print OUT $postHeader;
           $hasGA = 0;

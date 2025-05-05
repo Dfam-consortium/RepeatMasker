@@ -31,13 +31,18 @@ Pre-requisites
 
          https://www.dfam.org/releases/current/families/FamDB
 
-    and installed in the Libraries/famdb directory.  The files are divided 
+    and uncompressed/installed in the Libraries/famdb directory.  The files are divided 
     by taxa groups and numbered starting from '0' ( aka the root partition )
     which contains required information for RepeatMasker/FamDB.  In addition
     the last Repbase RepeatMasker Edition may be downloaded and combined with Dfam.
     The RepBase RepeatMasker Library can be obtained at: 
 
           http://www.girinst.org
+
+    and unpacked in the RepeatMasker directory (it will automatically install files in
+    RepeatMasker/Libraries. To combine it with Dfam, simply re-run the RepeatMasker 
+    configure script after both the Dfam FamDB partitions, and the Repbase RepeatMasker
+    edition have been installed.
        
 
 Installation 

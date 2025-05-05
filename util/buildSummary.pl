@@ -63,6 +63,12 @@ value ( 0 - 1 ).
 
 =item -species <species_name>
 
+When analyzing the output of a RepeatMasker analysis run with the
+"-species" option, this parameter will further categorize the
+annotations into "lineage specific" and "ancestral" repeats.  This
+option is not applicable to RepeatMasker runs using the "-lib" option.
+
+
 =item -genome <*.tsv or *.2bit>
 
 The default genome size used by this program is obtained using the
@@ -197,7 +203,7 @@ if ( $options{'libdir'} ) {
 
 my %taxaFamIDs = ();
 if ( defined $options{'species'} ) {
-  my $famdbCmd = "$FindBin::RealBin/../famdb.py -i $LIBDIR/RepeatMaskerLib.h5 families '" .
+  my $famdbCmd = "$FindBin::RealBin/../famdb.py -i $LIBDIR/famdb families '" .
                        $options{'species'} . "' --descendants -f embl_meta";
   #print "Running $famdbCmd\n";
   open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";

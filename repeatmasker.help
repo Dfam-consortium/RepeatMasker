@@ -128,26 +128,23 @@ used. Examples are:
 
 Capitalization is ignored, multiple words need to bound by apostrophes.
 
-RepeatMasker builds one or more repeat consensus files the first time
+RepeatMasker builds one or more repeat model files the first time
 a species/group has been chosen, or when a new database has been
-downloaded. These will be written in a subdirectory of the Libraries
-directory named after the date of the repeat database version and the
-Latin name of the clade. For example, "-species monocotyledons"
-creates the file
-"..../RepeatMasker/Libraries/20040616/liliopsida/specieslib". 
-Currently, only for mammalian species multiple files are created,
-bearing names like "shortcutlib" and "longlib", which the queries are
-compared to sequentially.
+downloaded. These will be written in a subdirectory of the program's 
+"Libraries" directory or if that is not writable by the user it will be 
+created in the users "~/.RepeatMaskerCache" directory. For example, 
+"-species monocotyledons" creates the directories (depending on model 
+type requested):
 
-The creation of these files takes some time (a few seconds sometimes),
+  "CONS-Dfam_*/monocotyledons" -- for consensus searches
+  "HMM-Dfam_*/monocotyledons"  -- for pHMM searches
+
+The creation of these directories/files takes some time,
 but the next times RepeatMasker is run on the same species these
-existing files will be used. When Wu-BlAST is used as the search
-engeine (see 1.3), blastable libraries are built, again as a one time
-event for each species.
+existing files will be used. 
 
 After multiple database updates, the libraries could hog some space,
-and you may consider deleting the older
-"..../RepeatMasker/Libraries/<date>" directories.
+and you may consider deleting the older cache directories.
 
 The files contain all repeats of the RepeatMasker database that have
 been found in the genome of the given species, or have been found in a
@@ -179,49 +176,13 @@ famdb.py provides an interface to the Dfam and RepeatMasker libraries
 in FamDB format, and allows you to see what species are covered and
 how many repeats are assigned to them. For example:
 
-`./famdb.py -i Libraries/Dfam.h5 lineage --ancestors --descendants human --format totals`
+`./famdb.py lineage --ancestors --descendants human --format totals`
 
 shows that there are 8 lineage-specific repeats and 1337 ancestral
 (e.g. hominids, primates, mammals, and insertion artifacts).
 
 You can run `./famdb.py --help` for more information about the available
 commands.
-
-
-These are the numbers and bp of repeat consensus sequences (excluding
-simple repeats and RNAs) as of May 2009 for the best represented clades
-
-species         # of consensi  total bp
-All mammals combined   3081   4253979
-Primates *              585    902148
-Rodents *               606    931299
-Carnivores *            130    158362
-Perissodactyls *        130    220814
-Ruminants *             112    130320
-Bats *                  131    112724
-Marsupials              554    863923
-Monotremes              102    159182
-Birds                   425    644078
-Amphibia (mostly frog)  230    428828 
-Teleost fish           1140   2807233
-Tunicates               134    368438     
-Sea urchins             211    560185
-Flies                   306    906766
-Mosquitos               363    914943
-Other insects           356   1080649
-Nematodes               461    698036
-Flatworms               209    641758
-Cnidarians              911   3057775 
-Fungi                   256    695278
-Arabidopsis             544   1460558
-Other dicot plants      742   2563646
-Rice                    575   1430176
-Maize / corn            439   1566688
-Other monocot plants    303    912057
-Algae                   186    533952
-
-* Only order-specific elements; these genomes are also matched to 400+
-consensus sequences for elements active before the origin of orders.
 
 
 -lib 
@@ -819,44 +780,34 @@ default. The alignments may extend more or be somewhat more accurate
 in the more sensitive settings as well.
 
 Following are benchmark times for random 1 Mbp of sequences of a
-variety of different species run in parallel on 4 Pentium4 2.4Ghz
-processors with 3 GB RAM with June 2004 RepeatMasker databases. The
-percentage of the query masked is given in parentheses.
-
-                                ------------------------ cross_match ------------------------
-Species         WUBlast (Def)    Rush            Quick           Default         Slow
--------         -------------   -------------   -------------   -------------   -------------
-Human           02:54 (39.26)   01:54 (33.91)   05:05 (36.85)   22:15 (39.92)   57:54 (40.58)
-Human-reversed  01:09 ( 1.98)   01:05 ( 2.00)   03:39 ( 2.06)   18:44 ( 2.07)   53:37 ( 2.09)
-Chimpanzee      03:00 (40.83)   01:50 (35.24)   04:45 (38.70)   20:22 (41.59)   53:14 (42.24)
-Mouse           03:31 (54.02)   01:47 (48.65)   04:21 (51.74)   18:54 (54.15)   47:26 (55.18)
-Rat             04:46 (66.07)   02:05 (62.07)   04:32 (63.84)   19:41 (65.97)   48:23 (67.20)
-Dog             02:24 (34.62)   01:32 (29.15)   03:07 (32.44)   12:29 (35.09)   30:14 (35.69)
-Arabidopsis     01:01 ( 3.02)   00:51 ( 2.95)   04:41 ( 3.00)   46:52 ( 3.12) 1:46:53 ( 3.13)
-Ciona savigny   01:25 (15.64)   01:02 (13.12)   01:30 (14.45)   06:13 (15.90)   15:24 (16.30)
-C. elegans      02:35 (22.63)   01:38 (20.84)   02:39 (22.52)   12:12 (23.21)   25:15 (23.59)
-Drosophila      01:59 (47.21)   01:23 (43.08)   02:30 (45.60)   15:49 (47.51)   39:24 (48.38)
-Chicken         00:42 ( 6.52)   00:35 ( 6.18)   00:58 ( 6.42)   04:59 ( 6.53)   11:48 ( 6.58)
-Fugu            00:35 ( 5.89)   00:34 ( 5.40)   00:49 ( 5.70)   03:51 ( 5.89)   09:20 ( 6.05)
+variety of different species run in parallel on 16 Intel(R) Xeon(R) 
+Silver 2.4 GHz cores with Dfam 3.9.  The runtime is given as hh:mm:ss
+and the percentage masked is given in parentheses. For Human and D. Mel,
+a simple false-positive benchmark is run using reverse-non-complemented
+sequences.
 
 
-The human-reversed sequence is the "human" sequence reversed but not
-complemented. 2% of this sequence is (properly) masked as simple
-repeats or low complexity DNA.
+                                                              --------------------------- cross_match ------------------------------
+Species                   RMBlast           HMMER             Rush (-qq)        Quick (-q)        Default           Slow (-s)        
+------------------------  ----------------  ----------------  ----------------  ----------------  ----------------  ----------------  
+Human                     00:00:15 (43.55)  00:02:30 (49.31)  00:00:28 (34.97)  00:00:49 (38.84)  00:03:27 (43.51)  00:08:25 (44.63)  
+Human-reversed            00:00:10 ( 0.08)  00:01:35 ( 0.04)  00:00:15 ( 0.03)  00:00:39 ( 0.07)  00:03:35 ( 0.13)  00:09:40 ( 0.13)  
+D. Melanogaster           00:00:15 (54.82)  00:05:05 (58.92)  00:00:12 (49.94)  00:00:28 (52.19)  00:03:43 (54.18)  00:10:33 (55.18)  
+D. Melanogaster-reversed  00:00:10 ( 0.01)  00:02:10 ( 0.57)  00:00:10 ( 0.01)  00:00:24 ( 0.01)  00:03:28 ( 0.01)  00:10:01 ( 0.01)  
+Mouse                     00:00:19 (54.56)  00:07:06 (62.25)  00:00:14 (47.83)  00:00:26 (50.08)  00:02:57 (53.07)  00:08:08 (54.50)  
+Arabidopsis               00:00:16 ( 3.65)  00:00:13 ( 1.68)  00:00:13 ( 3.38)  00:00:56 ( 3.61)  00:09:39 ( 3.66)  00:24:53 ( 3.68)  
+C. elegans                00:00:16 (23.18)  00:03:29 (34.62)  00:00:14 (21.42)  00:00:20 (22.39)  00:01:13 (23.08)  00:02:47 (23.51)  
+
 
 Note that for many non-mammalian species the slower settings do not
 dramatically increase the percentage recognized as interspersed
 repeats. Most of the repeats in the databases for these species are
-relatively young and thus are easily detected. This particular 1Mbp
-Arabidopsis sequence is an extreme example, where at slow settings in
-almost two hours only 1800 bp more is masked than at rush settings in
-51 seconds (the Arabidopsis database is large).
+relatively young and thus are easily detected. 
 
 The speed is also dependent on the repeat content of the sequence. For
 human sequences, Alu rich sequences are analyzed fastest, LINE rich
 sequences somewhat slower, repeat poor regions slower still, and long
 satellite regions can take a while.
-
 
 If you have several shorter sequences it is much faster to run
 RepeatMasker on a batch file (all sequences in one file). On above
@@ -870,7 +821,7 @@ fragmentation of the query sequence.
 The increase in speed by using multiple processors is dependent on the
 usage of the computer and the above-mentioned non-linear relationships
 of sequence length and processing time. However, under the right
-circumstances, using 2 processors can increase the speed close to
+circumstances, using 2 cores can increase the speed close to
 twofold, because the most time-consuming processes are performed in
 parallel.
 
@@ -1009,41 +960,60 @@ query by position of the start of the alignment.
 
 Example: 
 
-  SW  perc perc perc  query    position in query     matching repeat      position in  repeat
-score div. del. ins.  sequence begin  end  (left)    repeat  class/family   begin end (left) ID
-...
- 1320 15.6  6.2  0.0  HSU08988  6563 6781 (22462) C  MER7A   DNA/MER2_type    (0)  337  104  20
-12279 10.5  2.1  1.7  HSU08988  6782 7718 (21525) C  Tigger1 DNA/MER2_type    (0) 2418 1486  19
- 1769 12.9  6.6  1.9  HSU08988  7719 8022 (21221) C  AluSx   SINE/Alu         (0)  317    1  17
-12279 10.5  2.1  1.7  HSU08988  8023 8694 (20549) C  Tigger1 DNA/MER2_type  (932) 1486  818  19
- 2335 11.1  0.3  0.7  HSU08988  8695 9000 (20243) C  AluSg   SINE/Alu         (5)  305    1  18
-12279 10.5  2.1  1.7  HSU08988  9001 9695 (19548) C  Tigger1 DNA/MER2_type (1600)  818    2  19
-  721 21.2  1.4  0.0  HSU08988  9696 9816 (19427) C  MER7A   DNA/MER2_type  (224)  122    2  20
+  SW  perc perc perc  query    position in query     matching repeat       position in repeat
+score div. del. ins.  sequence begin  end  (left)    repeat  class/family   ----  ----  ---  ID
 
-This is a sequence in which a Tigger1 DNA transposon has integrated into a MER7 DNA transposon copy. Subsequently two Alus integrated in the Tigger1 sequence. The first line is interpreted as such:
+  207 18.4 18.4  0.0  Human     75437 75485 (924515) C L2c    LINE/L2        (48) 3339  3282 101  
+ 1264 28.1 13.8  1.8  Human     75513 76236 (923764) + L2a    LINE/L2        2401 3210 (216) 102  
+  354 15.8  2.2  4.8  Human     76278 76399 (923601) + MER67A LTR/ERV1          1  119 (347) 103  
+ 1039 19.6  9.4  3.7  Human     76411 76779 (923221) C MSTC   LTR/ERVL-MaLR   (1)  427     1 104  
+ 1321 19.2  1.8  1.8  Human     76804 77089 (922911) + MER31A LTR/ERV1        200  485   (0) 105  
+  369 26.4  9.1  2.0  Human     77098 77240 (922760) + L2a    LINE/L2        3235 3387   (0) 102  
+  190 37.9  4.8  1.3  Human     77340 77486 (922514) C L2c    LINE/L2       (252) 3212  3061 101
 
-  1320     = Smith-Waterman score of the match, usually complexity adjusted
+This is a sequence in which a L2a LINE inserted into a L2c LINE and then subsequently a MER67A, 
+a MSTC, and a MER31A LTR retrotransposon inserted into the L2a.  Here is a detailed interpretation 
+of the first annotation line:
+
+  207     = Smith-Waterman score of the match, usually complexity adjusted
         The SW scores are not always directly comparable. Sometimes
         the complexity adjustment has been turned off, and a variety of
         scoring-matrices are used dependent on repeat age and GC level.
 
-  15.6     = % divergence = mismatches/(matches+mismatches) **
-  6.2      = % of bases opposite a gap in the query sequence (deleted bp)
+  18.4     = % divergence = mismatches/(matches+mismatches) **
+  18.4     = % of bases opposite a gap in the query sequence (deleted bp)
   0.0      = % of bases opposite a gap in the repeat consensus (inserted bp)
-  HSU08988 = name of query sequence
-  6563     = starting position of match in query sequence
-  6781     = ending position of match in query sequence
-  (22462)  = no. of bases in query sequence past the ending position of match
-  C        = match is with the Complement of the repeat consensus sequence
-  MER7A    = name of the matching interspersed repeat
-  DNA/MER2_type = the class of the repeat, in this case a DNA transposon 
-            fossil of the MER2 group (see below for list and references)
-  (0)      = no. of bases in (complement of) the repeat consensus sequence 
+  Human    = name of query sequence
+  75437    = starting position of match in query sequence
+  75485    = ending position of match in query sequence
+  (924515) = no. of bases in query sequence past the ending position of match
+  C        = match is with the reverse-complement of the repeat consensus sequence
+  L2c      = name or accession of the matching interspersed repeat
+  LINE/L2  = the class/subtype of the repeat
+  (48)     = no. of bases in (complement of) the repeat consensus sequence 
              prior to beginning of the match (0 means that the match extended 
              all the way to the end of the repeat consensus sequence)
-  337      = starting position of match in repeat consensus sequence
-  104      = ending position of match in repeat consensus sequence
-  20       = unique identifier for individual insertions 
+  3339     = ending position of match in repeat consensus sequence
+  3282     = starting position of match in repeat consensus sequence
+  101      = unique identifier potentially linking multiple fragments of the
+               same insertion event.  For example, the L2c insertion is represented
+               as two fragments with the same ID.
+
+  NOTE: The repeat coordinate column order depends on the orientation of the match.  
+        For example, from the above annotation set: 
+
+        Forward Orientation:
+
+                                   begin end (left)
+                                  ------------------
+            MER67A LTR/ERV1          1  119 (347)
+
+        Reverse Orientation:
+
+                                  (left) begin end
+                                 ------------------
+            L2c    LINE/L2        (48) 3339  3282
+
 
   An asterisk (*) following the final column (see below example)
   indicates that there is a higher-scoring match whose domain partly
@@ -1054,15 +1024,6 @@ percent mismatches/(matches+mismatches+unaligned bases in query). I
 didn't think this definition is otherwise commonly used and most users
 will assume the divergence level would be
 mismatches/(matches+mismatches).
-
-Note that the SW score and divergence numbers for the three Tigger1
-lines are identical. This is because the information is derived from a
-single alignment (the Alus were deleted from the query before the
-alignment with the Tigger element was performed). The ProcessRepeats
-script makes educated guesses if any pair of fragments is derived from
-the same element or not; if so, the fragments will have the same ID in
-the last column, in this example it figured that the MER7A fragments
-represent one insert.
 
 Here is another example that shows how much trouble ProcessRepeats
 takes to defragment elements and how the ID can be useful in
