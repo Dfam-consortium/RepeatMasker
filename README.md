@@ -33,7 +33,7 @@ several available alignment programs:
   - ABBLAST, A blast variant developed by Warren Gish.
 
 See "INSTALL" for instructions on how to install RepeatMasker.
-See "repeatmaker.help" for a detailed program manual.
+See "repeatmasker.help" for a detailed program manual.
 
 Libraries Overview
 ------------------
