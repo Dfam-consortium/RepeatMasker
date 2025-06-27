@@ -68,7 +68,7 @@ Installation
      - The Dfam database may be downloaded from www.dfam.org in famdb HDF5 
        format (partitioned by taxa). The root ("dfam##_full.0.h5") partition 
        is required if you plan to use Dfam, however any combination of 
-       additional partitions may also be downloaded and configured. 
+       additional partitions may also be downloaded and configured.
        For example:
 
              % wget https://www.dfam.org/releases/current/families/FamDB/dfam39_full.1.h5.gz

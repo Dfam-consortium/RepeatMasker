@@ -565,6 +565,13 @@ def command_append(args):
     new_val_taxa = set()
     dups = set()
     for entry in embl_iter:
+        # check installation namespace and skip entry if it already exists
+        if entry.accession in args.rb_names or not args.db_dir.check_unique(entry):
+            LOGGER.info(
+                f"Skipped {entry.accession}. A family with the same accession/name is already in Dfam"
+            )
+            continue
+
         total_ctr += 1
         acc = entry.accession
         added = False
@@ -582,7 +589,7 @@ def command_append(args):
                     if not args.db_dir.get_families_for_taxon(clade, file):
                         add_taxa.add(clade)
             else:
-                missing_files[file] = missing_files.get(file,0) + 1
+                missing_files[file] = missing_files.get(file, 0) + 1
 
         if not add_files:
             LOGGER.debug(f" {acc} not added to local files, local file not found")
@@ -611,7 +618,9 @@ def command_append(args):
         LOGGER.debug(f" {len(dups)} Duplicate Accesisons: {dups}")
     if missing_files:
         for file in missing_files:
-            LOGGER.info(f"Partition File {file} Not Found. {missing_files[file]} Entries Were Not Appended:")
+            LOGGER.info(
+                f"Partition File {file} Not Found. {missing_files[file]} Entries Were Not Appended:"
+            )
 
     db_info = args.db_dir.get_metadata()
 
@@ -855,6 +864,7 @@ with a given clade, optionally filtered by additional criteria",
     # APPEND --------------------------------------------------------------------------------------------------------------------------------
     p_append = subparsers.add_parser("append")
     p_append.add_argument("infile", help="the name of the input file to be appended")
+    p_append.add_argument("exclusion_file", help="the name of the file containing family names to be excluded")
     p_append.add_argument(
         "--name", help="new name for the database (replaces the existing name)"
     )
@@ -913,6 +923,16 @@ def main():  # =================================================================
             "Please specify a directory containing FamDB files to operate on with the -i/--file option."
         )
         exit(1)
+
+    if args.func.__name__ == "command_append":
+        if os.path.exists(args.exclusion_file):
+            with open(args.exclusion_file) as f:
+                args.rb_names = set(name.strip() for name in f.readlines())
+        else:
+            LOGGER.error(
+                f"{args.exclusion_file} not found."
+            )
+            exit(1)
 
     try:
         args.db_dir = FamDB(args.db_dir, mode)
