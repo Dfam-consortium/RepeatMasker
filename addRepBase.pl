@@ -138,12 +138,12 @@ my $FAMDB = "$REPEATMASKER_DIR/famdb.py";
 
 my $dbInfo = `$FAMDB -i $LIBDIR/$FamDBDir info`;
 if ( $dbInfo =~ /Sequencing_artifacts_only/ ) {
-  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary --name 'RBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary $LIBDIR/RMRB_DUP.txt --name 'RBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
 } elsif ( $dbInfo !~ /Database:\s+Dfam\s+withRBRM/ ) {
-  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary $LIBDIR/RMRB_DUP.txt --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
 }else {
   # No need to re-append name/desc
-  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary");
+  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/RMRB_DUP.txt $LIBDIR/$RMRBLibrary");
 }
 my $status = $?;
 if ( $status ) {

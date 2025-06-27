@@ -298,7 +298,6 @@ else {
 my $batchNum = 0;
 foreach my $file ( @ARGV ) {
   my %seq1Lengths = ();
-  my %aggregateStats = ();
   
   # Create some filename constants
   my $catfile = $file;
@@ -328,6 +327,8 @@ foreach my $file ( @ARGV ) {
   my $versionmode                    = "";
   my $engine                         = "";
   my $dbversion                      = "";
+  my $aggregateStats = {};
+  my $records_processed = 0;
   while ( <INCAT> ) {
     if ( /^##\s*(\S+)\s+([\d\s,]+)/ ) {
       $batchOverlapBoundaries{$1} = [ sort( split( /,/, $2 ) ) ];
@@ -368,9 +369,19 @@ foreach my $file ( @ARGV ) {
   print "ProcessRepeats: Adjudicating alignments\n";
 
   # Do it all
-  %aggregateStats = &parseCATFile ( $catfile, $engine, \%seq1Lengths, \%aggregateStats, 0 );
+  ( $records_processed, $aggregateStats ) = &parseCATFile ( $catfile, $engine, \%seq1Lengths, $aggregateStats, 0 );
 
-  &generateTableOutput( \%options, \%seq1Lengths, \%aggregateStats, 
+  unless ( $records_processed > 0 ) {
+    my $filenaam = $file;
+    #$filenaam = $options{'orifile'} if $options{'orifile'};
+    open( OUT, ">$file.out" );
+    print "\n\n\nNo repetitive sequences were detected in $filenaam\n";
+    print OUT "There were no repetitive sequences detected in $filenaam\n";
+    close( OUT );
+    next;
+  }
+
+  &generateTableOutput( \%options, \%seq1Lengths, $aggregateStats, 
                          $file, $filename, $dbversion, $numSearchedSeqs, 
                          $lenSearchedSeqs, $lenSearchedSeqsExcludingXNRuns, 
                          $versionmode, $engine,
@@ -525,16 +536,7 @@ sub parseCATFile {
     $searchResults = undef;
   }
 
-  unless ( $records_processed > 0 ) {
-    my $filenaam = $file;
-#####TODO move this block back up to the caller ( return num of records processed )
-    #$filenaam = $options{'orifile'} if $options{'orifile'};
-    open( OUT, ">$file.out" );
-    print "\n\n\nNo repetitive sequences were detected in $filenaam\n";
-    print OUT "There were no repetitive sequences detected in $filenaam\n";
-    close( OUT );
-  }
-  return %aggregateStats;
+  return $records_processed, \%aggregateStats;
 }
 
 

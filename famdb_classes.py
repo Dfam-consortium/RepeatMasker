@@ -94,6 +94,10 @@ class FamDBLeaf:
             self.seen = {}
             self.added = {"consensus": 0, "hmm": 0}
             self.__write_metadata()
+            # ensure lookups exist to avoid random breaking depending on the export data
+            self.file.require_group(GROUP_LOOKUP_BYNAME)
+            self.file.require_group(GROUP_LOOKUP_BYSTAGE)
+            self.file.require_group(GROUP_LOOKUP_BYTAXON)
         elif self.mode == "r+":
             self.added = self.get_counts()
 
@@ -270,7 +274,7 @@ class FamDBLeaf:
 
     # Data Writing Methods ---------------------------------------------------------------------------------------------
     # Family Methods
-    def __check_unique(self, family):
+    def check_unique(self, family):
         """Verifies that 'family' is uniquely identified by its value of 'key'."""
 
         # This is awkward. The EMBL files being appended may only have an
@@ -289,16 +293,17 @@ class FamDBLeaf:
         ):
             return False
 
-        # check for unique name
-        # if family.name:
-        #    name_lookup = f"{GROUP_LOOKUP_BYNAME}/{family.name}"
-        #    if self.file.get(name_lookup) or self.file.get(name_lookup + 'v'):
-        #        return False
-
         if self.file.get(f"{GROUP_LOOKUP_BYNAME}/{accession}") or self.file.get(
             f"{GROUP_LOOKUP_BYNAME}/{accession}v"
         ):
             return False
+
+        # check for unique name
+        if family.name:
+            # name_lookup = f"{GROUP_LOOKUP_BYNAME}/{family.name.lower()}" # TODO add case insensitivity
+            name_lookup = f"{GROUP_LOOKUP_BYNAME}/{family.name}"
+            if self.file.get(name_lookup) or self.file.get(name_lookup + "v"):
+                return False
 
         return True
 
@@ -307,7 +312,7 @@ class FamDBLeaf:
         """Adds the family described by 'family' to the database."""
         # Verify uniqueness of name and accession.
         # This is important because of the links created to them later.
-        if not self.__check_unique(family):
+        if not self.check_unique(family):
             raise Exception(
                 f"Family is not unique! Already seen {family.accession} {f'({family.name})' if family.name else ''}"
             )
@@ -475,7 +480,7 @@ class FamDBRoot(FamDBLeaf):
                 DATA_PARTITION, data=numpy.array([partition_map[node]])
             )
 
-        LOGGER.info(f"Writing Name Cache String")
+        LOGGER.info(f"Writing Taxonomy Name Cache String")
         self.file.create_dataset(
             DATA_NAMES_CACHE, data=numpy.array(json.dumps(names_dump), dtype="S")
         )
@@ -941,22 +946,6 @@ class FamDB:
         actual parent node is empty.
         This method exists in FamDB instead of FamDBRoot because it is subject to change after an append,
         and because the associated data is stored in FamDBLeaf files
-
-        Taxonomy Tree is stored as a dictionary of TaxNodes ( self.files[0].file[GROUP_NODES][node] )
-            node:
-                tax_id: int
-                parent_id: int
-                val: bool
-                children: [int]
-                val_parent: int
-                val_children: [int]
-
-        If adding a family this should be easily modified by:
-             1. Identify the node which the new family is assigned to (or more than one for multiple clades)
-             2. Set the val flag to True
-             3. For each child in val_children
-                 ....
-             Go over this with Anthony
         """
 
         def traverse_val_parents(tree, id):
@@ -1079,28 +1068,19 @@ class FamDB:
 
             return tree_node
 
-        # RMH: This parameter default pattern "foo=[]" is dangerous.  The
-        #      list generated is global and gets reused between independent
-        #      invocations!
-        #def climb_non_val_parents(node, ancestor_path=[]):
-        #    """collects the nodes between a node and it's val_parent, not inclusive"""
-        #    if node.parent_id != node.val_parent:
-        #        parent_node = build_taxa_node(node.parent_id)
-        #        ancestor_path += [parent_node]
-        #        climb_non_val_parents(parent_node, ancestor_path)
-        #    return ancestor_path
-
         def climb_non_val_parents(target_id, node, ancestor_path=None):
             """Collects TaxNodes between a given node and a ancestral
-               node defined by target_id (exclusive). """
+            node defined by target_id (exclusive)."""
 
             if ancestor_path == None:
                 ancestor_path = []
 
-            if hasattr(node,"parent_id") and str(node.parent_id) != str(target_id):
+            if hasattr(node, "parent_id") and str(node.parent_id) != str(target_id):
                 parent_node = build_taxa_node(node.parent_id)
                 ancestor_path += [parent_node]
-                ancestor_path = climb_non_val_parents(target_id, parent_node, ancestor_path)
+                ancestor_path = climb_non_val_parents(
+                    target_id, parent_node, ancestor_path
+                )
             return ancestor_path
 
         update_nodes = {}
@@ -1133,7 +1113,9 @@ class FamDB:
             for ansc_node in change_ancestors:
                 # remove any val_children that are below this node
                 for vid in node.val_children:
-                    ansc_node.val_children = ansc_node.val_children[ansc_node.val_children != vid]
+                    ansc_node.val_children = ansc_node.val_children[
+                        ansc_node.val_children != vid
+                    ]
                 # add this node to the ancestral val_children
                 ansc_node.val_children = numpy.append(ansc_node.val_children, id)
                 update_nodes[ansc_node.tax_id] = ansc_node
@@ -1474,9 +1456,12 @@ class FamDB:
     def get_family_by_name(self, accession):
         """Wrapper method to call the Leaf get_family_by_name"""
         for file in self.files:
-            fam = self.files[file].get_family_by_name(accession)
-            if fam:
-                return fam
+            try:
+                fam = self.files[file].get_family_by_name(accession)
+                if fam:
+                    return fam
+            except Exception:
+                pass
         return None
 
     def finalize(self):
@@ -1495,6 +1480,12 @@ class FamDB:
         """Wrapper method to call the Leaf update_description"""
         for file in self.files:
             self.files[file].update_description(new_desc)
+
+    def check_unique(self, family):
+        for file in self.files:
+            if not self.files[file].check_unique(family):
+                return False
+        return True
 
     # File Utils
     def close(self):

@@ -600,6 +600,13 @@ sub parseOutput {
       subjName subjRemaining subjEnd
       subjStart id overlap );
 
+  # align tool format ( a variation of crossmatch format that always has
+  # the orientation field )
+  my @alignToolFwdStrandKeys = qw( score pctDiverge pctDelete pctInsert
+      queryName queryStart queryEnd queryRemaining orientation subjName
+      subjStart subjEnd subjRemaining id overlap );
+
+
   my $seqName;
   my $querySeq;
   my $transI;
@@ -716,10 +723,13 @@ sub parseOutput {
         #      New same as *.align except for no id column
         #              12/13 fields
         #
-        if ( $hdrLineArray[ 8 ] eq "+"
-             || !( $hdrLineArray[ 10 ] =~ /^[\(\)\d]+$/ ) )
+        if ( ($hdrLineArray[ 8 ] eq "+" && $hdrLineArray[ 13 ] =~ /^\(\d+\)$/)  ||
+             ($hdrLineArray[ 8 ] eq "C" && $hdrLineArray[ 11 ] =~ /^\(\d+\)$/ ) )
         {
-
+          # E.g:
+          #   -0- -1-  -2- -3-  -4-     -5-     -6-    -7- -8- -9- -10-   -11- -12- -13- -14-
+          #   482 32.6 4.8 5.7 seq-13 3872846 3873076 (115) + L2b LINE/L2 3111 3339 (36) 5
+          #   222 28.0 4.0 9.0 seq-13 3873751 3873963 (114) C L2d LINE/L2 (94) 3331 3075 6
           # Definitely an *.out or old *.align line
           if ( $hdrLineArray[ 8 ] eq "+" ) {
             $nameValuePairs{'orientation'} = "";
@@ -754,13 +764,14 @@ sub parseOutput {
           }
         }
         else {
-
           # Probably a crossmatch file
           if ( $hdrLineArray[ 8 ] eq "C" ) {
             $nameValuePairs{'orientation'} = "C";
             @fieldKeys = @crossmatchRevStrandKeys;
-          }
-          else {
+          }elsif ( $hdrLineArray[ 8 ] eq "+" ) {
+            $nameValuePairs{'orientation'} = "";
+            @fieldKeys = @alignToolFwdStrandKeys;
+          }else {
             $nameValuePairs{'orientation'} = "";
             @fieldKeys = @crossmatchFwdStrandKeys;
           }
