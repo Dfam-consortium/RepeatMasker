@@ -1,3 +1,9 @@
+4.2.0
+  - BUGFIX: RepeatMasker exits with an error code if no repetitive
+    sequences were found in the input file.
+  - Remove duplicate families when attempting to merge Repbase 
+    RepeatMaskerEdition into FamDB.
+
 4.1.9
   - BUGFIX: When the RepeatMasker adjudicator (ProcessRepeats) is 
     faced with a huge number of overlapping and redundant alignments 
