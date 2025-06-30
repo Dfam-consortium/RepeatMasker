@@ -255,6 +255,7 @@ def get_lineage_totals(
 
     tax_id = tree[0]
     children = tree[1:]
+    partition = file.find_taxon(tax_id)
     accessions = file.get_families_for_taxon(
         tax_id, partition, curated_only, uncurated_only
     )
@@ -291,7 +292,6 @@ def get_lineage_totals(
         counts[1] += count_here
     else:
         counts[0] += count_here
-
     return counts, present
 
 
@@ -564,6 +564,8 @@ def command_append(args):
     file_counts = {}
     new_val_taxa = set()
     dups = set()
+    missing_files = {}
+
     for entry in embl_iter:
         # check installation namespace and skip entry if it already exists
         if entry.accession in args.rb_names or not args.db_dir.check_unique(entry):
@@ -579,7 +581,6 @@ def command_append(args):
         # prepare set of local files to add family to
         add_files = set()
         add_taxa = set()
-        missing_files = {}
         for clade in entry.clades:
             file = args.db_dir.find_taxon(clade)
             if args.db_dir.files.get(file):
@@ -647,7 +648,6 @@ def command_append(args):
 
     LOGGER.info("Finalizing Files")
     args.db_dir.finalize()
-
 
 def build_args():
     """builds and parses the command line args"""
@@ -864,7 +864,10 @@ with a given clade, optionally filtered by additional criteria",
     # APPEND --------------------------------------------------------------------------------------------------------------------------------
     p_append = subparsers.add_parser("append")
     p_append.add_argument("infile", help="the name of the input file to be appended")
-    p_append.add_argument("exclusion_file", help="the name of the file containing family names to be excluded")
+    p_append.add_argument(
+        "exclusion_file",
+        help="the name of the file listing family names to be excluded",
+    )
     p_append.add_argument(
         "--name", help="new name for the database (replaces the existing name)"
     )
@@ -924,14 +927,16 @@ def main():  # =================================================================
         )
         exit(1)
 
-    if args.func.__name__ == "command_append":
+    if hasattr(args,'func') and args.func.__name__ == "command_append":
         if os.path.exists(args.exclusion_file):
-            with open(args.exclusion_file) as f:
-                args.rb_names = set(name.strip() for name in f.readlines())
+            try:
+                with open(args.exclusion_file) as f:
+                    args.rb_names = set(name.strip() for name in f.readlines())
+            except Exception:
+                LOGGER.error(f"{args.exclusion_file} could not be parsed.")
+            exit(1)
         else:
-            LOGGER.error(
-                f"{args.exclusion_file} not found."
-            )
+            LOGGER.error(f"{args.exclusion_file} not found.")
             exit(1)
 
     try:

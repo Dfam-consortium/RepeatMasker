@@ -8082,7 +8082,7 @@ sub initLibrariesFromFamdb {
             # humsines.lib, rod1.lib, cetartio1.lib => shortlib
             &createLibFromFamdb( $rmLibDir, 
                                  "$writableCacheDir/$dbLabel/$speciesWord.working/shortlib", 
-                                 $species, 50, $searchEngine );
+                                 $species, 50, $searchEngine, 1 );
 
             # humlines.lib, rod2.lib => longlib
             &createLibFromFamdb( $rmLibDir, 
@@ -8108,7 +8108,7 @@ sub initLibrariesFromFamdb {
             # HMM search combines 35,50,60,65,70 into one search lib
             &createLibFromFamdb( $rmLibDir, 
                                  "$writableCacheDir/$dbLabel/$speciesWord.working/masklib", 
-                                 $species, 95, $searchEngine );
+                                 $species, 95, $searchEngine, 1 );
           }
 
           # refinelib
@@ -8145,7 +8145,7 @@ sub initLibrariesFromFamdb {
 
 ##-------------------------------------------------------------------------##
 ## Use:  createLibFromFamdb( $rmLibDir, $libName, $species,
-##                           $stageNum, $searchEngine );
+##                           $stageNum, $searchEngine, $addUndefined );
 ##
 ##         $rmLibDir     :
 ##         $libName      :  The name of the library to create.
@@ -8153,7 +8153,9 @@ sub initLibrariesFromFamdb {
 ##         $stageNum     :  The name of the old RM database.  Used to
 ##                          screen the repeats ( will generalize in the
 ##                          future ).
-##         $searchEngine :
+##         $searchEngine :  The search engine to prepare the library for.
+##         $addUndefined :  If true, add the undefined search stage 
+##                          sequences to the library.
 ##
 ##  Returns
 ##
@@ -8171,6 +8173,7 @@ sub createLibFromFamdb {
   my $species      = shift;
   my $stageNum     = shift;
   my $searchEngine = shift;
+  my $addUndefined = shift || 0;
 
   print "RepeatMasker::createLib( "
       . "$libName, $species, $stageNum );\n"
@@ -8199,6 +8202,21 @@ sub createLibFromFamdb {
   system($famdbCmd);
   if ( $? ) {
     die "Could not execute famdb.py using: $famdbCmd\n";
+  }
+
+  # RMH: 6/27/2025
+  if ( $addUndefined ) {
+    # Add the undefined sequences to the library
+    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+                 $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage 0 -f $format";
+    if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+      $famdbCmd .= " --add-reverse-complement";
+    }
+    $famdbCmd .= " >> $outFile";
+    system($famdbCmd);
+    if ( $? ) {
+      die "Could not execute famdb.py using: $famdbCmd\n";
+    }
   }
 
   if ( `grep -v -c "^#" $outFile` == 0 ) {
