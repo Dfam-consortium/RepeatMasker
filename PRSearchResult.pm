@@ -479,7 +479,6 @@ sub sanityCheckConsPos {
   while (    $firstInChain->getLeftLinkedHit() != undef
           && $detectLoop < 50 )
   {
-
     # Ok to link to self.
     if ( $firstInChain == $firstInChain->getLeftLinkedHit() ) {
       last;
@@ -489,7 +488,8 @@ sub sanityCheckConsPos {
   }
 
   if ( $detectLoop >= 50 ) {
-    print "WARNING! This chain contains a loop!!!!\n";
+    print "WARNING! Unresolved annotation chain loop (at " . $firstInChain->getQueryName() . ":" . 
+           $firstInChain->getQueryStart() . "-" . $firstInChain->getQueryEnd()." - sccp)\n";
   }
 
   # Now print
@@ -529,7 +529,8 @@ sub checkLinkOrder {
   }
 
   if ( $detectLoop >= 50 ) {
-    print STDERR "WARNING! This chain contains a loop!!!!\n";
+    print "WARNING! Unresolved annotation chain loop (at " . $firstInChain->getQueryName() . ":" . 
+           $firstInChain->getQueryStart() . "-" . $firstInChain->getQueryEnd()." - clo)\n";
   }
 
   # Now print
@@ -576,7 +577,8 @@ sub printLinks {
   }
 
   if ( $detectLoop >= 50 ) {
-    print STDERR "WARNING! This chain contains a loop!!!!\n";
+    print "WARNING! Unresolved annotation chain loop (at " . $firstInChain->getQueryName() . ":" . 
+           $firstInChain->getQueryStart() . "-" . $firstInChain->getQueryEnd()." - pl)\n";
   }
 
   # Now print

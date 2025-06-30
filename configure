@@ -515,7 +515,7 @@ print "Building FASTA version of RepeatMasker.lib ...";
 defined(my $pid = fork) or die "Couldn't fork: $!";
 if (!$pid) { # Child
   # Anthony made a really fast version
-  system("$rmLocation/famdb.py -i $rmLocation/Libraries/famdb fasta_all > $rmLocation/Libraries/RepeatMasker.lib");
+  system("$rmLocation/famdb.py -i $LIBDIR/famdb fasta_all > $LIBDIR/RepeatMasker.lib");
   exit;
 } else { # Parent
   while (! waitpid($pid, WNOHANG)) {

@@ -1,8 +1,16 @@
 4.2.0
+  - BUGFIX: For mammalian genomes searched using the "-species" option,
+    newer Dfam families without search stages, or with the "-uncurated"
+    flag Dfam DR families were not being included in the search.  
   - BUGFIX: RepeatMasker exits with an error code if no repetitive
     sequences were found in the input file.
+  - BUGFIX: famdb.py was not reporting the correct counts for families
+    ancestral to the query term.  RepeatMasker uses this count and therefore
+    was also reporting an incorrect value.
   - Remove duplicate families when attempting to merge Repbase 
     RepeatMaskerEdition into FamDB.
+  - The configure utility was not using the -libdir path when creating
+    the RepeatMasker.lib file. (github #344)
 
 4.1.9
   - BUGFIX: When the RepeatMasker adjudicator (ProcessRepeats) is 

@@ -75,6 +75,15 @@ def filter_search_stages(family, stages):
     return False
 
 
+# RMH: 6/27/25
+def filter_defined_search_stages(family):
+    """Returns True if the family has search stages defined."""
+    if family.attrs.get("search_stages"):
+        return False
+
+    return True
+
+
 def filter_repeat_type(family, rtype):
     """
     Returns True if the family's RepeatMasker Type plus SubType
