@@ -451,6 +451,7 @@ sub parseCATFile {
             . "    to process this file.\n\n";
       }
 
+
       %aggregateStats = &processSequence( $batchNum, $file, $engine, $searchResults, \%seq1Lengths, \%aggregateStats );
       $batchNum++;
 
@@ -480,7 +481,16 @@ sub parseCATFile {
 
       # Save original information for more detailed reporting ( if requested )
       if ( $options{'source'} ) {
-        $record->addDerivedFromAnnot( $record );
+        # This no longer clones records, but reuses them
+        #$record->addDerivedFromAnnot( $record );
+        # clone this record as a source record (eg. derivedFrom)
+        #$record->setDerivedFromAnnot( $record );
+
+          my $src_record  = new PRSearchResult;
+          $src_record->setFrom( $record );
+          $record->setDerivedFromAnnot( $src_record );
+
+        # Now clear the align data for this record
         $record->setAlignData( undef );
       }
 
@@ -3005,7 +3015,7 @@ CYCLE3:
     $DEBUG = 0;
 
     #printHitArrayList( $sortedAnnotationsList );
-
+    
     ########################## C Y C L E 8 ################################
     #
     #  Merge overlapping fragments
@@ -3215,18 +3225,22 @@ CYCLE3:
         if (
           $currentAnnot->getQueryEnd() - $next1Annot->getQueryStart() + 1 > 33 )
         {
-          print "     -- a big overlap...is it already linked?\n"
-              if ( $DEBUG );
           if ( $currentAnnot->getRightLinkedHit() == $next1Annot ) {
             if ( $DEBUG ) {
               print "Merging a joined pair:\n";
               $currentAnnot->print();
               $next1Annot->print();
             }
+            #print "DOING MERGE\n";
+            #print "DUMPERBEFORE_MERGE: " . Dumper( $currentAnnot ) . "\n";
             $currentAnnot->merge( $next1Annot );
+            #print "DUMPERAFTER_MERGE: " . Dumper( $currentAnnot ) . "\n";
+            #print "ADDING DERIVED FROM\n";
+            #print "NEXT IS: " . Dumper( $next1Annot ) . "\n";
 
             $currentAnnot->addDerivedFromAnnot( $next1Annot )
                 if ( $options{'source'} );
+                #print "REMOVING FROM PROXIMITY ITERATOR\n";
             $proxIter->remove();
             if ( $DEBUG ) {
               print "  Outcome:\n";
@@ -3240,8 +3254,7 @@ CYCLE3:
             }
           }
           elsif ( $DEBUG ) {
-            print "      No!\n";
-
+            print "      Not already linked -- do not merge, but flag as excessive overlap.\n";
             #$currentAnnot->printLinks();
           }
 
@@ -3792,6 +3805,7 @@ CYCLE9:
         if ( @inserts ) {
           my $lengthQmatch =
               $currentAnnot->getQueryEnd() - $currentAnnot->getQueryStart() + 1;
+
           for ( my $m = 0 ; $m < $#inserts ; $m += 2 ) {
 
             #print  " inserts[ m, m+1 ] = " . $inserts[$m] . ", " .
@@ -3802,6 +3816,7 @@ CYCLE9:
             --$inserts[ $m ];    # now last position of
             ++$inserts[ $m + 1 ];
           }
+
           my $bpHitperbpQuery = (
              $currentAnnot->getSubjEnd() - $currentAnnot->getSubjStart() + 1 ) /
               $lengthQmatch;
@@ -3820,24 +3835,44 @@ CYCLE9:
           my $outline = "";
 
           if ( $DEBUG ) {
-            print "   Fragmenting:\n";
+            print "   Fragmenting: "; $currentAnnot->printBrief();
           }
           $cycleAnnotIter->remove();
           my $newHit     = undef;
           my $lastNewHit = $currentAnnot->getLeftLinkedHit();
           $lastNewHit = undef
               if ( $currentAnnot->getLeftLinkedHit() == $currentAnnot );
+
           for ( my $m = 0 ; $m < $#edges ; $m += 2 ) {
             my $newBeginAlign = $edges[ $m ];
             my $newEndAlign   = $edges[ $m + 1 ];
             my $fragsize      = sprintf( "%d",
                                     ( $newEndAlign - $newBeginAlign ) *
                                         $bpHitperbpQuery );
-            print "     frag size = $fragsize\n" if ( $DEBUG );
-            if ( $currentAnnot->getOrientation() eq '+' ) {
+            print "     Inserting frag size = $fragsize\n" if ( $DEBUG );
 
-              # NOTE: Clone does not inherit links
-              $newHit = $currentAnnot->clone();
+            # 8/5/25: Important change to the way source alignment data is
+            # handled.  Previously it was inconsistently cloned and stored
+            # as heirarchy of derived annotations.  Now it's a flat list that
+            # should only contain a single original copy of the *.cat annotations
+            # at any one time.
+            #
+            # Here we create a new PRSearchResult object to hold a fragment
+            # of a single annotation.  Instead of duplicating the source 
+            # annotations or distributing them amongs the fragments, we 
+            # simply put them in the first fragment. Note also that the
+            # setFrom method does not copy derivedAnnotation nor does
+            # it retain the links from the source annotation.
+            $newHit = new PRSearchResult();
+            $newHit->setFrom( $currentAnnot );
+            if ( $m == 0 ) {
+              # First fragment needs to retain source annotations for
+              # the whole set.
+              $newHit->setDerivedFromAnnot( $currentAnnot );
+            }
+
+            if ( $currentAnnot->getOrientation() eq '+' ) {
+              #$newHit = $currentAnnot->clone();
 
               # We don't want to alter the final end position of the
               # original match
@@ -3853,7 +3888,7 @@ CYCLE9:
               $newSeq2Begin = $newSeq2End + 1;
             }
             else {
-              $newHit = $currentAnnot->clone();
+              #$newHit = $currentAnnot->clone();
               if ( $m < $#edges - 2 ) {
                 my $remainder = $currentAnnot->getSeq2Len() - $newSeq2End;
                 $newSeq2Begin = $newSeq2End - $fragsize;    # estimate
@@ -3865,20 +3900,21 @@ CYCLE9:
               $newHit->setSubjEnd( $newSeq2End );
               $newSeq2End = $newSeq2Begin - 1;
             }
-            if ( $lastNewHit ) {
-              $newHit->setLeftLinkedHit( $lastNewHit );
-              $lastNewHit->setRightLinkedHit( $newHit );
+          
+            $newHit->setLeftLinkedHit( $lastNewHit );
+            $lastNewHit->setRightLinkedHit( $newHit ) if ( $lastNewHit );
+            if ( $m == $#edges - 1 ) {
+              # Last fragment to add
+              $newHit->setRightLinkedHit( $currentAnnot->getRightLinkedHit() );
+              if ( $currentAnnot->getRightLinkedHit() ) {
+                $currentAnnot->getRightLinkedHit()
+                    ->setLeftLinkedHit( $newHit );
+              }
+            }else {
+              # Set the right link to the next new fragment
+              $newHit->setRightLinkedHit( undef );
             }
-            else {
-              $newHit->setLeftLinkedHit( $currentAnnot->getLeftLinkedHit() );
-            }
-            # RMH: 8/22/22 Fixed a bug reported by David Gordon and others where on rare occasions an
-            #      identifier is omitted in the *.out file.
-            my $newRight = $currentAnnot->getRightLinkedHit();
-            $newHit->setRightLinkedHit( $newRight );
-            if ( $newRight ) { 
-              $newRight->setLeftLinkedHit( $newHit );
-            }
+
             if ( $DEBUG ) {
               print "Inserting\n";
               $newHit->print();
@@ -3895,9 +3931,6 @@ CYCLE9:
           }  # for loop
              # Note since we are adding multiple copies of these source
              # annotations, we need to make sure this routine makes a deep copy.
-
-          #$newHit->addDerivedFromAnnot( $currentAnnot )
-          #    if ( $options{'source'} );
 
           if ( $newHit->getRightLinkedHit() ) {
             if ( $newHit->getRightLinkedHit()->getQueryStart() >=
@@ -3953,6 +3986,8 @@ CYCLE10:
       $i++;
       print "." if ( $i + 1 ) % 1000 == 0;
       my $currentAnnot = $cycleAnnotIter->next();
+
+next;
 
       if ( $DEBUG ) {
         print "Cycle10: Considering: ";
@@ -4756,7 +4791,8 @@ CYCLE10:
 
       $pastAnnot = $currentAnnot;
 
-    }    # CYCLE 10
+    } # CYCLE 10
+
     #printHitArrayList( $sortedAnnotationsList );
 
     #
@@ -5886,9 +5922,9 @@ sub generateTableOutput {
     $frac_GC       = "Unknown";
   }
   else {
-    warn "\nWarning: Calculation of statistics hampered by missing\n"
-        . "sequence sizes in the input file *and* missing -maskSource\n"
-        . "parameter!  Cannot calculate percentage masked values.\n";
+    warn "\nWarning: The maskSource command-line parameter is not set. Without it,\n"
+      .  "         the percentage-masked value cannot be calculated and will be\n" 
+      .  "         omitted from the output.\n";
     $usePerc       = 0;
     $totseqlen     = 1;
     $nonNSeqLen    = "";
@@ -5896,7 +5932,7 @@ sub generateTableOutput {
     $maskedlength  = $aggregateStats{'annotatedlength'};
   }
 
-  print "ProcessRepeats: Generating table output\n";
+  print "\nProcessRepeats: Generating table output\n";
   my $totallength =
       $aggregateStats{'SINE'}->{'length'} +
       $aggregateStats{'PLE'}->{'length'} +
@@ -6712,7 +6748,7 @@ sub printAlignAnnots {
    #
    #      printf $ALIGNOUT "%${colWidths{'ID'}}s %1s\n", $printid, $Overlapped;
    #    }
-
+   #
     if ( defined $currentAnnot->getDerivedFromAnnot() ) {
       &printSourceAlignments( $ALIGNOUT, $currentAnnot, \%colWidths, 0,
                               $printid );
@@ -7163,7 +7199,6 @@ sub printSourceAlignments {
     }
   }
   else {
-
     # recurse
     ## May need to sort by seq1beg.  Look for examples
     my @srcMembers = @{ $annot->getDerivedFromAnnot() };
@@ -7413,7 +7448,7 @@ sub printSTDOUTSourceAnnots {
                 )
         )
         . "\n";
-    &printSTDOUTSourceAnnots( $member, $widthsRef, $level++ );
+    &printSTDOUTSourceAnnots( $member, $widthsRef, $level+1 );
   }
 }
 
@@ -8330,11 +8365,23 @@ sub translateAnnotation {
 
     # Nothing to do...coordinates didn't change.
   }
-  elsif ( defined $repeatDB->{ lc( $transName ) }->{'conlength'} ) {
+
+  elsif ( defined $repeatDB->{ lc( $transName ) }->{'conlength'} ) {                                                        
+    if ( $DEBUG ) {                                                                                                         
+      if ( $adjCurEnd > $repeatDB->{ lc( $transName ) }->{'conlength'} ) {                                                  
+        print "translateAnnotation(): WARNING: "       
+            . "Adjusted end $adjCurEnd is larger than "                                                                     
+            . "consensus length for $transName:  "                                                                          
+            . $repeatDB->{ lc( $transName ) }->{'conlength'} . "\n";                                                        
+      }
+    }                                
     $annot->setSubjEnd( $adjCurEnd );
-    $annot->setSubjRemaining(
-        $repeatDB->{ lc( $transName ) }->{'conlength'} - $annot->getSubjEnd() );
+    # Guard against negative numbers                                                      
+    my $newRemain = $repeatDB->{ lc( $transName ) }->{'conlength'} - $annot->getSubjEnd();                                  
+    $newRemain = 0 if ( $newRemain < 0 );
+    $annot->setSubjRemaining($newRemain);                                       
   }
+
   else {
     die "Cannot find the consensus length for element $transName!\n"
         . "consensus unaligned length will be incorrect in the\n"

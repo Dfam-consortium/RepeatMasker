@@ -1,3 +1,19 @@
+4.2.1
+  - BUGFIX: An infinite loop was possible in rare circumstances
+    involoving interleaved satellite consensi while using the
+    "-a" option.  This caused the alignment file to keep growing
+    and eventually ProcessRepeats to crash.
+  - BUGFIX: Fix a one-off issue in alignment range calculations
+    induced by the clipping mechanism in RepeatMasker.
+  - BUGFIX: The configure script was crashing while attempting to
+    import Repbase in the previous version.
+  - Updated to the latest famdb version (2.0.5)
+  - Crossmatch alignment format parser hardening.  While not proper, 
+    negative coordinates can appear in the alignment file due to 
+    incorrect range calculations.  This change allows for the parser
+    to handle these cases and not mis-align the data columns.
+  - Updated the length of the Charlie7 family in RepeatAnnotationData.pm
+  
 4.2.0
   - BUGFIX: For mammalian genomes searched using the "-species" option,
     newer Dfam families without search stages, or with the "-uncurated"

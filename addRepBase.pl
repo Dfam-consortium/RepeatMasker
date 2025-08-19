@@ -18,15 +18,6 @@
 #* see the license.txt file contained in this distribution.
 #*
 #******************************************************************************
-#
-# ChangeLog
-#
-#     $Log$
-#
-###############################################################################
-#
-# To Do:
-#
 
 =head1 NAME
 
@@ -137,33 +128,29 @@ my $REPEATMASKER_DIR = "$FindBin::Bin";
 my $FAMDB = "$REPEATMASKER_DIR/famdb.py";
 
 my $dbInfo = `$FAMDB -i $LIBDIR/$FamDBDir info`;
+my $logOut = "";
 if ( $dbInfo =~ /Sequencing_artifacts_only/ ) {
-  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary $LIBDIR/RMRB_DUP.txt --name 'RBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+  my $cmd = "$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary $LIBDIR/RMRB_DUP.txt --name 'RBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'";
+  $logOut = `$cmd 2>&1`;
 } elsif ( $dbInfo !~ /Database:\s+Dfam\s+withRBRM/ ) {
-  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary $LIBDIR/RMRB_DUP.txt --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'");
+  my $cmd = "$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary $LIBDIR/RMRB_DUP.txt --name 'Dfam withRBRM' --description 'RBRM - RepBase RepeatMasker Edition - version $libVersion'";
+  $logOut = `$cmd 2>&1`;
 }else {
-  # No need to re-append name/desc
-  system("$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/RMRB_DUP.txt $LIBDIR/$RMRBLibrary");
+  my $cmd = "$FAMDB -i $LIBDIR/$FamDBDir append $LIBDIR/$RMRBLibrary $LIBDIR/RMRB_DUP.txt";
+  $logOut = `$cmd 2>&1`;
 }
 my $status = $?;
+
+if ( $logOut ) {
+  print "\n$logOut\n";
+}
+
 if ( $status ) {
   die "Failed to append $LIBDIR/$RMRBLibrary to $LIBDIR/$FamDBDir.\n" .
       "Process exited with code " . ( $status >> 8 ) . ".\n";
 }
 
-## Backup old library ( only one backup kept )
-#if ( -s "$LIBDIR/$mainLibrary" ) {
-#  unlink( "$LIBDIR/$mainLibrary.old" )
-#    if ( -s "$LIBDIR/$mainLibrary.old" );
-#  rename( "$LIBDIR/$mainLibrary", "$LIBDIR/$mainLibrary.old" )
-#}
-
-# rename temporary file
-#rename( "$LIBDIR/$mainLibrary.writing", "$LIBDIR/$mainLibrary" );
-
 print "\r\n\n";
-
-#system("$FAMDB -i $LIBDIR/$FamDBDir info");
 
 # Remove working flag
 unlink("$LIBDIR/$FamDBDir/merge.working");
@@ -175,7 +162,6 @@ exit(0);
 ####################################################################################
 ####################################################################################
 
-# my $versionString = getLibraryVersionStr( $libFile );
 # Return the version from the header of the given library file.
 sub getLibraryVersionStr {
   my $libFile = shift;

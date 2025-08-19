@@ -37,7 +37,7 @@ META_FILE_INFO = "file_info"
 dfam_acc_pat = re.compile("^(D[FR])([0-9]{2})([0-9]{2})([0-9]{2})[0-9]{3,6}$")
 
 # The current version of the file format
-FAMDB_VERSION = "2.0.2"
+FAMDB_VERSION = "2.0.5"
 
 DESCRIPTION = (
     "Dfam - A database of transposable element (TE) sequence alignments and HMMs."

@@ -6553,7 +6553,10 @@ sub createSubElements {
   my $parentSubjSeq  = $parentElement->getSubjString()  || "";
   my $parentSubjStart = $parentElement->getSubjStart();
   my $parentSubjEnd   = $parentElement->getSubjEnd();
+  # Aligned Length
   my $parentSubjLen   = abs( $parentSubjEnd - $parentSubjStart ) + 1;
+  # Total Model Length
+  my $parentSubjSize = $parentElement->getSubjRemaining() + $parentElement->getSubjEnd();
 
   my $newResultColl = SearchResultCollection->new();
 
@@ -6627,6 +6630,7 @@ sub createSubElements {
     $newSegment->setQueryRemaining(
          $parentQueryEnd - $segQueryEnd + $parentElement->getQueryRemaining() );
 
+
     # If alignment info
     if ( $parentQuerySeq ne "" ) {
 
@@ -6637,7 +6641,7 @@ sub createSubElements {
         $seqCount++ unless ( substr( $parentQuerySeq, $i++, 1 ) eq '-' );
       }
 
-      # Don't include the X
+      # Don't include the X/N
       my $newQuerySeq = substr( $parentQuerySeq, 0, $i - 1 );
       my $newSubjSeq  = substr( $parentSubjSeq,  0, $i - 1 );
 
@@ -6652,19 +6656,18 @@ sub createSubElements {
 
       $newSubjSeq =~ s/-//g;
 
-      #print "segQueryStart = $segQueryStart - $segQueryEnd\n";
-      #print "newSubjSeq = $newSubjSeq\n";
       if ( $parentElement->getOrientation() eq "C" ) {
+        # RMH: 8/2025 - One-off bug reported by Pio
         $newSegment->setSubjEnd( $segSubjEnd );
-        $newSegment->setSubjRemaining(
-            $parentSubjEnd - $segSubjEnd + $parentElement->getSubjRemaining() );
         if ( $newSubjSeq eq "" ) {
-          $newSegment->setSubjStart( $segSubjEnd );
+          $segSubjEnd = $segSubjStart;
         }
         else {
-          $segSubjEnd -= length( $newSubjSeq );
-          $newSegment->setSubjStart( $segSubjEnd + 1 );
+          $segSubjEnd -= (length( $newSubjSeq ) + 1);
+          $segSubjStart = $segSubjEnd + 1 + $numX;
         }
+        $newSegment->setSubjRemaining( $parentSubjSize - $newSegment->getSubjEnd() );
+        $newSegment->setSubjStart( $segSubjStart );
       }
       else {
         $newSegment->setSubjStart( $segSubjStart );
@@ -6672,8 +6675,9 @@ sub createSubElements {
           $segSubjEnd = $segSubjStart;
         }
         else {
-          $segSubjEnd = $segSubjStart + length( $newSubjSeq ) - 1;
-          $segSubjStart += length( $newSubjSeq );
+          # RMH: 8/2025 - One-off bug reported by Pio
+          $segSubjEnd = $segSubjStart + length( $newSubjSeq );
+          $segSubjStart += length( $newSubjSeq ) + 1;
         }
         $newSegment->setSubjEnd( $segSubjEnd );
         $newSegment->setSubjRemaining(
@@ -7643,6 +7647,8 @@ sub initLibrariesFromFamdb {
     # Default species if non given.
     $species = "homo sapiens" if ( $species eq "" );
 
+    # TODO: This should be moved above...because even with a -lib the general directory
+    # needs to be created.
     my $modelPrefix = "CONS-";
     $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
     my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb info ";

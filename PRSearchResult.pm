@@ -379,15 +379,30 @@ sub getDerivedFromAnnot {
   return ( $this->{'derivedFrom'} );
 }
 
-sub setDerivedFromAnnot {
+# 8/2025
+# DEPRECATED: Will be removed
+sub setDerivedFromAnnotORIG {
   my $this   = shift;
   my $member = shift;
   my $annot  = new PRSearchResult;
   $annot->setFrom( $member );
-  $this->{'derivedFrom'} = [ $member ];
+  #$this->{'derivedFrom'} = [ $member ];
+  $this->{'derivedFrom'} = [ $annot ];
 }
 
-sub addDerivedFromAnnot {
+# 8/2025
+# REUSE Version
+# New reuse of object (vs original cloning) version
+sub setDerivedFromAnnot {
+  my $this   = shift;
+  my $member = shift;
+  $this->{'derivedFrom'} = [];
+  $this->addDerivedFromAnnot( $member );
+}
+
+# 8/2025
+# DEPRECATED: Will be removed
+sub addDerivedFromAnnotORIG {
   my $this   = shift;
   my $member = shift;
 
@@ -400,6 +415,59 @@ sub addDerivedFromAnnot {
     }
   }
   push @{ $this->{'derivedFrom'} }, $annot;
+}
+
+# 8/2025
+# New reuse of object (vs original cloning) version
+sub addDerivedFromAnnot {
+  my $this   = shift;
+  my $member = shift;
+
+  # print "DUMPERTHIS_PRIOR: " . Dumper($this) . "\n";
+
+  my @stack = ([$member, undef]);  # [current_node, parent_node]
+
+  while (@stack) {
+    my ($node, $parent) = @{ shift @stack };
+    my $children = $node->getDerivedFromAnnot();
+
+    if ($children && @$children) {
+      # Still has children — push them to stack with parent pointer
+      foreach my $child (@$children) {
+        push @stack, [$child, $node];
+      }
+    } else {
+      # Leaf node — remove from parent (if any) and move to top-level
+      if ($parent) {
+        my $siblings = $parent->getDerivedFromAnnot();
+        @$siblings = grep { $_ != $node } @$siblings;
+      }
+      push @{ $this->{'derivedFrom'} }, $node;
+    }
+  }
+}
+
+# 8/2025
+# DEPRECATED: Will be removed
+sub addDerivedFromAnnotCLONE {
+  my $this   = shift;
+  my $member = shift;
+
+  my @stack = ($member);
+  while (@stack) {
+    my $node = shift @stack;
+    my $children = $node->getDerivedFromAnnot();
+
+    if ($children && @$children) {
+      # Node has children, so not a leaf — push children to process
+      unshift @stack, @$children;
+    } else {
+      # Leaf node — make a deep copy and add it to derivedFrom
+      my $leaf_copy = new PRSearchResult;
+      $leaf_copy->setFrom($node);
+      push @{ $this->{'derivedFrom'} }, $leaf_copy;
+    }
+  }
 }
 
 sub print {
@@ -522,15 +590,16 @@ sub checkLinkOrder {
   my $detectLoop   = 0;
   while (    $firstInChain->getLeftLinkedHit() != undef
           && $firstInChain != $firstInChain->getLeftLinkedHit()
-          && $detectLoop < 50 )
+          && $detectLoop < 1000 )
   {
     $firstInChain = $firstInChain->getLeftLinkedHit();
     $detectLoop++;
   }
 
-  if ( $detectLoop >= 50 ) {
-    print "WARNING! Unresolved annotation chain loop (at " . $firstInChain->getQueryName() . ":" . 
-           $firstInChain->getQueryStart() . "-" . $firstInChain->getQueryEnd()." - clo)\n";
+  if ( 0 && $detectLoop >= 1000 ) {
+    print "\nINFO: An annotation chain with greater than 1000 elements was detected (" . 
+          $firstInChain->getQueryName() . ":" . $firstInChain->getQueryStart() . "-" . 
+          $firstInChain->getQueryEnd().")\n";
   }
 
   # Now print

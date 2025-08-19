@@ -569,9 +569,9 @@ def command_append(args):
     for entry in embl_iter:
         # check installation namespace and skip entry if it already exists
         if entry.accession in args.rb_names or not args.db_dir.check_unique(entry):
-            LOGGER.info(
-                f"Skipped {entry.accession}. A family with the same accession/name is already in Dfam"
-            )
+            # LOGGER.info(
+            #     f"Skipped {entry.accession}. A family with the same accession/name is already in Dfam"
+            # )
             continue
 
         total_ctr += 1
@@ -620,7 +620,7 @@ def command_append(args):
     if missing_files:
         for file in missing_files:
             LOGGER.info(
-                f"Partition File {file} Not Found. {missing_files[file]} Entries Were Not Appended:"
+                f"FamDB Partition File {file} Not Found. {missing_files[file]} RepBase Entries Were Not Included"
             )
 
     db_info = args.db_dir.get_metadata()
@@ -934,7 +934,7 @@ def main():  # =================================================================
                     args.rb_names = set(name.strip() for name in f.readlines())
             except Exception:
                 LOGGER.error(f"{args.exclusion_file} could not be parsed.")
-            exit(1)
+                exit(1)
         else:
             LOGGER.error(f"{args.exclusion_file} not found.")
             exit(1)

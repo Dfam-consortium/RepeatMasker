@@ -723,8 +723,11 @@ sub parseOutput {
         #      New same as *.align except for no id column
         #              12/13 fields
         #
-        if ( ($hdrLineArray[ 8 ] eq "+" && $hdrLineArray[ 13 ] =~ /^\(\d+\)$/)  ||
-             ($hdrLineArray[ 8 ] eq "C" && $hdrLineArray[ 11 ] =~ /^\(\d+\)$/ ) )
+        #   While the (-#) is not technically "allowed" it does appear in
+        #   some outputs due to incorrect range arithmatic.  I would rather
+        #   it get parsed into the correct field than complaining about it here.
+        if ( ($hdrLineArray[ 8 ] eq "+" && $hdrLineArray[ 13 ] =~ /^\([-\d]+\)$/)  ||
+             ($hdrLineArray[ 8 ] eq "C" && $hdrLineArray[ 11 ] =~ /^\([-\d]+\)$/ ) )
         {
           # E.g:
           #   -0- -1-  -2- -3-  -4-     -5-     -6-    -7- -8- -9- -10-   -11- -12- -13- -14-
