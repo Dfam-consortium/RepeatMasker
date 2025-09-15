@@ -40,6 +40,7 @@ rmToTrackHub.pl - generate track hub files for a UCSC bigRmsk track
                   -out <repeatmasker *.out[.gz]> 
                   -hubname <track_hub_name>
                   [-align <*.align[.gz]> ]
+                  [-chromsizes <chromosome sizes file>]
 
   e.g:
 
@@ -115,6 +116,7 @@ my @getopt_args = (
                     '-version',    # print out the version and exit
                     '-genome=s',
                     '-hubname=s',
+                    '-chromsizes=s',
                     '-out=s',
                     '-force|f',
                     '-only_beds',
@@ -174,17 +176,23 @@ print "#\n";
 print "# rmToTrackHub.pl\n";
 print "#\n";
 
-print "# Obtaining sequences sizes for $genome from UCSC....\n";
-&getChromSizes($genome);
-if ( ! -s "$genome.chrom.sizes" ) {
-  print "Failed to download $genome.chrom.sizes file for $genome from UCSC!\n";
-  exit(1);
+my $csizes;
+if ( $options{'chromsizes'} && -s $options{'chromsizes'} ) {
+  print "# Using user provided chrom.sizes file: $options{'chromsizes'}\n";
+  $csizes = $options{'chromsizes'};
+}else {
+  &getChromSizes($genome);
+  if ( ! -s "$genome.chrom.sizes" ) {
+    print "Failed to download $genome.chrom.sizes file for $genome from UCSC!\n";
+    exit(1);
+  }
+  $csizes = "$genome.chrom.sizes";
 }
 
 if ( ! -d $hubname ) {
   mkdir($hubname);
-}elsif ( ! $options{'f'} ) {
-  print "The directory $hubname already exists.  If you would like to overwrite it use the -f automatically use the -f flag.\n";
+}elsif ( ! exists $options{'force'} ) {
+  die "The directory $hubname already exists.  If you would like to overwrite it automatically use the -force flag.\n";
 }
 
 print "# Building TSV files...\n";
@@ -196,12 +204,12 @@ if ( $alignFile ) {
 }
 print "# Building bigBed files...\n";
 # Make out file bigBed
-my $cmd = "$BEDTOBIGBED_PRGM -tab -as=$FindBin::RealBin/bigRmskBed.as -type=bed9+5 $joinTSVFile $genome.chrom.sizes $hubname/$outFile.bb";
+my $cmd = "$BEDTOBIGBED_PRGM -tab -as=$FindBin::RealBin/bigRmskBed.as -type=bed9+5 $joinTSVFile $csizes $hubname/$outFile.bb";
 system($cmd);
 
 # Make align file bigBed
 if ( $alignFile ) {
-$cmd = "$BEDTOBIGBED_PRGM -tab -as=$FindBin::RealBin/bigRmskAlignBed.as -type=bed3+14 $alignTSVFile $genome.chrom.sizes $hubname/$alignFile.bb";
+$cmd = "$BEDTOBIGBED_PRGM -tab -as=$FindBin::RealBin/bigRmskAlignBed.as -type=bed3+14 $alignTSVFile $csizes $hubname/$alignFile.bb";
 system($cmd);
 }
 
@@ -274,9 +282,10 @@ sub buildTSVFiles  {
   # need to set locale to C for output sort to work correctly.
   $ENV{'LC_COLLATE'} = "C";
   $ENV{'LC_ALL'} = "C";
+  my $alignTSVFile;
 
   if ( defined $alignFile ) {
-    my $alignTSVFile = basename($alignFile);
+    $alignTSVFile = basename($alignFile);
     $alignTSVFile =~ s/\.align.*/.align.tsv/;
     open ALIGNTSV, "| sort -k1,1 -k2,2n >$alignTSVFile" or die "Could not open $alignTSVFile\n";
   
@@ -730,10 +739,14 @@ sub procAlignResult {
     $cRec .= $result->getSubjType() . "\t\t";
   }
 
+  # Workaround issue with negative TE remaining values
+  my $subjRem = $result->getSubjRemaining();
+  $subjRem = 0 if ( $subjRem < 0 );
+
   $cRec .=
         $result->getSubjStart() . "\t"
       . $result->getSubjEnd() . "\t"
-      . $result->getSubjRemaining() . "\t";
+      . $subjRem . "\t";
 
   $cRec .= $result->getId() . "\t" . $sequence;
 
@@ -814,13 +827,27 @@ sub getChromSizes {
 
   my $retVal = `whereis curl`;
   if ( $retVal =~ /^curl:\s(\S+)/ ) {
-    system("curl $url -s > $DB.chrom.sizes 2> /dev/null"); 
+    my $cmd = "curl -f $url -sS -o $DB.chrom.sizes 2>&1";
+    my $stdout = `$cmd`;
+    my $rc = $? >> 8;
+    if ( $rc != 0 ){
+      die "Failed to download $DB.chrom.sizes from UCSC using curl!\n  Command was: $cmd\n   STDOUT: $stdout\n";
+    }
   }else {
     $retVal = `whereis wget`;
     if ( $retVal =~ /^wget:\s(\S+)/ ) { 
-      system("wget $url -O $DB.chrom.sizes 2> /dev/null");
+      my $cmd = "wget $url -O $DB.chrom.sizes 2>&1";
+      my $stdout = `$cmd`;
+      my $rc = $? >> 8;
+      if ( $rc != 0 ){
+        die "Failed to download $DB.chrom.sizes from UCSC using wget!\n  Command was: $cmd\n   STDOUT: $stdout\n";
+      }
     }else {
       die "Could not find curl or wget in the users path!\n";
     }
   }
+
+
 }
+
+
