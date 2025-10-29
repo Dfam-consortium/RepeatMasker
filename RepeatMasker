@@ -1338,7 +1338,7 @@ JOBLOOP:
     # For timing only
     #my $t0 = gettimeofday( );
     print "\n\n";
-    #print "RepeatMasker: Running: $prOptions\n";
+    print "RepeatMasker: Running: $prOptions\n" if ( $DEBUG );
     &systemint(
         "$REPEATMASKER_DIR/ProcessRepeats " . "$prOptions" )
         unless $options{'is_only'};
@@ -1359,7 +1359,7 @@ JOBLOOP:
 
   &cleanUp( \%options, $runnumber, $tempdir, $fileori, $fileend, $file,
             $originaldir, $compressed )
-      unless ( $DEBUG );
+             unless ( $DEBUG );
 }    # END FILECYCLE
 
 &systemint( "rm -R $tempdir" ) unless ( $DEBUG );
@@ -6977,6 +6977,7 @@ sub cleanUp {
   if ( open TEMP2, ">$targetdir\/temp.$runnumber" ) {
     unlink "$targetdir\/temp.$runnumber";
     close TEMP2;
+    $fileend = quotemeta( $fileend );
     foreach my $outputfile ( @outputfiles ) {
       next unless $outputfile =~ /^$fileend/;
 

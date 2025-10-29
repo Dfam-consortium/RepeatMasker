@@ -2233,6 +2233,12 @@ sub _toCSVFormat {
 ##   16: Linkage_ID - [optional] RepeatMasker linkage id
 ##   17: CAF encoded alignment string
 ##   18: Matrix - [optional] The matrix used in scoring the alignment encoded as ##p##g.matrix or simply ##p##g
+## Currently only exported by the align utility:
+##   19: e_value - [optional] The alignment Evalue
+##   20: raw_score - [optional] The alignment raw matrix/gap score without complexity adjustment
+##   21: bit_score - [optional] The bit score for the alignment
+## NOTE: In the future it might be nice to support gap penalty specification as well as the matrix...or simply
+##       encode it in the matrix string and rename that field "scoring_system"
 ##
 ##-------------------------------------------------------------------------##
 sub _toCAF {

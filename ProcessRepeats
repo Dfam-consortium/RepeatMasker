@@ -3987,8 +3987,6 @@ CYCLE10:
       print "." if ( $i + 1 ) % 1000 == 0;
       my $currentAnnot = $cycleAnnotIter->next();
 
-next;
-
       if ( $DEBUG ) {
         print "Cycle10: Considering: ";
         $currentAnnot->print();

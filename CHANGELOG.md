@@ -1,3 +1,12 @@
+4.2.2
+  - BUGFIX: In the 4.2.1 release a bug was introduced that impacted
+    the handling of poly-A tails and the naming of LINE annotations.
+    While the overall masking level remained the same, the change 
+    caused some previously hidden and overlapping annotations to 
+    appear with invalid query ranges ( query start > query end ). 
+    (github #362)
+  - Added support for '+' symbol in input filenames. (github #365)
+
 4.2.1
   - BUGFIX: An infinite loop was possible in rare circumstances
     involoving interleaved satellite consensi while using the
