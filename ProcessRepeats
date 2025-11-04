@@ -564,36 +564,7 @@ sub processSequence  {
   # convert file prefix
   $file =~ s/\.(temp)?cat(.gz)?$//;
 
-  #
-  # Separate out refined annotations
-  #
-  #  my $annotIter = $sortedAnnotationsList->getIterator();
-  #%refinementHash = ();
-##TODO: move this to the parseCATFile function
-  #while ( $annotIter->hasNext() ) {
-  #  my $currentAnnot = $annotIter->next();
-  #
-  #  if ( $currentAnnot->getClassName() eq "" ) {
-  #    $currentAnnot->setClassName( "Unspecified" );
-  #  }
-  #  if ( $currentAnnot->getLineageId() =~ /\[/ ) {
-  #    $annotIter->remove();
-  #    $currentAnnot->setOrientation( "+" )
-  #        if ( $currentAnnot->getOrientation() ne "C" );
-  #
-  #    my $catID = $currentAnnot->getLineageId();
-  #    die "Missing cat file ID for refined element!"
-  #        . Dumper( $currentAnnot ) . "\n"
-  #        if ( $catID eq "" );
-  #    $catID =~ s/[\[\]]//g;
-  #    push @{ $refinementHash{$catID}->{ $currentAnnot->getHitName() } },
-  #        ( $currentAnnot );
-  #  }
-  #}
-##TODO REMOVE
-  #print "Refinements separated\n";
-
-###TODO: FIX THIS
+  ###TODO: FIX THIS
   open( OUTRAW, ">$file.ori.out" ) if ( $options{'u'} || !$poundformat );
 
   #
@@ -604,45 +575,10 @@ sub processSequence  {
   #         when we modify Seq1Beg/End
   #
   $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
-##TODO REMOVE
-print "annotations sorted\n" if ( $DEBUG );
+  print "annotations sorted\n" if ( $DEBUG );
 
-my $cycleAnnotIter;
-my $i;
-#my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
-####TODO: This needs to be passed in to this function
-#  my $i              = -1;
-#  while ( $cycleAnnotIter->hasNext() ) {
-#    $i++;
-#    my $currentAnnot = $cycleAnnotIter->next();
-#
-#    $currentAnnot->setPRID( $i );
-#    $currentAnnot->setOrientation( "+" )
-#        if ( $currentAnnot->getOrientation() ne "C" );
-#
-#    # Do this early so we capture all information before it is changed.
-#    # NOTE: I may make derived elements links to the cat file for
-#    #       memory brevity.
-#    if ( $options{'source'} ) {
-#      $currentAnnot->addDerivedFromAnnot( $currentAnnot );
-#      $currentAnnot->setAlignData( undef );
-#    }
-#
-#    my $HitName = $currentAnnot->getHitName();
-#    $HitName =~ s/_short_$//;
-#
-#    # RMH 11/21/12: Added for Dfam
-#    $HitName =~ s/_offset$//;
-#    $currentAnnot->setHitName( $HitName );
-#    if ( !defined $seq1Lengths{ $currentAnnot->getQueryName() }
-#         || $seq1Lengths{ $currentAnnot->getQueryName() } <
-#         ( $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining() ) )
-#    {
-#      $seq1Lengths{ $currentAnnot->getQueryName() } =
-#          $currentAnnot->getQueryEnd() + $currentAnnot->getQueryRemaining();
-#    }
-#  }
-#
+  my $cycleAnnotIter;
+  my $i;
   print "\ncycle 1 " if ( $DEBUG );
 
   #printHitArrayList( $sortedAnnotationsList );
@@ -1589,28 +1525,9 @@ CYCLE3:
           }
         }
 
-     #
-     # Join Overlapping Elements
-     #
-     # TODO: We join things that perhaps we shouldn't.  This is a proposed
-     # change to the joining mechanism.  Need to consider the change
-     # from 33 to 50 architectually before we continue with this.
-     #
-     # Query Overlap > 50
-     # ConsensusOverlap - QueryOverlap < 200
-     # if (
-     #  (
-     #    $currentEnd - $nextAnnot->getQueryStart() > 50
-     #    || ( $currentAnnot->getQueryOverlap( $nextAnnot ) ==
-     #         ( $nextAnnot->getQueryEnd() - $nextAnnot->getQueryStart() + 1 ) )
-     #  )
-     #  && $currentAnnot->getRightLinkedHit() != $nextAnnot
-     #  && $currentAnnot->getRightLinkedHit() != $currentAnnot
-     #  && $currentAnnot->getClassName() eq $nextAnnot->getClassName()
-     #  && $currentAnnot->getOrientation()   eq $nextAnnot->getOrientation()
-     #  && ( $currentAnnot->getConsensusOverlap( $nextAnnot ) -
-     #       $currentAnnot->getQueryOverlap( $nextAnnot ) ) < 200
-     #    )
+        #
+        # Join Overlapping Elements
+        #
         if (
            (
              $currentEnd - $nextAnnot->getQueryStart() > 33
@@ -1637,47 +1554,25 @@ CYCLE3:
       }    # while has next
 
       if ( @joinList ) {
-        my $leftSide  = $currentAnnot;
+        ## 20251004: RMH: Improved the efficiency of building handling large join lists
+        my $leftSide = $currentAnnot;
         my $equivHash = {};
-        if ( $DEBUG ) {
-          print "  Joining overlap cluster ---- :\n";
-          print "    ";
-          $leftSide->printBrief();
-        }
         foreach my $partner ( @joinList ) {
-          if ( $DEBUG ) {
-            print "printing partner\n" if ( $DEBUG );
-            print "    ";
-            $partner->printBrief();
-            print "done\n" if ( $DEBUG );
-          }
-
-          print "Going to join" if ( $DEBUG );
-          $leftSide->join( $partner );
-          print "joined" if ( $DEBUG );
-
-          # Don't ambiguate the name unless the overlap is excessive
-          # or the element is subsummed completely by the other.
-          if (    $leftSide->getQueryOverlap( $partner ) > 50
-               || $leftSide->getQueryEnd() >= $partner->getQueryEnd() )
+          if ( $leftSide->getQueryEnd() >= $partner->getQueryEnd() 
+               ||  $leftSide->getQueryOverlap( $partner ) > 50 )
           {
-            print " ls = "
-                . $leftSide->getSubjName()
-                . " par = "
-                . $partner->getSubjName() . "\n"
-                if ( $DEBUG );
             $equivHash->{ $leftSide->getSubjName() } = 1;
             $equivHash->{ $partner->getSubjName() }  = 1;
           }
           $leftSide = $partner;
         }
-
+        $currentAnnot->joinMultiple( \@joinList );
         if ( keys( %{$equivHash} ) ) {
           foreach my $element ( @joinList, $currentAnnot ) {
             my $newEquivHash = { %{$equivHash} };
-            if ( defined $equivHash->{ $element->getSubjName() } ) {
-              delete $newEquivHash->{ $element->getSubjName() };
-            }
+            #if ( defined $equivHash->{ $element->getSubjName() } ) {
+            delete $newEquivHash->{ $element->getSubjName() };
+            #}
             $element->setEquivHash( $newEquivHash );
           }
         }

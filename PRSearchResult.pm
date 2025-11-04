@@ -740,7 +740,15 @@ sub removeFromJoins {
   }
 }
 
-# Intelligently relink an elements edges for insertion
+# 
+# Join a two annotations
+#     e.g
+#     *******--->**this**---->******
+#          *****->***partner***---->****
+#
+# Because each annotation may be part of a chain we have to make sure that we
+# relink everything in sequence position order.
+# 
 sub join {
   my $this    = shift;
   my $partner = shift;
@@ -759,28 +767,32 @@ sub join {
     push @cluster, $chain;
     my $nextInChain = $chain;
     my %seen        = ();
-    while (    $nextInChain->getLeftLinkedHit()
-            && $nextInChain->getLeftLinkedHit() != $nextInChain )
+    my $n_left;
+    while (    ($n_left = $nextInChain->getLeftLinkedHit())
+            && $n_left != $nextInChain )
     {
-      if ( $seen{ $nextInChain->getLeftLinkedHit() } ) {
+      if ( $seen{ $n_left } ) {
         warn "WARN: breaking loop in fragments\n";
-        $nextInChain->setLeftLinkedHit( undef );
+        # NOTE: This is unnecessary as we will overwrite this value below
+        #$nextInChain->setLeftLinkedHit( undef );
         last;
       }
-      $nextInChain = $nextInChain->getLeftLinkedHit();
+      $nextInChain = $n_left;
       $seen{$nextInChain}++;
       push @cluster, $nextInChain;
     }
     $nextInChain = $chain;
-    while (    $nextInChain->getRightLinkedHit()
-            && $nextInChain->getRightLinkedHit() != $nextInChain )
+    my $n_right;
+    while (    ($n_right = $nextInChain->getRightLinkedHit())
+            && $n_right != $nextInChain )
     {
-      if ( $seen{ $nextInChain->getRightLinkedHit() } ) {
+      if ( $seen{ $n_right } ) {
         warn "WARN: breaking loop in fragments\n";
-        $nextInChain->setRightLinkedHit( undef );
+        # NOTE: This is unnecessary as we will overwrite this value below
+        #$nextInChain->setRightLinkedHit( undef );
         last;
       }
-      $nextInChain = $nextInChain->getRightLinkedHit();
+      $nextInChain = $n_right;
       $seen{$nextInChain}++;
       push @cluster, $nextInChain;
     }
@@ -793,6 +805,125 @@ sub join {
   foreach my $annot ( @cluster ) {
     next if ( $annot == $lastAnnot );
 
+    $annot->setLeftLinkedHit( $lastAnnot );
+    $annot->setRightLinkedHit( undef );
+    if ( $lastAnnot ) {
+      $lastAnnot->setRightLinkedHit( $annot );
+    }
+    $lastAnnot = $annot;
+  }
+
+  if ( $DEBUG ) {
+    print "Now look what we did with this thing:\n";
+    $this->printLinks();
+  }
+
+}
+
+# 
+# Join an annotation with a set of annotations
+#
+# This is a more efficient version of the join() method when multiple
+# annotations are to be joined together.
+# 
+sub joinMultiple {
+  my $this    = shift;
+  my $partners = shift;
+
+  if ( $DEBUG ) {
+    print "join this:\n";
+    $this->printLinks();
+    print "to partners\n";
+    foreach my $partner ( @$partners ) {
+      $partner->printLinks();
+    }
+  }
+
+  my @cluster = ();
+  foreach my $chain ( $this, @$partners ) {
+    push @cluster, $chain;
+    my $nextInChain = $chain;
+    my %seen        = ();
+    my $n_left;
+    while (    ($n_left = $nextInChain->getLeftLinkedHit())
+            && $n_left != $nextInChain )
+    {
+      if ( $seen{ $n_left } ) {
+        warn "WARN: breaking loop in fragments\n";
+        # NOTE: This is unnecessary as we will overwrite this value below
+        #$nextInChain->setLeftLinkedHit( undef );
+        last;
+      }
+      $nextInChain = $n_left;
+      $seen{$nextInChain}++;
+      push @cluster, $nextInChain;
+    }
+    $nextInChain = $chain;
+    my $n_right;
+    while (    ($n_right = $nextInChain->getRightLinkedHit())
+            && $n_right != $nextInChain )
+    {
+      if ( $seen{ $n_right } ) {
+        warn "WARN: breaking loop in fragments\n";
+        # NOTE: This is unnecessary as we will overwrite this value below
+        #$nextInChain->setRightLinkedHit( undef );
+        last;
+      }
+      $nextInChain = $n_right;
+      $seen{$nextInChain}++;
+      push @cluster, $nextInChain;
+    }
+  }
+
+  # Sort cluster
+  @cluster = sort { $a->comparePositionOrder( $b ) } ( @cluster );
+
+  my $lastAnnot = undef;
+  foreach my $annot ( @cluster ) {
+    next if ( $annot == $lastAnnot );
+
+    $annot->setLeftLinkedHit( $lastAnnot );
+    $annot->setRightLinkedHit( undef );
+    if ( $lastAnnot ) {
+      $lastAnnot->setRightLinkedHit( $annot );
+    }
+    $lastAnnot = $annot;
+  }
+
+  if ( $DEBUG ) {
+    print "Now look what we did with this thing:\n";
+    $this->printLinks();
+  }
+}
+
+
+# Intelligently relink an elements edges for insertion
+sub resortJoins {
+  my $this = shift;
+
+  my @cluster = ();
+  push @cluster, $this;
+  my $nextInChain = $this;
+  while (    $nextInChain->getLeftLinkedHit()
+          && $nextInChain->getLeftLinkedHit() != $nextInChain )
+  {
+    $nextInChain = $nextInChain->getLeftLinkedHit();
+    push @cluster, $nextInChain;
+  }
+  $nextInChain = $this;
+  while (    $nextInChain->getRightLinkedHit()
+          && $nextInChain->getRightLinkedHit() != $nextInChain )
+  {
+    $nextInChain = $nextInChain->getRightLinkedHit();
+    push @cluster, $nextInChain;
+  }
+
+  # Sort cluster
+  @cluster = sort { $a->comparePositionOrder( $b ) } ( @cluster );
+
+  my $lastAnnot = undef;
+  foreach my $annot ( @cluster ) {
+    next if ( $annot == $lastAnnot );
     $annot->setLeftLinkedHit( $lastAnnot );
     $annot->setRightLinkedHit( undef );
     if ( $lastAnnot ) {
