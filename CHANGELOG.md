@@ -1,3 +1,11 @@
+4.2.3
+  - BUGFIX: Since the 4.1.1 release the staged approach to searching
+    TE families has not been applied species in the 'rodentia' order
+    due to a flag being set incorrectly.  While this doesn't prohibit
+    families from being annotated, it does decrease the sensitivity of
+    the search.  This release fixes this issue.  This problem did not 
+    impact any other orders.
+
 4.2.2
   - BUGFIX: In the 4.2.1 release a bug was introduced that impacted
     the handling of poly-A tails and the naming of LINE annotations.
