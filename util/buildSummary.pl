@@ -201,6 +201,11 @@ if ( $options{'libdir'} ) {
   }
 }
 
+if ( ! _program_in_path("twoBitInfo") ) {
+  die "\nThis script requires the UCSC tool twoBitInfo to be installed in the users PATH.\n\n";
+}
+
+
 my %taxaFamIDs = ();
 if ( defined $options{'species'} ) {
   my $famdbCmd = "$FindBin::RealBin/../famdb.py -i $LIBDIR/famdb families '" .
@@ -777,23 +782,31 @@ foreach my $seq ( keys( %classCountSeq ) ) {
 ######################## S U B R O U T I N E S ############################
 
 ##-------------------------------------------------------------------------##
-## Use: my _privateMethod( $parameter => value );
+## Use: my _program_in_path( program_name );
 ##
-##      $parameter       : A parameter to the method
+##      program_name       : The name to search in the path
 ##
 ##  Returns
-##      Something useful.
+##      Full path to program or undef if not found
 ##
 ##-------------------------------------------------------------------------##
-sub _privateMethod {
-  my %parameters = @_;
+sub _program_in_path {
+    my ($prog) = @_;
 
-  print ""
-      . ( &caller( 0 ) )[ 0 ] . "::"
-      . ( &caller( 0 ) )[ 3 ] . "( "
-      . @{ [ %parameters ] }
-      . "): Called\n"
-      if ( $DEBUG );
+    # If program name contains a slash, check directly (like shell behavior)
+    if ($prog =~ m{/}) {
+        return (-x $prog) ? $prog : undef;
+    }
 
+    # Loop over PATH entries
+    for my $dir (split /:/, $ENV{PATH}) {
+        next unless length $dir;   # skip empty path entries
+
+        my $full = "$dir/$prog";
+        if (-x $full && -f $full) {
+            return $full;
+        }
+    }
+
+    return undef;
 }
-

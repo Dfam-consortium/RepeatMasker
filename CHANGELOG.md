@@ -5,6 +5,10 @@
     families from being annotated, it does decrease the sensitivity of
     the search.  This release fixes this issue.  This problem did not 
     impact any other orders.
+  - Feature Request: Added support for BGZIP files by changing the 
+    method used to process compressed files.  Instead of uncompressing
+    input files in-place, the program now leaves the original 
+    compressed file intact.
 
 4.2.2
   - BUGFIX: In the 4.2.1 release a bug was introduced that impacted

@@ -747,13 +747,15 @@ foreach my $file ( @ARGV ) {
 
   my $compressed = "";
   if ( $file =~ /\.gz$/ ) {
-    unless ( `gunzip $file 2>&1` ) {
-
-      # Name $file only changes if gunzip did not complain
-      # (file may end with .gz but not be zipped
-      $file =~ s/\.gz$//;
-      $compressed = "zipped";
+    $file =~ s/\.gz$//;
+    if ( -e $file ) {
+      die "Both $file.gz and $file exist!  Please remove $file or provide the uncompressed file to the program\n";
     }
+    system("gunzip -c $file.gz > $file");
+    if ( ! -s $file ) {
+      die "Decompression of $file.gz with gzip appears to have failed! Check that this file is indeed a gzip'd fasta file.\n";
+    }
+    $compressed = "zipped";
   }
   elsif ( $file =~ /\.Z$/ ) {
     unless ( `uncompress $file 2>&1` ) {
@@ -6997,9 +6999,11 @@ sub cleanUp {
         . "Consider using the -dir option.\n\n";
   }
 
+  # No longer uncompress in-place
   if ( $compressed ) {
-    &systemint( "gzip $fileori" )     if $compressed eq 'zipped';
-    &systemint( "compress $fileori" ) if $compressed eq 'Zed';
+  #  &systemint( "gzip $fileori" )     if $compressed eq 'zipped';
+  #  &systemint( "compress $fileori" ) if $compressed eq 'Zed';
+    unlink $fileori;
   }
 }
 
