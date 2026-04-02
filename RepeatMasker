@@ -688,8 +688,7 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 my $tax;
 if ( famdbConfigured() ) {
   $tax = Taxonomy->new(
-            famdb_dir  => famdbDataDir(),
-            famdb_prgm => famdbProgramPath()
+            famdb_dir  => $FAMDB_DIR 
          );
 } elsif ( defined $options{'species'} && $options{'species'} ne "" ) {
   die "The -species option requires FamDB to be configured. Please configure FAMDB_DIR or use -lib.\n";

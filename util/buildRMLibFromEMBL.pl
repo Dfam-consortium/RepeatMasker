@@ -84,7 +84,7 @@ else {
 ## Convert the file
 ##
 my $EMBLFile = "RepeatMaskerLib.embl";
-print STDERR "Reading the RepeatMasker EMBL file: $inFile\n";
+#print STDERR "Reading the RepeatMasker EMBL file: $inFile\n";
 my $db = EMBL->new( fileName => $inFile );
 
 my $seqCount = $db->getRecordCount();

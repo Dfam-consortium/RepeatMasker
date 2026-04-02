@@ -139,17 +139,14 @@ sub new {
   if ( defined $nameValuePairs{'famdb_dir'}
           && -d $nameValuePairs{'famdb_dir'} )
   {
-    if ( !defined $nameValuePairs{'famdb_prgm'}
-         || $nameValuePairs{'famdb_prgm'} eq ""
-         || !-x $nameValuePairs{'famdb_prgm'} )
+    if ( !-x "$nameValuePairs{'famdb_dir'}/famdb.py" )
     {
-      croak $CLASS . "::new() needs an executable famdb.py path via famdb_prgm!\n";
+      croak $CLASS . "::new() needs an executable famdb.py in " . $nameValuePairs{'famdb_dir'} . "\n";
     }
 
     # store the database filename to use later
     $this = {
       famdb_dir => $nameValuePairs{'famdb_dir'},
-      famdb_prgm => $nameValuePairs{'famdb_prgm'},
       isACache => {},
     };
 
@@ -385,7 +382,7 @@ sub _invokeFamDB {
     $args_quoted .= " '$argq'";
   }
 
-  my $result = `$famdb_prgm -i $db_dir $args_quoted 2>&1`;
+  my $result = `$db_dir/famdb.py $args_quoted 2>&1`;
   #print "RUNNING: $famdb_prgm -i $db_dir $args_quoted\n";
 
   if (    $result =~ /^\s*no results/i

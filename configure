@@ -93,7 +93,7 @@ if ( getcwd() ne $FindBin::RealBin ) {
 #   -t=s: String parameters
 #   -t=i: Number parameters
 #
-my @getopt_args = ( '-version', '-perlbin=s', '-force_rebuild' );
+my @getopt_args = ( '-version', '-perlbin=s' );
 
 # Add configuration parameters as additional command-line options
 push @getopt_args, RepeatMaskerConfig::getCommandLineOptions();
@@ -318,50 +318,36 @@ my $LIBDIR = $config->{'LIBDIR'}->{'value'};
 my $c_df_version = $df_version;
 $c_df_version =~ s/\.//g;
 
-print "\n\nChecking library configuration...\n\n";
+my $famdbConfigd = 0;
+if ( ! $options{'famdb_dir'} ) {
+  print "\nFamDB configuration [optional]\n";
 
-sub getFamDBProgram {
-  my $dir = $config->{'FAMDB_DIR'}->{'value'};
-  return "" if ( !defined $dir || $dir eq "" );
-  return "$dir/famdb.py";
-}
+  while ( 1 ) {
+    print "FamDB is a tool for indexing and accessing repeat libraries, and is required for\n" 
+        . "RepeatMasker to perform searches against the DFAM/Repbase database.  If you do not\n"
+        . "plan to use the -species option to RepeatMasker, you can skip this step and\n"
+        . "RepeatMasker will still work with custom libraries supplied with the -lib option.\n\n";
+    print "Enter the FamDB directory [dfam 4.0 or higher], or press ENTER to skip setup: ";
+    $answer = <STDIN>;
+    $answer =~ s/[\n\r]+//g;
 
-sub buildArtefactLibrary {
-  my $outFile = shift;
-  my $artefactFile = "$rmLocation/Libraries/Artefacts.embl";
-  my $builder = "$rmLocation/util/buildRMLibFromEMBL.pl";
+    if ( $answer eq "" ) {
+      last;
+    }
 
-  die "Could not find packaged artefact library $artefactFile\n"
-      unless ( -s $artefactFile );
+    if ( -d $answer && -x "$answer/famdb.py" ) {
+      $config->{'FAMDB_DIR'}->{'value'} = $answer;
+      $famdbConfigd = 1;
+      last;
+    }
 
-  print "Building packaged artefact library from Artefacts.embl ...\n";
-  system("$perlLocation $builder $artefactFile > $outFile");
-  if ( $? || ! -s $outFile ) {
-    die "Failed to build artefact library $outFile from $artefactFile\n";
+    print "\nThe FamDB directory \"$answer\" does not appear to contain an executable famdb.py\n";
+    print "Please try again, or press ENTER to skip FamDB setup.\n\n";
   }
 }
-
-
-my $rebuildRMLib = 1;
-$rebuildRMLib = 1 if ( $options{'force_rebuild'} );
-
-my $dbInfo = "";
-my $famdb_prgm = getFamDBProgram();
-my $haveFamDB = RepeatMaskerConfig::validateParam('FAMDB_DIR');
-if ( !$haveFamDB && $config->{'FAMDB_DIR'}->{'value'} ne "" ) {
-  die "The configured FAMDB_DIR (" . $config->{'FAMDB_DIR'}->{'value'} . ") is not valid.\n";
-}
-
-if ( $haveFamDB ) {
-  print "Using external FamDB installation:\n  " . $config->{'FAMDB_DIR'}->{'value'} . "\n\n";
-  $dbInfo = `$famdb_prgm info`;
-  if ( $? ) {
-    die "Could not execute external FamDB using: $famdb_prgm info\n";
-  }
-} else {
-  print "FamDB is not configured.\n";
-  print "RepeatMasker will still work with -lib and the packaged artefact library,\n";
-  print "but species-based searches will be unavailable until FAMDB_DIR is configured.\n\n";
+elsif ( defined $config->{'FAMDB_DIR'}->{'value'}
+        && $config->{'FAMDB_DIR'}->{'value'} ne "" ) {
+  $famdbConfigd = 1;
 }
 
 if ( ! $options{'trf_prgm'} ) {
@@ -381,77 +367,11 @@ if ( ! ( $options{'abblast_dir'} || $options{'rmblast_dir'} || $options{'hmmer_d
   #             is to not prompt for any engines.
 }
 
-if ( $haveFamDB && $rebuildRMLib ) {
-print "Building FASTA version of RepeatMasker.lib ...";
-
-defined(my $pid = fork) or die "Couldn't fork: $!";
-if (!$pid) { # Child
-  system("$famdb_prgm fasta_all > $LIBDIR/RepeatMasker.lib");
-  exit;
-} else { # Parent
-  while (! waitpid($pid, WNOHANG)) {
-    sleep 2;
-    print ".";
-  }
-}
-print "\n";
-
-print "Building RepeatPeps.lib from external FamDB ...";
-
-defined(my $ppid = fork) or die "Couldn't fork: $!";
-if (!$ppid) { # Child
-  system("$famdb_prgm repeat_peps > $LIBDIR/RepeatPeps.lib");
-  exit;
-} else { # Parent
-  while (! waitpid($ppid, WNOHANG)) {
-    sleep 2;
-    print ".";
-  }
-}
-print "\n";
-
-}
-
-#
-# Freeze RMLIB/RepeatPeps library for RepeatModeler use among others
-# 
-if ( RepeatMaskerConfig::validateParam('RMBLAST_DIR') ) 
-{
-   my $binDir = $config->{'RMBLAST_DIR'}->{'value'};
-   print "Building RMBlast frozen libraries..\n";
-   buildArtefactLibrary("$LIBDIR/is.lib");
-   if ( -s "$LIBDIR/RepeatMasker.lib" ) {
-     system(   "$binDir/makeblastdb -dbtype nucl -in "
-             . "$LIBDIR/RepeatMasker.lib > /dev/null 2>&1" );
-   }
-   if ( -s "$LIBDIR/RepeatPeps.lib" ) {
-     system(   "$binDir/makeblastdb -dbtype prot -in "
-             . "$LIBDIR/RepeatPeps.lib > /dev/null 2>&1" );
-   }
-}
-if ( RepeatMaskerConfig::validateParam('ABBLAST_DIR') ) 
-{
-   my $binDir = $config->{'ABBLAST_DIR'}->{'value'};
-   print "Building WUBlast/ABBlast frozen libraries..\n";
-   buildArtefactLibrary("$LIBDIR/is.lib");
-   if ( -s "$LIBDIR/RepeatMasker.lib" ) {
-     system(   "$binDir/xdformat -n -I "
-             . "$LIBDIR/RepeatMasker.lib > /dev/null 2>&1" );
-   }
-   if ( -s "$LIBDIR/RepeatPeps.lib" ) {
-     system(   "$binDir/xdformat -p -I "
-             . "$LIBDIR/RepeatPeps.lib > /dev/null 2>&1" );
-   }
-}
-
 # Save settings
 RepeatMaskerConfig::updateConfigFile();
 
-print "The program is installed with the following repeat libraries:\n";
-if ( $dbInfo ne "" ) {
-  print "$dbInfo\n";
-} else {
-  print "  Packaged artefact library only (species-based FamDB searches not configured)\n\n";
+if ( $famdbConfigd == 0 ) {
+  print "FamDB not configured, only '-lib mylibrary.fa' searches can be performed by RepeatMasker.\n\n";
 }
 
 print "Further documentation on the program may be found here:\n";

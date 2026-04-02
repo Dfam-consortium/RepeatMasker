@@ -26,8 +26,8 @@ RepeatProteinMask - Mask Repeat Proteins in DNA sequence
 
 =head1 SYNOPSIS
 
-  RepeatProteinMask [-engine ncbi|abblast|wublast] [-pvalue #] 
-                    [-minscore #] [-wordsize #] [-maxAADist] 
+  RepeatProteinMask [-engine ncbi|abblast|wublast] [-pvalue #]
+                    [-minscore #] [-wordsize #] [-maxAADist]
                     [-noLowSimple] [-queryStatLen #] <fasta file>
 
 =head1 DESCRIPTION
@@ -49,7 +49,7 @@ less than this number. Default is *NOT* to threshold.
 
 =item -minscore #
 
-Threshold on minscore.  Note no default is added. So all hits 
+Threshold on minscore.  Note no default is added. So all hits
 will be returned unless a minscore is used.
 
 =item -wordsize #
@@ -68,7 +68,7 @@ The maximum distance to consider two blastx hits as the same
 =item -noLowSimple
 
 Turns off masking/annotating of low complexity and simple repeats
-in the final output.  Low complexity and simple repeat analysis 
+in the final output.  Low complexity and simple repeat analysis
 will still occur prior to looking for matches to the RepeatPep
 database.
 
@@ -104,6 +104,8 @@ use Data::Dumper;
 use Pod::Text;
 use Carp;
 use Getopt::Long;
+use File::Spec;
+use File::Copy;
 
 # RepeatMasker Libraries
 use RepeatMaskerConfig;
@@ -137,8 +139,8 @@ my @opts =
 push @opts, RepeatMaskerConfig::getCommandLineOptions();
 
 #
-# Provide the POD text from this file and 
-# from the config file by merging them 
+# Provide the POD text from this file and
+# from the config file by merging them
 # together.  The heading "CONFIGURATION
 # OVERRIDES" provides the insertion point
 # for the configuration POD.
@@ -150,7 +152,7 @@ sub usage {
   open IN,"<$0" or die "Could not open self ($0) for generating documentation!";
   while (<IN>){
     if ( /^=head1\s+CONFIGURATION OVERRIDES\s*$/ )
-    { 
+    {
       my $c_pod = RepeatMaskerConfig::getPOD();
       if ( $c_pod ) {
         $pod_str .= $_ . $c_pod;
@@ -183,37 +185,191 @@ if ( $options{'help'} || !$#ARGV < 1 )
 }
 
 #
-# Resolve configuration settings using the following precedence: 
+# Resolve configuration settings using the following precedence:
 # command line first, then environment, followed by config
 # file.
 #
 RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
 my $LIBDIR = $config->{'LIBDIR'}->{'value'};
+my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
 my $NCBIBLASTX_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/blastx";
 my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
 my $ABBLASTX_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastx";
 my $XDFORMAT_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
 my $ABBLAST_DIR = $config->{'ABBLAST_DIR'}->{'value'};
 
+sub famdbProgramPath
+{
+  return "$FAMDB_DIR/famdb.py";
+}
+
+sub famdbConfigured
+{
+  return 0 if ( !defined $FAMDB_DIR || $FAMDB_DIR eq "" );
+  return 0 if ( !-d $FAMDB_DIR );
+  return 0 if ( !-x famdbProgramPath() );
+  return 1;
+}
+
+sub requireFamDBConfigured
+{
+  if ( !famdbConfigured() ) {
+    die $CLASS
+        . ": FAMDB_DIR is not configured. RepeatProteinMask requires an external FamDB installation\n"
+        . "because there is no -lib option for this tool.\n";
+  }
+}
+
+sub getFamDBInfo
+{
+  requireFamDBConfigured();
+
+  my $famdbCmd = famdbProgramPath() . " info";
+  open IN, "$famdbCmd |"
+      or die $CLASS . ": Could not run $famdbCmd\n";
+
+  my $dbTitle;
+  my $dbVersion;
+  my $dbDate;
+  my $dbConsCnt;
+  my $dbHMMCnt;
+  while ( <IN> ) {
+    if ( /^Database\s*:\s*(\S.*)/ ) {
+      $dbTitle = $1;
+    }
+    elsif ( /^Version\s*:\s*(\S.*)/ ) {
+      $dbVersion = $1;
+    }
+    elsif ( /^Date\s*:\s*(\S.*)/ ) {
+      $dbDate = $1;
+    }
+    elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
+      $dbConsCnt = $1;
+    }
+    elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
+      $dbHMMCnt = $1;
+    }
+  }
+  close IN;
+
+  die $CLASS . ": Could not determine FamDB version from `$famdbCmd`\n"
+      if ( !defined $dbVersion || $dbVersion eq "" );
+
+  $dbVersion =~ s/[^\w.\-]/_/g;
+
+  return {
+    dbTitle   => $dbTitle,
+    dbVersion => $dbVersion,
+    dbDate    => $dbDate,
+    dbConsCnt => $dbConsCnt,
+    dbHMMCnt  => $dbHMMCnt,
+  };
+}
+
+sub cachedRepeatPepsPath
+{
+  my $info = getFamDBInfo();
+  return "$LIBDIR/RepeatPeps-Dfam_" . $info->{'dbVersion'} . ".lib";
+}
+
+sub _compatRepeatPepsPath
+{
+  return "$LIBDIR/RepeatPeps.lib";
+}
+
+sub ensureRepeatPepsLibrary
+{
+  requireFamDBConfigured();
+
+  my $pepLib = cachedRepeatPepsPath();
+  my $tmpLib = "$pepLib.$$\.tmp";
+  my $famdb = famdbProgramPath();
+  my $compatLib = _compatRepeatPepsPath();
+
+  if ( !-s $pepLib ) {
+    print "Building cached RepeatPeps library from external FamDB...\n";
+    unlink( $tmpLib ) if ( -e $tmpLib );
+
+    my $cmd = $famdb . " repeat_peps > $tmpLib";
+    system( $cmd );
+
+    if ( $? || !-s $tmpLib ) {
+      unlink( $tmpLib ) if ( -e $tmpLib );
+      die $CLASS
+          . ": Failed to export RepeatPeps library from external FamDB using:\n"
+          . "  $cmd\n";
+    }
+
+    rename( $tmpLib, $pepLib )
+        or die $CLASS . ": Could not rename $tmpLib to $pepLib: $!\n";
+  }
+
+  # Maintain a compatibility symlink/copy for legacy tooling.
+  #if ( -l $compatLib || -e $compatLib ) {
+  #  unlink( $compatLib )
+  #      or die $CLASS . ": Could not remove stale $compatLib: $!\n";
+  #}
+
+  #if ( !symlink( $pepLib, $compatLib ) ) {
+  #  copy( $pepLib, $compatLib )
+  #      or die $CLASS
+  #      . ": Could not create compatibility copy $compatLib from $pepLib: $!\n";
+  #}
+
+  return $pepLib;
+}
+
+sub ensureFrozenRepeatPepsLibrary
+{
+  my $engine = shift;
+
+  my $pepLib = ensureRepeatPepsLibrary();
+
+  if ( $engine =~ /ncbi|rmblast/i ) {
+    my $psq = "$pepLib.psq";
+    if ( !-s $psq ) {
+      print "Building RMBlast protein database for $pepLib...\n";
+      system( "$NCBIBLASTDB_PRGM -dbtype prot -in $pepLib > /dev/null 2>&1" );
+      if ( $? || !-s $psq ) {
+        die $CLASS . ": Failed to build RMBlast protein database for $pepLib\n";
+      }
+    }
+  }
+  else {
+    my $xps = "$pepLib.xps";
+    if ( !-s $xps ) {
+      print "Building WU/ABBlast protein database for $pepLib...\n";
+      system( "$XDFORMAT_PRGM -p $pepLib > /dev/null 2>&1" );
+      if ( $? || !-s $xps ) {
+        die $CLASS . ": Failed to build WU/ABBlast protein database for $pepLib\n";
+      }
+    }
+  }
+
+  return $pepLib;
+}
+
 #
-# Setup the search engine                                              
-#                                                                           
-my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};       
-if ( exists $options{'engine'} ) {                               
-  if ( $options{'engine'} =~                                            
-       /^(ncbi|rmblast|wublast|abblast)$/i )      
-  {                                                                     
-    $engine = lc( $options{'engine'} );                   
-  }                               
-  else {                                                                       
+# Setup the search engine
+#
+my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};
+if ( exists $options{'engine'} ) {
+  if ( $options{'engine'} =~
+       /^(ncbi|rmblast|wublast|abblast)$/i )
+  {
+    $engine = lc( $options{'engine'} );
+  }
+  else {
     die "I have never heard of the search engine $options{'engine'}.  Please\n"
-        . "use rmblast/ncbi or abblast/wublast.\n";                       
-  }                               
-}                                 
+        . "use rmblast/ncbi or abblast/wublast.\n";
+  }
+}
 # Save normalized engine name back into options as well
 $options{'engine'} = $engine;
 
+requireFamDBConfigured();
+my $repeatPepsLib = ensureFrozenRepeatPepsLibrary( $options{'engine'} );
 
 # This will miss alot. But in GC rich DNA a lower score
 # will cause false positives
@@ -346,13 +502,6 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
       NCBIBlastXSearchEngine->new(
                          pathToEngine => $NCBIBLASTX_PRGM );
 
-  if ( !-s "$LIBDIR/RepeatPeps.lib.psq" )
-  {
-    system(   "$NCBIBLASTDB_PRGM -dbtype prot -in "
-            . "$LIBDIR/RepeatPeps.lib "
-            . "> /dev/null 2>&1" );
-  }
-
   my $additionalParams =
         " -word_size $wordSize -max_intron_length $maxAADist"
       . " -searchsp $queryStatLen -threshold $queryStatLen ";
@@ -364,18 +513,13 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
       WUBlastXSearchEngine->new(
                     pathToEngine => $ABBLASTX_PRGM );
 
-  if ( !-s "$LIBDIR/RepeatPeps.lib.xps" )
-  {
-    system( "$XDFORMAT_PRGM -p $LIBDIR/RepeatPeps.lib" );
-  }
-
   my $additionalParams =
       " -W=$wordSize hspsepqmax=$maxAADist" . " -Y=$queryStatLen ";
   $searchEngineX->setAdditionalParameters( $additionalParams );
 }
 
 $searchEngineX->setQuery( "$fastaFile.rmsimple" );
-$searchEngineX->setSubject( "$LIBDIR/RepeatPeps.lib" );
+$searchEngineX->setSubject( $repeatPepsLib );
 $searchEngineX->setFilterWords( 1 );
 if ( defined $options{'pvalue'} )
 {
@@ -563,99 +707,5 @@ sub maskResults
   close OUT;
 
 }
-
-########################################################################################
-########################################################################################
-########################################################################################
-########################################################################################
-
-#sub TRFMask {
-#  my $seqDB      = shift;
-#  my $trfObj     = shift;
-#  my $maskFile   = shift;
-#  my $scratchDir = shift;
-#
-#  open OUT, ">$maskFile"
-#      || die $CLASS . "::TRFMask: Could not open file $maskFile!\n";
-#
-#  # Create a tempDirectory for us
-#  my $tmpDir;
-#  do {
-#    $tmpDir = $scratchDir . "/trfResults-" . time();
-#  } while ( -d $tmpDir );
-#  mkdir( $tmpDir );
-#  $scratchDir = $tmpDir;
-#
-#  # Foreach sequence
-#  my $repeatsMasked = 0;
-#  my %allResults    = ();
-#  foreach my $seqID ( $seqDB->getIDs() ) {
-#
-#    print OUT ">" . $seqID . " " . $seqDB->getDescription( $seqID ) . "\n";
-#    my $seqLen = $seqDB->getSeqLength( $seqID );
-#
-#    # TODO: Make this capable of batching small sequences!
-#    # Break into 5mb pieces...NOTE: Must keep track of seqID
-#    for ( my $i = 0 ; $i < $seqLen ; $i += 5000000 ) {
-#      my $batchSeq;
-#
-#      # Create temp seq file
-#      open TMPFILE, ">$scratchDir/tmpseq.fa"
-#          || die $CLASS
-#          . ": Could not open "
-#          . "temporary file $scratchDir/tmpseq.fa for output!\n";
-#      print TMPFILE ">seq1\n";
-#      if ( $i + 5000000 > $seqLen ) {
-#        $batchSeq = $seqDB->getSubstr( $seqID, $i );
-#      }
-#      else {
-#        $batchSeq = $seqDB->getSubstr( $seqID, $i, 5000000 );
-#      }
-#      print TMPFILE "$batchSeq\n";
-#      close TMPFILE;
-#
-#      # Run TRF
-#      my ( $retCode, $trfResults ) = $trf->search( sequenceFile => "$scratchDir/tmpseq.fa",
-#                                                  workDir      => $scratchDir );
-#
-#      print $CLASS. ": TRF Returned " . $trfResults->size() . " results\n"
-#      ;
-#      #if ( $DEBUG );
-#
-#      for ( my $j = 0; $j < $trfResults->size(); $j++ )
-#      {
-#        my $result = $trfResults->get($j);
-#        bless $result, "TRFSearchResult";
-#
-#        # TODO: Document why?
-#        if (    $result->getCopyNumber() > 4
-#             && $result->getPeriod() > 1 )
-#        {
-#          # Mask
-#          my $start = $result->getQueryStart() - 1;
-#          my $len   = $result->getQueryEnd() - $start;
-#
-#          #print "Masking: ".$result->toString()."\n";
-#          substr( $batchSeq, $start, $len ) = "N" x $len;
-#          $repeatsMasked++;
-#          push @{ $allResults{$seqID} }, $result;
-#        }
-#      }
-#
-#      # write chunk out
-#      $batchSeq =~ s/(.{50})/$1\n/g;
-#      print OUT "$batchSeq\n";
-#
-#    }
-#  }
-#  close OUT;
-#  unlink( "$scratchDir/tmpseq.fa" ) if ( -e "$scratchDir/tmpseq.fa" );
-#
-#  system( "rm -rf $scratchDir" );
-#
-#  #print "   $repeatsMasked Tandem Repeats Masked\n";
-#
-#  return ( $repeatsMasked, \%allResults );
-#}
 
 1;
