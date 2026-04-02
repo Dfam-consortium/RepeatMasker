@@ -367,6 +367,11 @@ if ( ! ( $options{'abblast_dir'} || $options{'rmblast_dir'} || $options{'hmmer_d
   #             is to not prompt for any engines.
 }
 
+if ( $famdbConfigd ) {
+  my $repeatPepsLib = buildRepeatPepsLibrary();
+  freezeRepeatPepsLibrary( $repeatPepsLib );
+}
+
 # Save settings
 RepeatMaskerConfig::updateConfigFile();
 
@@ -510,6 +515,109 @@ sub writeConfig {
   open OUT, ">$fileName";
   print OUT $data_dumper->Dump();
   close OUT;
+}
+
+sub famdbProgramPath {
+  return $config->{'FAMDB_DIR'}->{'value'} . "/famdb.py";
+}
+
+sub getFamDBInfo {
+  my $famdbCmd = famdbProgramPath() . " info";
+  open IN, "$famdbCmd |"
+      or die "Could not run $famdbCmd\n";
+
+  my $dbTitle;
+  my $dbVersion;
+  my $dbDate;
+  my $dbConsCnt;
+  my $dbHMMCnt;
+  while ( <IN> ) {
+    if ( /^Database\s*:\s*(\S.*)/ ) {
+      $dbTitle = $1;
+    }
+    elsif ( /^Version\s*:\s*(\S.*)/ ) {
+      $dbVersion = $1;
+    }
+    elsif ( /^Date\s*:\s*(\S.*)/ ) {
+      $dbDate = $1;
+    }
+    elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
+      $dbConsCnt = $1;
+    }
+    elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
+      $dbHMMCnt = $1;
+    }
+  }
+  close IN;
+
+  die "Could not determine FamDB version from `$famdbCmd`\n"
+      if ( !defined $dbVersion || $dbVersion eq "" );
+
+  $dbVersion =~ s/[^\w.\-]/_/g;
+
+  return {
+    dbTitle   => $dbTitle,
+    dbVersion => $dbVersion,
+    dbDate    => $dbDate,
+    dbConsCnt => $dbConsCnt,
+    dbHMMCnt  => $dbHMMCnt,
+  };
+}
+
+sub getRepeatPepsPath {
+  my $info = getFamDBInfo();
+  return "$LIBDIR/RepeatPeps-Dfam_" . $info->{'dbVersion'} . ".lib";
+}
+
+sub buildRepeatPepsLibrary {
+  my $pepLib = getRepeatPepsPath();
+  my $tmpLib = "$pepLib.$$\.tmp";
+  my $famdb  = famdbProgramPath();
+
+  if ( ! -s $pepLib ) {
+    print "Building cached RepeatPeps library from external FamDB...\n";
+    unlink( $tmpLib ) if ( -e $tmpLib );
+
+    my $cmd = $famdb . " repeat_peps > $tmpLib";
+    system( $cmd );
+
+    if ( $? || ! -s $tmpLib ) {
+      unlink( $tmpLib ) if ( -e $tmpLib );
+      die "Failed to export RepeatPeps library from external FamDB using:\n"
+          . "  $cmd\n";
+    }
+
+    rename( $tmpLib, $pepLib )
+        or die "Could not rename $tmpLib to $pepLib: $!\n";
+  }
+
+  return $pepLib;
+}
+
+sub freezeRepeatPepsLibrary {
+  my $pepLib = shift;
+
+  if ( RepeatMaskerConfig::validateParam('RMBLAST_DIR') ) {
+    my $binDir = $config->{'RMBLAST_DIR'}->{'value'};
+    if ( ! -s "$pepLib.psq" ) {
+      print "Building RMBlast protein database for $pepLib...\n";
+      system( "$binDir/makeblastdb -dbtype prot -in $pepLib > /dev/null 2>&1" );
+      if ( $? || ! -s "$pepLib.psq" ) {
+        die "Failed to build RMBlast protein database for $pepLib\n";
+      }
+    }
+  }
+
+  if ( RepeatMaskerConfig::validateParam('ABBLAST_DIR') ) {
+    my $binDir = $config->{'ABBLAST_DIR'}->{'value'};
+    if ( ! -s "$pepLib.xps" ) {
+      print "Building WU/ABBlast protein database for $pepLib...\n";
+      system( "$binDir/xdformat -p $pepLib > /dev/null 2>&1" );
+      if ( $? || ! -s "$pepLib.xps" ) {
+        die "Failed to build WU/ABBlast protein database for $pepLib\n";
+      }
+    }
+  }
 }
 
 1;

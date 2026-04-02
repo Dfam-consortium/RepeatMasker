@@ -204,146 +204,80 @@ sub famdbProgramPath
   return "$FAMDB_DIR/famdb.py";
 }
 
-sub famdbConfigured
+sub getConfiguredFamDBVersion
 {
-  return 0 if ( !defined $FAMDB_DIR || $FAMDB_DIR eq "" );
-  return 0 if ( !-d $FAMDB_DIR );
-  return 0 if ( !-x famdbProgramPath() );
-  return 1;
-}
-
-sub requireFamDBConfigured
-{
-  if ( !famdbConfigured() ) {
-    die $CLASS
-        . ": FAMDB_DIR is not configured. RepeatProteinMask requires an external FamDB installation\n"
-        . "because there is no -lib option for this tool.\n";
-  }
-}
-
-sub getFamDBInfo
-{
-  requireFamDBConfigured();
+  return undef if ( !defined $FAMDB_DIR || $FAMDB_DIR eq "" );
+  return undef if ( !-d $FAMDB_DIR );
+  return undef if ( !-x famdbProgramPath() );
 
   my $famdbCmd = famdbProgramPath() . " info";
-  open IN, "$famdbCmd |"
-      or die $CLASS . ": Could not run $famdbCmd\n";
+  open IN, "$famdbCmd |" or return undef;
 
-  my $dbTitle;
   my $dbVersion;
-  my $dbDate;
-  my $dbConsCnt;
-  my $dbHMMCnt;
   while ( <IN> ) {
-    if ( /^Database\s*:\s*(\S.*)/ ) {
-      $dbTitle = $1;
-    }
-    elsif ( /^Version\s*:\s*(\S.*)/ ) {
+    if ( /^Version\s*:\s*(\S.*)/ ) {
       $dbVersion = $1;
-    }
-    elsif ( /^Date\s*:\s*(\S.*)/ ) {
-      $dbDate = $1;
-    }
-    elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
-      $dbConsCnt = $1;
-    }
-    elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
-      $dbHMMCnt = $1;
     }
   }
   close IN;
 
-  die $CLASS . ": Could not determine FamDB version from `$famdbCmd`\n"
-      if ( !defined $dbVersion || $dbVersion eq "" );
-
+  return undef if ( !defined $dbVersion || $dbVersion eq "" );
   $dbVersion =~ s/[^\w.\-]/_/g;
-
-  return {
-    dbTitle   => $dbTitle,
-    dbVersion => $dbVersion,
-    dbDate    => $dbDate,
-    dbConsCnt => $dbConsCnt,
-    dbHMMCnt  => $dbHMMCnt,
-  };
+  return $dbVersion;
 }
 
-sub cachedRepeatPepsPath
+sub getRepeatPepsLibrary
 {
-  my $info = getFamDBInfo();
-  return "$LIBDIR/RepeatPeps-Dfam_" . $info->{'dbVersion'} . ".lib";
-}
+  my $dbVersion = getConfiguredFamDBVersion();
+  my $pepLib;
 
-sub _compatRepeatPepsPath
-{
-  return "$LIBDIR/RepeatPeps.lib";
-}
-
-sub ensureRepeatPepsLibrary
-{
-  requireFamDBConfigured();
-
-  my $pepLib = cachedRepeatPepsPath();
-  my $tmpLib = "$pepLib.$$\.tmp";
-  my $famdb = famdbProgramPath();
-  my $compatLib = _compatRepeatPepsPath();
-
-  if ( !-s $pepLib ) {
-    print "Building cached RepeatPeps library from external FamDB...\n";
-    unlink( $tmpLib ) if ( -e $tmpLib );
-
-    my $cmd = $famdb . " repeat_peps > $tmpLib";
-    system( $cmd );
-
-    if ( $? || !-s $tmpLib ) {
-      unlink( $tmpLib ) if ( -e $tmpLib );
+  if ( defined $dbVersion ) {
+    $pepLib = "$LIBDIR/RepeatPeps-Dfam_" . $dbVersion . ".lib";
+    if ( ! -s $pepLib ) {
       die $CLASS
-          . ": Failed to export RepeatPeps library from external FamDB using:\n"
-          . "  $cmd\n";
+          . ": Could not find the configured RepeatPeps library:\n"
+          . "  $pepLib\n"
+          . "Please rerun configure and set up FAMDB_DIR so the protein library can be exported.\n";
     }
-
-    rename( $tmpLib, $pepLib )
-        or die $CLASS . ": Could not rename $tmpLib to $pepLib: $!\n";
+    return $pepLib;
   }
 
-  # Maintain a compatibility symlink/copy for legacy tooling.
-  #if ( -l $compatLib || -e $compatLib ) {
-  #  unlink( $compatLib )
-  #      or die $CLASS . ": Could not remove stale $compatLib: $!\n";
-  #}
-
-  #if ( !symlink( $pepLib, $compatLib ) ) {
-  #  copy( $pepLib, $compatLib )
-  #      or die $CLASS
-  #      . ": Could not create compatibility copy $compatLib from $pepLib: $!\n";
-  #}
-
-  return $pepLib;
+  my @libs = glob("$LIBDIR/RepeatPeps-Dfam_*.lib");
+  if ( @libs == 1 ) {
+    return $libs[0];
+  }
+  elsif ( @libs == 0 ) {
+    die $CLASS
+        . ": No RepeatPeps-Dfam_*.lib library was found in $LIBDIR.\n"
+        . "Please rerun configure and set up FAMDB_DIR so the protein library can be exported.\n";
+  }
+  else {
+    die $CLASS
+        . ": Multiple RepeatPeps-Dfam_*.lib libraries were found in $LIBDIR,\n"
+        . "and FAMDB_DIR is not configured well enough to determine which one to use.\n"
+        . "Please rerun configure and set up FAMDB_DIR.\n";
+  }
 }
 
-sub ensureFrozenRepeatPepsLibrary
+sub requireFrozenRepeatPepsLibrary
 {
   my $engine = shift;
-
-  my $pepLib = ensureRepeatPepsLibrary();
+  my $pepLib = getRepeatPepsLibrary();
 
   if ( $engine =~ /ncbi|rmblast/i ) {
-    my $psq = "$pepLib.psq";
-    if ( !-s $psq ) {
-      print "Building RMBlast protein database for $pepLib...\n";
-      system( "$NCBIBLASTDB_PRGM -dbtype prot -in $pepLib > /dev/null 2>&1" );
-      if ( $? || !-s $psq ) {
-        die $CLASS . ": Failed to build RMBlast protein database for $pepLib\n";
-      }
+    if ( ! -s "$pepLib.psq" ) {
+      die $CLASS
+          . ": The RMBlast protein database for\n"
+          . "  $pepLib\n"
+          . "is missing. Please rerun configure and set up FAMDB_DIR.\n";
     }
   }
   else {
-    my $xps = "$pepLib.xps";
-    if ( !-s $xps ) {
-      print "Building WU/ABBlast protein database for $pepLib...\n";
-      system( "$XDFORMAT_PRGM -p $pepLib > /dev/null 2>&1" );
-      if ( $? || !-s $xps ) {
-        die $CLASS . ": Failed to build WU/ABBlast protein database for $pepLib\n";
-      }
+    if ( ! -s "$pepLib.xps" ) {
+      die $CLASS
+          . ": The WU/ABBlast protein database for\n"
+          . "  $pepLib\n"
+          . "is missing. Please rerun configure and set up FAMDB_DIR.\n";
     }
   }
 
@@ -368,8 +302,7 @@ if ( exists $options{'engine'} ) {
 # Save normalized engine name back into options as well
 $options{'engine'} = $engine;
 
-requireFamDBConfigured();
-my $repeatPepsLib = ensureFrozenRepeatPepsLibrary( $options{'engine'} );
+my $repeatPepsLib = requireFrozenRepeatPepsLibrary( $options{'engine'} );
 
 # This will miss alot. But in GC rich DNA a lower score
 # will cause false positives
