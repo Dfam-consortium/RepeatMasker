@@ -469,6 +469,7 @@ my $CROSSMATCH_PRGM = $config->{'CROSSMATCH_DIR'}->{'value'} . "/cross_match";
 my $WUBLASTP_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastp";
 my $SETDB_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/setdb";
 my $TRF_PRGM = $config->{'TRF_PRGM'}->{'value'};
+my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
 
 # Determine the installation directory using 
 # location of the program that was invoked.
@@ -684,8 +685,15 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 #
 # Species & Library Setup
 #
-my $tax =
-    Taxonomy->new( famdb_dir => "$LIBDIR/famdb" );
+my $tax;
+if ( famdbConfigured() ) {
+  $tax = Taxonomy->new(
+            famdb_dir  => famdbDataDir(),
+            famdb_prgm => famdbProgramPath()
+         );
+} elsif ( defined $options{'species'} && $options{'species'} ne "" ) {
+  die "The -species option requires FamDB to be configured. Please configure FAMDB_DIR or use -lib.\n";
+}
 
 #
 # The search path for finding a place to store the cache
@@ -710,8 +718,10 @@ $options{'species'} = $resolvedSpecies;
 
 # Call isA a few times to populate the isACache. This must be done before
 # forking so that each fork sees the cached value instead of re-checking
-$tax->isA($options{'species'}, 'primates');
-$tax->isA($options{'species'}, 'rodentia');
+if ( defined $tax && defined $options{'species'} && $options{'species'} ne "" ) {
+  $tax->isA($options{'species'}, 'primates');
+  $tax->isA($options{'species'}, 'rodentia');
+}
 
 # Read in a frozen hash of element id's which are refineable.  This
 # hash is created by initLibraries the first time a library is initialized.
@@ -7533,6 +7543,65 @@ sub commify {
     return scalar reverse $text;
 }
 
+sub famdbConfigured {
+  return 0 if ( !defined $FAMDB_DIR || $FAMDB_DIR eq "" );
+  return 0 if ( !-d $FAMDB_DIR );
+  return 0 if ( !-x famdbProgramPath() );
+  return 1;
+}
+
+sub famdbProgramPath {
+  return "$FAMDB_DIR/famdb.py";
+}
+
+sub famdbDataDir {
+  return "$FAMDB_DIR/Libraries/famdb" if ( -d "$FAMDB_DIR/Libraries/famdb" );
+  return "$FAMDB_DIR/famdb"           if ( -d "$FAMDB_DIR/famdb" );
+  return $FAMDB_DIR;
+}
+
+sub requireFamDBConfigured {
+  my $reason = shift;
+  if ( ! famdbConfigured() ) {
+    die "$reason requires FamDB to be configured. Please set FAMDB_DIR and rerun configure, or use -lib.\n";
+  }
+}
+
+sub createArtefactLib {
+  my $libName      = shift;
+  my $searchEngine = shift;
+
+  my $artefactFile = "$REPEATMASKER_DIR/Libraries/Artefacts.embl";
+  my $outFile = $libName;
+  if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+    die "Artefact libraries are not currently supported with HMMER.\n";
+  } elsif ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+    $outFile = "$libName-wublast";
+  }
+
+  system("$^X $REPEATMASKER_DIR/util/buildRMLibFromEMBL.pl $artefactFile > $outFile");
+  if ( $? || ! -s $outFile ) {
+    die "Could not build artefact library $outFile from $artefactFile\n";
+  }
+
+  my ( $outFileVol, $outFileDir, $outFileBasename ) =
+      File::Spec->splitpath( $outFile );
+  $outFileDir = "." if ( $outFileDir eq "" );
+
+  if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
+    system("$SETDB_PRGM $outFile > $outFileDir/setdb.log 2>&1") == 0
+        or die "Error invoking setdb on $outFile\n";
+    unlink( $outFile ) unless ( $DEBUG );
+    move( "$outFile.ahd", "$libName.ahd" );
+    move( "$outFile.atb", "$libName.atb" );
+    move( "$outFile.bsq", "$libName.bsq" );
+  }
+  elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
+    system("$NCBIBLASTDB_PRGM -dbtype nucl -in $outFile > $outFileDir/rmblastdb.log 2>&1") == 0
+        or die "Error invoking $NCBIBLASTDB_PRGM on $outFile\n";
+  }
+}
+
 ##-------------------------------------------------------------------------##
 ##  my ( $species, $generalCacheDir, $speciesCacheDir, 
 ##       $customLibDir, $rmLibLabel ) =
@@ -7648,6 +7717,7 @@ sub initLibrariesFromFamdb {
     print "Using Custom Repeat Library: $customLibFile\n\n";
   }
   else {
+    requireFamDBConfigured("Built-in RepeatMasker species libraries");
 
     # Default species if non given.
     $species = "homo sapiens" if ( $species eq "" );
@@ -7656,7 +7726,7 @@ sub initLibrariesFromFamdb {
     # needs to be created.
     my $modelPrefix = "CONS-";
     $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
-    my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb info ";
+    my $famdbCmd = "" . famdbProgramPath() . " -i " . famdbDataDir() . " info ";
     open IN,"$famdbCmd |";
     my $dbTitle;
     my $dbVersion;
@@ -7725,7 +7795,7 @@ sub initLibrariesFromFamdb {
     # NOTE: orgFlag is a bit of a legacy concept that will probably disappear
     #       in a future RM version. 
     # TODO: Should REPEATMASKER_DIR be global???
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+    $famdbCmd = "" . famdbProgramPath() . " -i " . famdbDataDir() . " lineage '" .
                     $species . "' -f semicolon";
     #print "FamdbCMD: $famdbCmd\n";
     open IN,"$famdbCmd |";
@@ -7786,7 +7856,7 @@ sub initLibrariesFromFamdb {
 
  
     # Tabulate curated
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+    $famdbCmd = "" . famdbProgramPath() . " -i " . famdbDataDir() . " lineage '" .
                     $species . "' --curated --ancestors --descendants -f totals";
     open IN,"$famdbCmd |";
     my $curated_ancestor_counts = 0;
@@ -7804,7 +7874,7 @@ sub initLibrariesFromFamdb {
     }
     
     # Tabulate uncurated
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+    $famdbCmd = "" . famdbProgramPath() . " -i " . famdbDataDir() . " lineage '" .
                     $species . "' --uncurated --ancestors --descendants -f totals";
     open IN,"$famdbCmd |";
     my $uncurated_ancestor_counts = 0;
@@ -7974,9 +8044,7 @@ sub initLibrariesFromFamdb {
         }
       }
 
-      &createLibFromFamdb( $rmLibDir, 
-                           "$writableCacheDir/$dbLabel/general.working/is.lib", 
-                           'root', 10, $searchEngine );
+      createArtefactLib( "$writableCacheDir/$dbLabel/general.working/is.lib", $searchEngine );
       # Rename or copy upon successful completion
       if ( -d "$writableCacheDir/$dbLabel/general" ) {
         # Directory exists but setup for a different search engine - copy files over
@@ -7993,6 +8061,7 @@ sub initLibrariesFromFamdb {
     }
 
     if ( !$customLibFile ) {
+      requireFamDBConfigured("Species-based cached library generation");
       if ( $speciesCacheDir eq "" ) {
 
         # Need to build species specific libraries
@@ -8013,7 +8082,7 @@ sub initLibrariesFromFamdb {
         # the refinelib.
         my $cOpt = "--curated";
         $cOpt = "" if ( $options{'uncurated'} );
-        my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+        my $famdbCmd = "" . famdbProgramPath() . " -i " . famdbDataDir() . " families '" .
                        $species . "' $cOpt --ancestors --descendants -f embl_meta";
         open IN,"$famdbCmd|";
         my $acc;
@@ -8205,7 +8274,7 @@ sub createLibFromFamdb {
   #       special case selections internally.
   my $cOpt = "--curated";
   $cOpt = "" if ( $options{'uncurated'} );
-  my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" . 
+  my $famdbCmd = "" . famdbProgramPath() . " -i " . famdbDataDir() . " families '" . 
               $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
   if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
     $famdbCmd .= " --add-reverse-complement";
@@ -8219,7 +8288,7 @@ sub createLibFromFamdb {
   # RMH: 6/27/2025
   if ( $addUndefined ) {
     # Add the undefined sequences to the library
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+    $famdbCmd = "" . famdbProgramPath() . " -i " . famdbDataDir() . " families '" .
                  $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage 0 -f $format";
     if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
       $famdbCmd .= " --add-reverse-complement";

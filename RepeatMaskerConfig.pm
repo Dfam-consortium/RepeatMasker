@@ -85,8 +85,20 @@ BEGIN {
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => ''
+                                       'value' => 'rmblast'
                                      },
+          'FAMDB_DIR' => {
+                           'command_line_override' => 'famdb_dir',
+                           'description' => 'The path to the external FamDB installation directory. This directory must contain famdb.py and the associated FamDB data installation.',
+                           'environment_override' => 'FAMDB_DIR',
+                           'expected_binaries' => [
+                                                    'famdb.py'
+                                                  ],
+                           'expected_files' => [],
+                           'param_type' => 'directory',
+                           'required' => 0,
+                           'value' => ''
+                         },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
                            'description' => 'The path to the HMMER profile HMM search software.',
@@ -105,13 +117,11 @@ BEGIN {
                         'environment_override' => 'LIBDIR',
                         'expected_binaries' => [],
                         'expected_files' => [
-                                              'RepeatAnnotationData.pm',
-                                              'RepeatPeps.lib',
-                                              'RMRBMeta.embl'
+                                              'Artefacts.embl'
                                             ],
                         'param_type' => 'directory',
-                        'required' => 0,
-                        'value' => ''
+                        'required' => 1,
+                        'value' => '/u3/home/rhubley/RMTesting/RepeatMasker/Libraries'
                       },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
@@ -128,7 +138,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => ''
+                             'value' => '/usr/local/rmblast/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',
@@ -136,7 +146,7 @@ BEGIN {
                           'environment_override' => 'TRF_PRGM',
                           'param_type' => 'program',
                           'required' => 1,
-                          'value' => ''
+                          'value' => '/usr/local/bin/trf'
                         }
         };
 

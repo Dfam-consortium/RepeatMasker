@@ -65,7 +65,6 @@ in the RepeatMasker database.
 
 package Taxonomy;
 use strict;
-use FindBin;
 use Data::Dumper;
 use FastaDB;
 use EMBL;
@@ -89,7 +88,6 @@ require Exporter;
 my $VERSION = 0.1;
 my $CLASS   = "Taxonomy";
 
-my $FAMDB = "$FindBin::Bin/famdb.py";
 
 ##-------------------------------------------------------------------------##
 
@@ -141,10 +139,17 @@ sub new {
   if ( defined $nameValuePairs{'famdb_dir'}
           && -d $nameValuePairs{'famdb_dir'} )
   {
+    if ( !defined $nameValuePairs{'famdb_prgm'}
+         || $nameValuePairs{'famdb_prgm'} eq ""
+         || !-x $nameValuePairs{'famdb_prgm'} )
+    {
+      croak $CLASS . "::new() needs an executable famdb.py path via famdb_prgm!\n";
+    }
 
     # store the database filename to use later
     $this = {
       famdb_dir => $nameValuePairs{'famdb_dir'},
+      famdb_prgm => $nameValuePairs{'famdb_prgm'},
       isACache => {},
     };
 
@@ -242,7 +247,7 @@ sub isSpecies {
   $species = lc($species);
   $species = $supplementalSynonyms{$species} if exists $supplementalSynonyms{$species} ;
 
-  if ( $result =~ /(\d+):\s*(.*)\s*\[(\d+)\]/ ) {
+  if ( $result =~ /(\d+)\(\d+\):\s*(.*)\s*\[(\d+)\]/ ) {
     my $lineage = $2;
     $lineage =~ s/^\s*|\s*$//g;
     my @lineage = split ';', $lineage;
@@ -371,6 +376,7 @@ sub _invokeFamDB {
   my $args = shift;
 
   my $db_dir = $this->{famdb_dir};
+  my $famdb_prgm = $this->{famdb_prgm};
 
   my $args_quoted = "";
   for my $arg (@{$args}) {
@@ -379,8 +385,8 @@ sub _invokeFamDB {
     $args_quoted .= " '$argq'";
   }
 
-  my $result = `$FAMDB -i $db_dir $args_quoted 2>&1`;
-  #print "RUNNING: $FAMDB -i $db_dir $args_quoted\n";
+  my $result = `$famdb_prgm -i $db_dir $args_quoted 2>&1`;
+  #print "RUNNING: $famdb_prgm -i $db_dir $args_quoted\n";
 
   if (    $result =~ /^\s*no results/i
        || $result =~ /^\s*no species/i
