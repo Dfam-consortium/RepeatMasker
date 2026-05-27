@@ -1,3 +1,8 @@
+4.2.4 INDEV
+  - Mark Diekhans reported a negative subject coordinate.  I found the problem in
+    RepeatMasker::createSubEleements().  It might have only impacted reverse strand hits.
+    I need to check this against Pio's reported problem case and then test against a full
+    genome run to make sure this is a good fix.  The code is in RMTEST
 4.2.3
   - BUGFIX: Since the 4.1.1 release the staged approach to searching
     TE families has not been applied species in the 'rodentia' order

@@ -233,6 +233,7 @@ if ( defined $options{'species'} ) {
 }
 
 my %seqUnambigSizes = ();
+my $twoBitUsed = 0;
 if ( defined $options{'genome'} ) {
   if ( $options{'genome'} =~ /.*\.2bit/ ) {
     open IN, "twoBitInfo -noNs $options{'genome'} stdout |"
@@ -243,6 +244,7 @@ if ( defined $options{'genome'} ) {
       }
     }
     close IN;
+    $twoBitUsed = 1;
   }
   elsif ( $options{'genome'} =~ /.*\.tsv/ ) {
     open IN, "<$options{'genome'}"
@@ -574,6 +576,35 @@ print "Repeat Classes\n";
 print "==============\n";
 print "Total Sequences: " . scalar( keys( %seqs ) ) . "\n";
 print "Total Length: $totalSeqLen bp\n";
+if ( defined $options{'genome'} ) {
+  print " - The sequences and lengths were obtained from the supplied genome\n";
+  print "   file: " . $options{'genome'} . "\n";
+  if ( defined $options{'useAbsoluteGenomeSize'} ) {
+    if ( $twoBitUsed ) {
+      print "   The totals represent all unambiguous bases (e.g. -noNs) for all\n";
+      print "   sequences in the 2bit file.\n"
+    }else {
+      print "   The totals represent all the sequences and their respective lengths\n";
+      print "   supplied in the .tsv file.\n";
+    }
+  }else {
+    if ( $twoBitUsed ) {
+      print "   The totals represent all unambiguous bases (e.g. -noNs) for all\n";
+      print "   sequences found in the RepeatMasker annotation output.\n"
+    }else {
+      print "   The totals represent the subset of sequences and their respective\n";
+      print "   lengths for which there was at least one annotation by RepeatMasker.\n";
+    }
+    print "   If you want the totals to represent the complete genome, use\n";
+    print "   the -useAbsoloteGenomeSize option.\n";
+  }
+}else {
+  print " - The sequences and lengths were obtained from the RepeatMasker annotation\n";
+  print "   file directly.  The totals only represent sequences for which there was at\n";
+  print "   least one annotation by RepeatMasker and may not represent the full genome.\n";
+  print "   Use the -genome and optionally the -useAbsoluteGenomeSize options to\n";
+  print "   obtain full genome totals.\n";
+}
 if ( $options{'species'} ) {
   print "Ancestral Repeats: $ancestralCount ( $ancestralBPMasked bp )\n";
   print
