@@ -40,7 +40,7 @@ use Taxonomy;
 
 Usage: 
 
-my $taxDB = Taxonomy->new( famdb_dir => "Libraries/famdb" );
+my $taxDB = Taxonomy->new();
 
 if ( $taxDB->isA( "Mouse", "Mammalia" ) ) {
   print "A Mouse is a Mammal!\n";
@@ -66,10 +66,12 @@ in the RepeatMasker database.
 package Taxonomy;
 use strict;
 use FindBin;
+use lib $FindBin::Bin;
 use Data::Dumper;
 use FastaDB;
 use EMBL;
 use Carp;
+require RepeatMaskerConfig;
 
 use Storable qw(nstore retrieve);
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
@@ -89,7 +91,7 @@ require Exporter;
 my $VERSION = 0.1;
 my $CLASS   = "Taxonomy";
 
-my $FAMDB = "$FindBin::Bin/famdb.py";
+my $FAMDB = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'} . "/famdb.py";
 
 ##-------------------------------------------------------------------------##
 
@@ -97,10 +99,10 @@ my $FAMDB = "$FindBin::Bin/famdb.py";
 
 =over 4
 
-=item my $instance = Taxonomy->new( famdb_dir => "directory" );
+=item my $instance = Taxonomy->new();
 
-Construct a new Taxonomy object.  Use the FamDB directory
-specified for queries.
+Construct a new Taxonomy object.  FamDB is located via the
+FAMDB_DIR setting in RepeatMaskerConfig.
 
 =back
 
@@ -133,29 +135,14 @@ my %supplementalSynonyms = (
 
 ##-------------------------------------------------------------------------##
 sub new {
-  my $class          = shift;
-  my %nameValuePairs = @_;
+  my $class = shift;
 
-  my $this = {};
-
-  if ( defined $nameValuePairs{'famdb_dir'}
-          && -d $nameValuePairs{'famdb_dir'} )
-  {
-
-    # store the database filename to use later
-    $this = {
-      famdb_dir => $nameValuePairs{'famdb_dir'},
-      isACache => {},
-    };
-
-    # Bless this hash in the name of the father, the son...
-    bless $this, $class;
-
-  }
-  else {
-    croak $CLASS. "::new() needs a path for a famdb directory!\n";
+  if ( $FAMDB eq "/famdb.py" || ! -x $FAMDB ) {
+    croak $CLASS . "::new() requires FamDB to be configured (FAMDB_DIR).\n" .
+          "Re-run the RepeatMasker configure script to set up FamDB.\n";
   }
 
+  my $this = bless { isACache => {} }, $class;
   return $this;
 }
 
@@ -195,9 +182,8 @@ sub getLineage {
 
   my $result = $this->_invokeFamDB([ "lineage", "--ancestors", "--format=semicolon", $species ]);
 
-  # RMH: 2024-09-13: Famdb added the partition to the format of this output line.  This broke
-  # the parsing of the lineage.
-  if ( $result =~ /(\d+)\(\d+\):\s*(.*)\s*\[(\d+)\]/ ) {
+  # FamDB 4.0 format: 9606(cc:0,ch:1,uc:0,uh:50): root;...;Homo sapiens [52]
+  if ( $result =~ /(\d+)\([^)]+\):\s*(.*)\s*\[(\d+)\]/ ) {
     my ( $taxId, $lineage, $count ) = ( $1, $2, $3 );
     $lineage =~ s/^\s*|\s*$//g;
     @lineage = split ';', $lineage;
@@ -242,7 +228,7 @@ sub isSpecies {
   $species = lc($species);
   $species = $supplementalSynonyms{$species} if exists $supplementalSynonyms{$species} ;
 
-  if ( $result =~ /(\d+):\s*(.*)\s*\[(\d+)\]/ ) {
+  if ( $result =~ /(\d+)\([^)]+\):\s*(.*)\s*\[(\d+)\]/ ) {
     my $lineage = $2;
     $lineage =~ s/^\s*|\s*$//g;
     my @lineage = split ';', $lineage;
@@ -370,8 +356,6 @@ sub _invokeFamDB {
   my $this = shift;
   my $args = shift;
 
-  my $db_dir = $this->{famdb_dir};
-
   my $args_quoted = "";
   for my $arg (@{$args}) {
     my $argq = $arg;
@@ -379,8 +363,8 @@ sub _invokeFamDB {
     $args_quoted .= " '$argq'";
   }
 
-  my $result = `$FAMDB -i $db_dir $args_quoted 2>&1`;
-  #print "RUNNING: $FAMDB -i $db_dir $args_quoted\n";
+  my $result = `$FAMDB $args_quoted 2>&1`;
+  #print "RUNNING: $FAMDB $args_quoted\n";
 
   if (    $result =~ /^\s*no results/i
        || $result =~ /^\s*no species/i

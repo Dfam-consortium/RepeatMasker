@@ -395,7 +395,7 @@ my $cmdLine = $0 . join( ' ', @ARGV );
 my @opts = qw( a|alignments ace alu cutoff=s dir=s
     div=s excln frag=s gc=s gccalc gff
     help int noint inv is_clip is_only lib=s
-    low nolow lcambig libdir=s no_id no_is nocut
+    low nolow lcambig no_id no_is nocut
     noisy norna parallel=i poly q qq
     s small species|sp=s uncurated u fptest rbrm_only
     x xm xsmall nopost engine|e=s source html debug=s );
@@ -469,20 +469,15 @@ my $CROSSMATCH_PRGM = $config->{'CROSSMATCH_DIR'}->{'value'} . "/cross_match";
 my $WUBLASTP_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastp";
 my $SETDB_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/setdb";
 my $TRF_PRGM = $config->{'TRF_PRGM'}->{'value'};
+my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
 
-# Determine the installation directory using 
+# Determine the installation directory using
 # location of the program that was invoked.
-my $LIBDIR = $config->{'LIBDIR'}->{'value'};
-if ( $LIBDIR eq "" ) {
-  die "The path to the RepeatMasker libraries is not set.  This\n" .
-      "is typically the case when the RepeatMasker has not been\n" .
-      "initially configured.  Please run the RepeatMasker/configure\n" .
-      "program before retrying RepeatMasker";
-}
+my $LIBDIR = "$FindBin::RealBin/Libraries";
 unless ( -d $LIBDIR ) {
-  die "The path to the Libraries directory is set incorrectly:\n" .
-      "    $LIBDIR\n".
-      "does not exist.  Please re-run the configure program.\n";
+  die "The RepeatMasker Libraries directory does not exist:\n" .
+      "    $LIBDIR\n" .
+      "The RepeatMasker installation may be incomplete.\n";
 }
 
 my $MATDIR = "$REPEATMASKER_DIR/Matrices";
@@ -684,8 +679,15 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 #
 # Species & Library Setup
 #
-my $tax =
-    Taxonomy->new( famdb_dir => "$LIBDIR/famdb" );
+my $tax;
+if ( $options{'species'} && $FAMDB_DIR eq "" ) {
+  die "FamDB is required for -species searches but is not configured.\n" .
+      "Re-run the RepeatMasker configure script to set up FamDB,\n" .
+      "or use -lib to provide a custom repeat library directly.\n";
+}
+if ( $FAMDB_DIR ne "" ) {
+  $tax = Taxonomy->new();
+}
 
 #
 # The search path for finding a place to store the cache
@@ -710,8 +712,10 @@ $options{'species'} = $resolvedSpecies;
 
 # Call isA a few times to populate the isACache. This must be done before
 # forking so that each fork sees the cached value instead of re-checking
-$tax->isA($options{'species'}, 'primates');
-$tax->isA($options{'species'}, 'rodentia');
+if ( $tax && $options{'species'} ) {
+  $tax->isA($options{'species'}, 'primates');
+  $tax->isA($options{'species'}, 'rodentia');
+}
 
 # Read in a frozen hash of element id's which are refineable.  This
 # hash is created by initLibraries the first time a library is initialized.
@@ -7068,12 +7072,7 @@ sub cleanUp {
 ##
 ##  Returns
 ##
-##     Creates a library by filtering the RepeatMasker.lib file
-##     given specific filtering parameters ( specPattern and stageNum).
-##     If wublast is being used it also creates the binary versions
-##     of the fasta library.  Returns the number of sequences stored
-##     in the library.  Removes the library file if there are no
-##     matching sequences.
+##     (legacy createLib - removed; use createLibFromFamdb)
 ##
 ##  Globals Used: None
 ##-------------------------------------------------------------------------##
@@ -7540,7 +7539,7 @@ sub commify {
 ##
 ##      species       : "-species" option provided by the user or undef.
 ##      customLibFile : "-lib" option provided by the user or undef.
-##      rmLibDir      : Directory containing the famdb/ subdirectory.
+##      rmLibDir      : The RepeatMasker libraries directory.
 ##      workingDir    : The programs working directory (e.g "RM_#####..").
 ##      libraryPath   : Search path for cached RM libraries.
 ##      searchEngine  : The search engine object.
@@ -7656,7 +7655,7 @@ sub initLibrariesFromFamdb {
     # needs to be created.
     my $modelPrefix = "CONS-";
     $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
-    my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb info ";
+    my $famdbCmd = "$FAMDB_DIR/famdb.py info";
     open IN,"$famdbCmd |";
     my $dbTitle;
     my $dbVersion;
@@ -7696,7 +7695,7 @@ sub initLibrariesFromFamdb {
     $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
     $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
     $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
-    print "\nUsing Master RepeatMasker Database: $rmLibDir/famdb\n";
+    print "\nUsing FamDB: $FAMDB_DIR\n";
     print "  Title    : $dbTitle\n";
     print "  Version  : $dbVersion\n";
     print "  Date     : $dbDate\n";
@@ -7709,15 +7708,8 @@ sub initLibrariesFromFamdb {
     ## For minimal DB installs, -species is not an option.
     if ( $dbTitle eq "Sequencing_artifacts_only" ) {
       die "\nERROR: A database of TE families is not present.\n" .
-          "         Either install the Dfam famDB root partition and additional\n" .
-          "         optional partitions or use the -lib option and provide your\n" .
-          "         own custom TE FASTA library file.\n\n".
-          "  To install Dfam FamDB partitions, simply download the root ('0') partition\n" .
-          "  from https://www.dfam.org/releases/current/families/FamDB/ into your\n".
-          "  RepeatMasker/Libraries/famdb folder and rerun the RepeatMasker 'configure'\n" .
-          "  tool to complete the installation. See the FamDB release notes and partition\n" .
-          "  descriptions https://www.dfam.org/releases/current/families/FamDB/README.txt\n" .
-          "  for further details.\n\n";
+          "         Either install FamDB (see https://github.com/Dfam-consortium/FamDB)\n" .
+          "         or use the -lib option and provide your own custom TE FASTA library file.\n\n";
     }
 
     # TODO Print total Taxa count
@@ -7725,7 +7717,7 @@ sub initLibrariesFromFamdb {
     # NOTE: orgFlag is a bit of a legacy concept that will probably disappear
     #       in a future RM version. 
     # TODO: Should REPEATMASKER_DIR be global???
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
                     $species . "' -f semicolon";
     #print "FamdbCMD: $famdbCmd\n";
     open IN,"$famdbCmd |";
@@ -7734,13 +7726,12 @@ sub initLibrariesFromFamdb {
     my $NCBITaxName;
     my $msg = "";
     while ( <IN> ) {
-      # current famdb lineage output:
-      # 370040(0): root;cellular organisms;Eukaryota;Opisthokonta;Metazoa;Eumetazoa;Bilateria;Deuterostomia;Chordata;Craniata;Vertebrata;Gnathostomata;Teleostomi;Euteleostomi;Actinopterygii;Actinopteri;Neopterygii;Teleostei;Osteoglossocephalai;Clupeocephala;Euteleosteomorpha;Neoteleostei;Eurypterygia;Ctenosquamata;Acanthomorphata;Euacanthomorphacea;Percomorphaceae;Ovalentaria;Mugilomorphae;Mugiliformes;Mugilidae;Planiliza;Planiliza haematocheilus [1469]
-      #1299 entries in ancestors; 8 lineage-specific entries
-      $orgFlag = "mammalia" if ( /^\d+\(\d+\):\s.*;Mammalia(;| \[)/ );
-      $orgFlag = "rodentia" if ( /^\d+\(\d+\):\s.*;Rodentia(;| \[)/ );
-      $orgFlag = "primates" if ( /^\d+\(\d+\):\s.*;Primates(;| \[)/ );
-      if ( /^(\d+)\(\d+\):\s+(root.*)\;(\S.*)\s+\[.*/ ) {
+      # current famdb lineage output (FamDB 4.0+):
+      # 9606(cc:0,ch:1,uc:0,uh:50): root;cellular organisms;...;Homo sapiens [52]
+      $orgFlag = "mammalia" if ( /^\d+\([^)]+\):\s.*;Mammalia(;| \[)/ );
+      $orgFlag = "rodentia" if ( /^\d+\([^)]+\):\s.*;Rodentia(;| \[)/ );
+      $orgFlag = "primates" if ( /^\d+\([^)]+\):\s.*;Primates(;| \[)/ );
+      if ( /^(\d+)\([^)]+\):\s+(root.*)\;(\S.*)\s+\[.*/ ) {
         $NCBITaxID = $1;
         $lineage = $2;
         $NCBITaxName = $3;
@@ -7786,7 +7777,7 @@ sub initLibrariesFromFamdb {
 
  
     # Tabulate curated
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
                     $species . "' --curated --ancestors --descendants -f totals";
     open IN,"$famdbCmd |";
     my $curated_ancestor_counts = 0;
@@ -7804,7 +7795,7 @@ sub initLibrariesFromFamdb {
     }
     
     # Tabulate uncurated
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
                     $species . "' --uncurated --ancestors --descendants -f totals";
     open IN,"$famdbCmd |";
     my $uncurated_ancestor_counts = 0;
@@ -8013,7 +8004,7 @@ sub initLibrariesFromFamdb {
         # the refinelib.
         my $cOpt = "--curated";
         $cOpt = "" if ( $options{'uncurated'} );
-        my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+        my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
                        $species . "' $cOpt --ancestors --descendants -f embl_meta";
         open IN,"$famdbCmd|";
         my $acc;
@@ -8171,8 +8162,8 @@ sub initLibrariesFromFamdb {
 ##
 ##  Returns
 ##
-##     Creates a library by filtering the RepeatMasker.lib file
-##     given specific filtering parameters ( species and stageNum).
+##     Creates a library by querying FamDB for families matching the
+##     given species and stageNum filtering parameters.
 ##     If wublast is being used it also creates the binary versions
 ##     of the fasta library. Removes the library file if there are no
 ##     matching sequences.
@@ -8205,7 +8196,7 @@ sub createLibFromFamdb {
   #       special case selections internally.
   my $cOpt = "--curated";
   $cOpt = "" if ( $options{'uncurated'} );
-  my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" . 
+  my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
               $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
   if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
     $famdbCmd .= " --add-reverse-complement";
@@ -8219,7 +8210,7 @@ sub createLibFromFamdb {
   # RMH: 6/27/2025
   if ( $addUndefined ) {
     # Add the undefined sequences to the library
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+    $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
                  $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage 0 -f $format";
     if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
       $famdbCmd .= " --add-reverse-complement";

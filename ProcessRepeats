@@ -169,12 +169,12 @@ use Matrix;
 use RepeatMaskerConfig;
 
 # This is a special database-specific module
-my $LIBDIR;
+my $FAMDB_DIR;
 BEGIN {
   my $config = $RepeatMaskerConfig::configuration;
-  $LIBDIR = $config->{'LIBDIR'}->{'value'};
+  $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
 }
-use lib $LIBDIR;
+use lib "$FindBin::RealBin/Libraries";
 use RepeatAnnotationData;
 
 # Global variables
@@ -242,10 +242,13 @@ else {
 ## NOTE: Tax needs to be global for the moment
 my $tax;
 if ( $options{'species'} ) {
+  if ( $FAMDB_DIR eq "" ) {
+    die "FamDB is required for -species mode but is not configured.\n" .
+        "Re-run the RepeatMasker configure script to set up FamDB.\n";
+  }
 
   # Need to set opt_species, opt_mammal, opt_mus
-  $tax =
-      Taxonomy->new( famdb_dir => "$LIBDIR/famdb" );
+  $tax = Taxonomy->new();
 
   if ( $tax->isA( $options{'species'}, "primates" ) ) {
     $options{'primate'} = 1;

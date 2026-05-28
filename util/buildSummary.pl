@@ -127,6 +127,7 @@ use Getopt::Long;
 use Data::Dumper;
 use Taxonomy;
 use EMBL;
+use RepeatMaskerConfig;
 
 #
 # Version
@@ -206,9 +207,15 @@ if ( ! _program_in_path("twoBitInfo") ) {
 }
 
 
+my $FAMDB_DIR = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'};
+
 my %taxaFamIDs = ();
 if ( defined $options{'species'} ) {
-  my $famdbCmd = "$FindBin::RealBin/../famdb.py -i $LIBDIR/famdb families '" .
+  if ( $FAMDB_DIR eq "" ) {
+    die "FamDB is required for -species filtering but is not configured.\n" .
+        "Re-run the RepeatMasker configure script to set up FamDB.\n";
+  }
+  my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
                        $options{'species'} . "' --descendants -f embl_meta";
   #print "Running $famdbCmd\n";
   open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";

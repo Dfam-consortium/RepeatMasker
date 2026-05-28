@@ -87,6 +87,18 @@ BEGIN {
                                        'required' => 1,
                                        'value' => 'rmblast'
                                      },
+          'FAMDB_DIR' => {
+                           'command_line_override' => 'famdb_dir',
+                           'description' => 'The path to the installation of the FamDB package (famdb.py).',
+                           'environment_override' => 'FAMDB_DIR',
+                           'expected_binaries' => [
+                                                    'famdb.py'
+                                                  ],
+                           'expected_files' => [],
+                           'param_type' => 'directory',
+                           'required' => 0,
+                           'value' => '/usr/local/FamDB-Dfam-4.0'
+                         },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
                            'description' => 'The path to the HMMER profile HMM search software.',
@@ -99,20 +111,6 @@ BEGIN {
                            'required' => 0,
                            'value' => '/usr/local/hmmer/bin'
                          },
-          'LIBDIR' => {
-                        'command_line_override' => 'libdir',
-                        'description' => 'Path to the RepeatMasker libraries directory.',
-                        'environment_override' => 'LIBDIR',
-                        'expected_binaries' => [],
-                        'expected_files' => [
-                                              'RepeatAnnotationData.pm',
-                                              'RepeatPeps.lib',
-                                              'RMRBMeta.embl'
-                                            ],
-                        'param_type' => 'directory',
-                        'required' => 0,
-                        'value' => '/home/rhubley/projects/RepeatMasker/Libraries'
-                      },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
                              'description' => 'The path to the installation of the RMBLAST sequence alignment program.',
@@ -128,7 +126,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => '/home/rhubley/projects/Claude/rmblast-port/rmblast/target/release'
+                             'value' => '/usr/local/rmblast/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',

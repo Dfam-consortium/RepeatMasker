@@ -268,19 +268,17 @@ print "Using this many jobs: $pa\n";
 #
 RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
-my $LIBDIR = $config->{'LIBDIR'}->{'value'};
-
 #
 # Magic numbers/constants here
 #  ie. my $PI = 3.14159;
 #
 my $DEBUG        = 0;
 $DEBUG = 1 if ( $RepeatMaskerConfig::DEBUGALL == 1 );
-my $dupliconLib  = "$LIBDIR/dupliconlib.fa";
+my $dupliconLib  = "$FindBin::RealBin/Libraries/dupliconlib.fa";
 my $REPEATMASKER = "$FindBin::RealBin/RepeatMasker";
 
 die "\n\nThe dupliconlib doesn't appear to be installed in the\n"
-    . "RepeatMasker libraries directory ( $LIBDIR ).  Please download and install\n"
+    . "RepeatMasker Libraries directory.  Please download and install\n"
     . "this library before proceeding.\n\n"
     if ( !-s $dupliconLib );
 
