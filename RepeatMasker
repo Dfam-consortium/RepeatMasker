@@ -7777,16 +7777,23 @@ sub initLibrariesFromFamdb {
 
  
     # Tabulate curated
+    my $modelType = "consensus";
+    $modelType = "hmm" if ( $searchEngine->isa( "HMMERSearchEngine" ));
     $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
-                    $species . "' --curated --ancestors --descendants -f totals";
+                    $species . "' --curated --ancestors --model $modelType --descendants -f totals";
     open IN,"$famdbCmd |";
     my $curated_ancestor_counts = 0;
     my $curated_lineage_counts = 0;
+    my $present_curated_ancestor_counts = 0;
+    my $present_curated_lineage_counts = 0;
     while ( <IN> ) {
-      #1299 entries in ancestors; 8 lineage-specific entries
-      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+      # 1394 entries in ancestors; 58 lineage-specific entries; 0 ancestral entries present; 0 lineage-specific entries present
+      print;
+      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific entries;\s*(\d+)\s+ancestral entries present;\s*(\d+)\s+lineage-specific entries present/ ) {
         $curated_ancestor_counts = $1;
         $curated_lineage_counts = $2;
+        $present_curated_ancestor_counts = $3;
+        $present_curated_lineage_counts = $4;
       }
     }
     close IN;
@@ -7796,15 +7803,19 @@ sub initLibrariesFromFamdb {
     
     # Tabulate uncurated
     $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
-                    $species . "' --uncurated --ancestors --descendants -f totals";
+                    $species . "' --uncurated --ancestors --model $modelType --descendants -f totals";
     open IN,"$famdbCmd |";
     my $uncurated_ancestor_counts = 0;
     my $uncurated_lineage_counts = 0;
+    my $present_uncurated_ancestor_counts = 0;
+    my $present_uncurated_lineage_counts = 0;
     while ( <IN> ) {
-      #1299 entries in ancestors; 8 lineage-specific entries
-      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+      # 1394 entries in ancestors; 58 lineage-specific entries; 0 ancestral entries present; 0 lineage-specific entries present
+      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific entries;\s*(\d+)\s+ancestral entries present;\s*(\d+)\s+lineage-specific entries present/ ) {
         $uncurated_ancestor_counts = $1;
         $uncurated_lineage_counts = $2;
+        $present_uncurated_ancestor_counts = $3;
+        $present_uncurated_lineage_counts = $4;
       }
     }
     close IN;
@@ -7838,13 +7849,33 @@ sub initLibrariesFromFamdb {
        print "Including curated and uncurated families:\n";
        my $tot_ancestral = $uncurated_ancestor_counts + $curated_ancestor_counts;
        my $tot_lineage = $uncurated_lineage_counts + $curated_lineage_counts;
-       print "  $tot_ancestral families in ancestor taxa; $tot_lineage lineage-specific families\n";
+       my $present_tot_ancestral = $present_uncurated_ancestor_counts + $present_curated_ancestor_counts;
+       my $present_tot_lineage = $present_uncurated_lineage_counts + $present_curated_lineage_counts;
+       print "  $present_tot_ancestral/$tot_ancestral families in ancestor taxa; $present_tot_lineage/$tot_lineage lineage-specific families\n";
+       die   "    ** ERROR: There are applicable families available in this release of Dfam however there\n" .
+             "    **        currently no components/partitions present.  Please use `famdb.py check $species`\n" .
+             "    **        to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n\n" .
+             "    **        download them.\n\n" 
+         if ( $present_tot_ancestral == 0 && $present_tot_lineage == 0 && ($tot_ancestral > 0 || $tot_lineage > 0) );
+       print "    ** WARNING: Some Dfam components/partitions applicable to this search are not present on this system.\n" .
+             "    **          Please use `famdb.py check $species` to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n" .
+             "    **          download them.\n" 
+         if ( $present_tot_ancestral != $tot_ancestral || $present_tot_lineage != $tot_lineage);
        print "    ** NOTE: No uncurated families were found for this taxon **\n" 
            if ( ($uncurated_ancestor_counts + $uncurated_lineage_counts) == 0 );
        print "\n";
     }else{
        print "Including only curated families:\n";
-       print "  $curated_ancestor_counts families in ancestor taxa; $curated_lineage_counts lineage-specific families\n\n";
+       print "  $present_curated_ancestor_counts/$curated_ancestor_counts families in ancestor taxa; $present_curated_lineage_counts/$curated_lineage_counts lineage-specific families\n\n";
+       die   "    ** ERROR: There are applicable curated families available in this release of Dfam however there\n" .
+             "    **        currently no components/partitions present.  Please use `famdb.py check $species`\n" .
+             "    **        to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n" .
+             "    **        download them.\n\n" 
+         if ( $present_curated_ancestor_counts == 0 && $present_curated_lineage_counts == 0 && ($curated_ancestor_counts > 0 || $curated_lineage_counts > 0) );
+       print "    ** WARNING: Some Dfam components/partitions applicable to this search are not present on this system.\n" .
+             "    **          Please use `famdb.py check $species` to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n" .
+             "    **          download them.\n" 
+         if ( $present_curated_ancestor_counts != $curated_ancestor_counts || $present_curated_lineage_counts != $curated_lineage_counts);
     }
   }
 
