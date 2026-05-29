@@ -3638,7 +3638,6 @@ sub runHMMERSearchStages {
         ## Primates
         ##
         my $aluIdx = 1;
-        print "is a $options{'species'} a primate?" .  $tax->isA( $options{'species'}, "primates" ) . "\n";
         if ( $tax->isA( $options{'species'}, "primates" ) == 1 ) {
 
           # 11/9/2015
@@ -7788,7 +7787,6 @@ sub initLibrariesFromFamdb {
     my $present_curated_lineage_counts = 0;
     while ( <IN> ) {
       # 1394 entries in ancestors; 58 lineage-specific entries; 0 ancestral entries present; 0 lineage-specific entries present
-      print;
       if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific entries;\s*(\d+)\s+ancestral entries present;\s*(\d+)\s+lineage-specific entries present/ ) {
         $curated_ancestor_counts = $1;
         $curated_lineage_counts = $2;
