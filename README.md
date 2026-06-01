@@ -4,14 +4,6 @@ RepeatMasker
 Developed by Arian Smit and Robert Hubley
 Please refer to: Smit, AFA, Hubley, R. & Green, P "RepeatMasker" at
 http://www.repeatmasker.org
-
-IMPORTANT:
-The github 'master' branch does not contain any TE libraries.  As of
-4.1.7, you may use the release as-is for custom library searches 
-(e.g "-lib mylib.fasta").  For searches against community developed
-TE libraries, you will need to download and install one or more of the
-Dfam database FamDB partition.  See the RepeatMasker website for more
-information: http://www.repeatmasker.org/RepeatMasker/
 ```
 
 RepeatMasker
@@ -24,6 +16,7 @@ sequence as well as a modified version of the query sequence in which
 all the annotated repeats have been masked (default: replaced by
 Ns). Sequence comparisons in RepeatMasker are performed by one of
 several available alignment programs:
+
   - RMBlast, a variant of NCBI blastn that supports substitution 
     matrices, complexity adjusted scoring and masklevel filtering.
   - crossmatch, an efficient implementation of the Smith-Waterman-Gotoh
