@@ -11,10 +11,10 @@ repeats and low complexity DNA sequences. The output of the program is
 a detailed annotation of the repeats that are present in the query
 sequence as well as a modified version of the query sequence in which
 all the annotated repeats have been masked (default: replaced by
-Ns). Sequence comparisons in RepeatMasker are performed by the program
-cross_match, an efficient implementation of the Smith-Waterman-Gotoh
-algorithm developed by Phil Green, or by WU-Blast developed by Warren
-Gish.
+Ns). Sequence comparisons in RepeatMasker are performed by one of
+several supported alignment programs: RMBlast (the recommended default),
+crossmatch, ABBlast/WUBlast, or NHMMER (for profile HMM searches against
+the Dfam database).
 
 
 This help file discusses the following topics:
@@ -103,8 +103,6 @@ contamination checking options
 -is_only       only clips E coli insertion elements out of FASTA  and .qual files
 -is_clip       clips IS elements before analysis (default: IS only reported)
 -no_is         skips bacterial insertion element check
--rodspec       only checks for rodent specific repeats (no RepeatMasker run)
--primspec      only checks for primate specific repeats (no RepeatMasker run)
 
 For detailed explanation of the contamination detection options, see
 "4.2 Identification of DNA source" below.
@@ -116,7 +114,7 @@ Interspersed repeats mostly are copies of transposable elements in
 different states of erosion. Thus, dependent on the time of activity
 of the source transposable element, interspersed repeats generally are
 specific to a (clade of) species, and different redatabase
-(http://www.ncbi.nlm.nih.gov/Taxonomy/taxonomyhome.html). In
+(https://www.ncbi.nlm.nih.gov/taxonomy). In
 principal, all unique clade names occurring in this database can be
 used. Examples are:
 
@@ -172,16 +170,17 @@ oftentimes unexpected results. Using Latin names is always safest.
 
 famdb.py
 
-famdb.py provides an interface to the Dfam and RepeatMasker libraries
-in FamDB format, and allows you to see what species are covered and
-how many repeats are assigned to them. For example:
+famdb.py is a separate tool (https://github.com/Dfam-consortium/famdb)
+that provides an interface to the Dfam libraries in FamDB format. It
+allows you to see what species are covered and how many repeats are
+assigned to them. For example:
 
-`./famdb.py lineage --ancestors --descendants human --format totals`
+`famdb.py lineage --ancestors --descendants human --format totals`
 
-shows that there are 8 lineage-specific repeats and 1337 ancestral
+shows lineage-specific and ancestral repeat counts
 (e.g. hominids, primates, mammals, and insertion artifacts).
 
-You can run `./famdb.py --help` for more information about the available
+You can run `famdb.py --help` for more information about the available
 commands.
 
 
@@ -214,11 +213,10 @@ are not all tabulated in the .tbl file or necessarily spelled
 identically as in the repeat files, so check the RepeatMasker.embl
 file for names that can be parsed into the .tbl file.
 
-You can combine the repeats available in the RepeatMasker library 
-with a custom set of consensus sequences.  To accomplish this 
-use the famdb.py tool:
+You can combine the repeats available in the Dfam library with a custom
+set of consensus sequences.  To accomplish this use the famdb.py tool:
 
-`./famdb.py -i Libraries/RepeatMaskerLib.h5 families --format fasta_name --ancestors --descendants 'species name' --include-class-in-name`
+`famdb.py -i Libraries/famdb families --format fasta_name --ancestors --descendants 'species name' --include-class-in-name`
 
 The resulting sequences can be concatenated to your own set of sequences in a
 new library file.
@@ -302,22 +300,20 @@ available with the script DateRepeats (4.3).
 -q             Quick search; 5-10% less sensitive, 3-4 times faster than default
 -qq            Rush job; about 10% less sensitive,
 -s             Slow search; 0-5% more sensitive, 2.5 times slower than default.
--pa(rallel) [number]    
-               Number of processors to use in parallel (only works for 
+-pa(rallel) [number]
+               Number of processors to use in parallel (only works for
                  batch files or sequences larger than 50 kb)
--engine [crossmatch|wublast|decypher]  
+-engine [crossmatch|wublast|abblast|ncbi|rmblast|hmmer]
                Select a non-default search engine to use.  If not specified
                  RepeatMasker will use the default configured at install time.
--w(ublast)     Use WU-blast, rather than cross_match as engine
-                 **DEPRECATED** Use -engine [crossmatch|wublast|decypher] now.
--frag [number] Maximum sequence length masked without fragmenting 
-                 (default 40000).
--gc [number]   Use matrices calculated for 'number' percentage background 
+-frag [number] Maximum sequence length masked without fragmenting
+                 (default 60000).
+-gc [number]   Use matrices calculated for 'number' percentage background
                   GC level.
--gccalc        Program calculates the GC content even for batch files/small 
+-gccalc        Program calculates the GC content even for batch files/small
                   sequences.
 -nocut         Skips the steps in which repeats are excised.
--noisy         Prints cross_match progress report to screen (defaults to 
+-noisy         Prints search engine progress report to screen (defaults to
                  .stderr file)
 
 -s -q -qq
@@ -329,44 +325,12 @@ times faster, and 90% as sensitive as the next lower gear. See "2.4
 Sensitivity and Speed" below for details
 
 
--w(ublast)
-  **DEPRECATED** See -engine.
-
--engine [crossmatch|wublast|decypher]
+-engine [crossmatch|wublast|abblast|ncbi|rmblast|hmmer]
 By default, RepeatMasker uses the search engine configured
-during installation as the default.  To use the non-default
-search engine you can specify it with the -engine parameter.
-
-Before June 2004, the script MaskerAid (written by Joey Bedell, Ian
-Korf and Warren Gish at the St Louis Washington University Genome
-Center) was necessary to use WU-BLAST with RepeatMasker, but that
-functionality is now built in. RepeatMasker includes a search engine
-object that allows relatively straightforward integration of other
-search engines. Currently only WU-BLAST has the flexibility to accept
-all cross_match options.
-
-For longer sequences, default RepeatMasker runs with WU-BLAST take
-about as long as cross_match powered runs at -qq settings (see "2.4
-Sensitivity and speed"). The speed settings have relatively little
-effect on the speed when using WU-BLAST, with the fastest settings
-1.25-1.75 as fast as the slowest settings, while the sensitivity
-increases significantly.  Thus, I recommend to always run RepeatMasker
-in sensitive (-s) or default mode when using WU-BLAST. I've made the
-difference in parameters between sensitive and default settings larger
-at -w settings, to make these speed options more meaningful and gain
-more sensitivity (with little cost in speed).
-
-Even with these more extreme parameters, the sensitivity can't quite
-reach that of the sensitive settings using cross_match, but it comes
-very close, and the huge difference in speed make this option
-very attractive.
-
-The output format with the -w option is identical to default and
-scores are comparable, as the same complexity adjustment is applied.
-The only difference is that, when using the wublast option, hyphens
-in the sequence are retained (in default mode all non-letters were
-deleted from the sequence).  WU-BLAST uses hyphens to indicate
-insurmountable barriers and alignments will not span hyphens.
+during installation as the default.  To use a non-default
+search engine specify it with the -engine parameter.  The aliases
+'ncbi' and 'rmblast' both select the RMBlast engine; 'abblast' and
+'wublast' both select the ABBlast/WUBlast engine.
 
 
 -pa(rallel)
@@ -390,18 +354,21 @@ ten 500 bp sequences   ten 500 bp sequences
 two 500 kb sequences   ten 50 kb fragments, twice
 
 Processing of the detected matches takes place after all batches or
-fragments have been cross-matched with the databases.  
-Beware that, generally, you have a limited number of processor IDs
-allotted. RepeatMasker uses 4 PIDs for each parallel job, so if you're
-allotted 64 user PIDs, you can 'only' run 16 fragments/batches in
-parallel.
+fragments have been searched against the databases.
+To estimate total core usage, multiply the -pa value by the number of
+cores the chosen search engine uses per job:
+
+  RMBlast     4 cores
+  ABBlast     4 cores
+  NHMMER      2 cores
+  crossmatch  1 core
 
 
--frag 
+-frag
 Even when the -par option is not used, RepeatMasker transparently
-fragments sequences over 40 kb in fragments of equal sizes with 1 kb
-overlaps. Similarly, sequence batches containing more than 51 kb are
-subdivided in batches of 40 kb or less. The -frag option sets the
+fragments sequences over 60 kb in fragments of equal sizes with 1 kb
+overlaps. Similarly, sequence batches containing more than 60 kb are
+subdivided in batches of 60 kb or less. The -frag option sets the
 maximum fragment and batch size
 
 The only visible effect of the fragmentation is in the alignment
@@ -467,26 +434,27 @@ elements.
 
 1.4  Output options
 
+-dir    [directory] writes output to this directory (default is query file directory)
 -a      shows the alignments in a .align output file; -ali(gnments) also works
 -inv    alignments are presented in the orientation of the repeat (with option -a)
 
--cut    saves a sequence (in file.cut) from which full-length repeats are excised
-        (temporarily disfunctional)
 -small  returns complete .masked sequence in lower case
 -xsmall returns repetitive regions in lowercase (rest capitals) rather than masked
 -x      returns repetitive regions masked with Xs rather than Ns
+-lcambig outputs ambiguous DNA transposon fragments in lower case
 
 -poly   reports simple repeats that may be polymorphic (in file.poly)
 -ace    creates an additional output file in ACeDB format
 -gff    creates an additional General Feature Finding format output
+-html   creates an additional output file in xhtml format
+-source includes for each annotation the HSP evidence (only with -html)
 -u      creates an untouched annotation file besides the manipulated file
 -xm     creates an additional output file in cross_match format (for parsing)
 
--fixed  creates an (old style) annotation file with fixed width columns
 -no_id  leaves out final column with unique ID for each element
--e(xcln) calculates repeat densities (in .tbl) excluding runs of >25 Ns in query
+-e(xcln) calculates repeat densities (in .tbl) excluding runs of >20 Ns in query
 
--noisy  prints cross_match progress report to screen (defaults to .stderr file)
+-noisy  prints search engine progress report to screen (defaults to .stderr file)
 
 
 -a / -ali(gnments) 
@@ -495,18 +463,6 @@ Alignments are saved in a .align file when using the option -a. They
 are shown in the orientation of the query sequence, unless you use the
 option -inv as well, which will return alignments in the orientation
 of the repeats (see 3.2 Alignments).
-
-
--cut
-The -cut option to RepeatMasker is not supported in this release.  It
-will be rolled into a new annotation utility in the near future.  If
-you need this functionality sooner please send an email to Robert
-Hubley ( rhubley@systemsbiology.org ).  Thanks for your patience.
-
-The option  made the program save a file "file.cut" which contains
-an intermediate sequence in the masking progress. In this sequence all
-full-length elements, young LINE-1 3' ends, and close to perfect simple
-repeats were deleted.
 
 
 -x
@@ -543,7 +499,7 @@ require the exact cross_match output format.
 The script ProcessRepeats adjusts the original RepeatMasker output so
 that the annotation more closely reflects reality. With the option -u
 a .ori.out file is created that contains the original (but sorted)
-cross_match summary lines.
+annotation lines before ProcessRepeats post-processing.
 
 
 -ace
@@ -557,8 +513,8 @@ Motif_homol <repeat-name> RepeatMasker(method) <percent divergence>
 
 -gff
 The script creates a .gff file with the annotation in 'General Feature
-Finding' format. See http://www.sanger.ac.uk/Software/GFF for
-details. The current output follows a Sanger convention:
+Finding' format. See https://github.com/The-Sequence-Ontology/Specifications/blob/master/gff3.md
+for details. The current output follows a Sanger convention:
 
 <seqname> RepeatMasker Similarity <start in query> <end in query>
 <percent divergence> <orientation> . Target "Motif:<repeat-name>"
@@ -567,16 +523,6 @@ details. The current output follows a Sanger convention:
 In this line, 'RepeatMasker' becomes 'RepeatMasker_SINE' if the match
 is against an Alu. I don't know why.
 
-
-
--fixed
-Since April 1999 the column widths in the annotation table are
-adjusted to the maximum length of any string occurring in a column;
-this allows long sequence names to be spelled out completely.
-Previously, a fixed column width table was returned, which can still
-be obtained by using the -fixed option. Parsing should not be effected
-by this change of default behavior, as the same number of columns with
-the same formatted text are still separated by white space.
 
 
 -no_id
@@ -597,7 +543,7 @@ the option -no_id.
 
 -excln
 The percentages displayed in the .tbl file are calculated using a
-total sequence length excluding runs of 25 Ns or more. This is useful
+total sequence length excluding runs of 20 Ns or more. This is useful
 when analyzing draft sequences that are often concatenated contigs
 separated by (sometimes very) long stretches of Ns.  This option can
 be used with ProcessRepeats as well. The number of Ns in long runs in
@@ -606,11 +552,36 @@ ProcessRepeats with the option on the .cat file.
 
 
 -noisy
-RepeatMasker used to print the voluminous cross_match progress reports
-to the screen. Since the Dec 1998 version this output is stored in a
-.stderr file and a more informative much smaller progress report is
-printed to the screen. The option -noisy allows one to see the
-cross-match reports coming by on the screen (yeah).
+RepeatMasker stores the search engine progress output in a .stderr file
+and prints a smaller progress report to the screen. The option -noisy
+allows one to see the full search engine reports on the screen as well.
+
+
+-dir
+With the -dir option, all output files are written to the specified
+directory rather than the directory containing the query file. Use
+"-dir ." to write output to the current working directory.
+
+
+-lcambig
+Annotated fragments that cannot be assigned unambiguously to a single
+repeat family based on sequence similarity alone are output with a lower
+case name. All other repeat names are listed in upper case. Ambiguous
+fragments are those that match multiple elements and can only be
+interpreted in the context of flanking repeat annotations.
+
+
+-html / -source
+With the -html option an additional output file in xhtml format is
+created. The -source option, which requires -html, adds the HSP
+evidence used to support each annotation.
+
+
+-uncurated
+By default RepeatMasker uses only curated families from the Dfam
+database. The -uncurated option includes uncurated families as well.
+The latest FamDB format stores both curated and uncurated data in the
+same partition files; this flag controls which subset is used.
 
 
 
@@ -645,16 +616,15 @@ The options/flags for ProcessRepeats are:
        custom library is in the >name#class format.
 
 -nolow does not display simple repeats or low_complexity DNA in the annotation
--noint skips steps specific to interspersed repeats, saving lots of time 
+-noint skips steps specific to interspersed repeats, saving lots of time
 -u     creates an untouched annotation file besides the manipulated file
 -xm    creates an additional output file in cross_match format (for parsing)
 -ace   creates an additional output file in ACeDB format
 -gff   creates an additional Gene Feature Finding format
 -poly  creates an output file listing only potentially polymorphic simple repeats
 -no_id leaves out final column with unique number for each element (was default)
--fixed creates an (old style) annotation file with fixed width columns
 -excln calculates repeat densities excluding long stretches of Ns in the query
--orf2   results in sometimes negative coordinates for L1 elements; all L1 subfamilies
+-orf2  results in sometimes negative coordinates for L1 elements; all L1 subfamilies
        are aligned over the ORF2 region, sometimes improving interpretation of data
 -a     shows the alignments in a .align output file
 
@@ -672,25 +642,26 @@ multiple copies of interspersed or satellite repeats. For interspersed
 repeats, a consensus tends to approach the sequence of the
 transposable element from which the repeat is derived.
 
-Both cross_match and WU-blast perform their Smith-Waterman (SW)
-alignments by first identifying exact word matches and restricting the
-alignment to a band or matrix surrounding this exact
-match(es). Overlapping matrices are merged. The speed settings of
-RepeatMasker are purely changes in the minimum word length from which
-an alignment can be seeded and, in some cases, changes in the width of
-the band. A wider bandwidth allows more gaps in the alignment and,
-more importantly, increases the likelihood that neighboring matrices
-overlap.
+The Smith-Waterman (SW) based engines (crossmatch, RMBlast, ABBlast)
+perform alignments by first identifying exact word matches and restricting
+the alignment to a band or matrix surrounding this exact match(es).
+Overlapping matrices are merged. The speed settings of RepeatMasker are
+purely changes in the minimum word length from which an alignment can be
+seeded and, in some cases, changes in the width of the band. A wider
+bandwidth allows more gaps in the alignment and, more importantly,
+increases the likelihood that neighboring matrices overlap. NHMMER uses
+profile hidden Markov models instead of consensus sequences and performs
+its own banded alignment; the speed settings have less effect on NHMMER
+runs.
 
-Cross_match does a low complexity adjustment of the raw SW score. When
-WU-blast is used, the RepeatMasker script performs this adjustment. Low
+A low complexity adjustment is applied to raw SW scores. Low
 complexity matches are the primary cause of false matches, and this
 adjustment contributes significantly to the high selectivity of
 RepeatMasker (see 2.5)
 
 As a result of the existence of many related consensus sequences in
 the database, usually multiple repeats match one region in the query
-at the same time. Generally, cross_match and WU-blast report to the
+at the same time. Generally, the search engines report to the
 script only those matches that are less than 80-90% overlapped by a
 higher scoring match. This implies that, at first approximation, names
 are assigned to repeats based on the highest SW score. Given
@@ -754,17 +725,20 @@ as described in the signed software agreement).
 
 2.3  Repeat databases
 
-The RepeatMasker program are distributed with a copy of the
-Dfam database ( www.dfam.org ). Dfam is a small but growing "open"
-databases of Transposable Element seed alignments, profile Hidden
-Markov Models and consensus sequences.
+RepeatMasker is designed to work with the Dfam database ( www.dfam.org ),
+an open database of Transposable Element seed alignments, profile Hidden
+Markov Models, and consensus sequences. Dfam is distributed separately
+through FamDB ( https://github.com/Dfam-consortium/famdb ) and is not
+bundled with RepeatMasker. See the Libraries Overview section of the
+README for installation instructions.
 
 RepeatMasker is also compatible with the RepBase database managed by
 the Genetic Information Research Institute and requires a license to
 use. Up until 2019 we maintained the "Repbase RepeatMasker Edition"
 libraries as co-editor of RepBase Update.  For newer versions of
 RepBase users will need to use the sequences in FASTA format with
-RepeatMasker's "-lib" option.
+RepeatMasker's "-lib" option, or combine them with Dfam using the
+FamDB toolchain.
 
 
 2.4 Sensitivity and speed  
@@ -928,26 +902,21 @@ stand-alone poly A regions stand out (they may indicate the presence
 of a processed pseudogene). However, even perfect simple repeats in
 such tails will be hidden in the .out file.
 
-A program optimized to quickly find all dimeric to pentameric repeats
-is sputnik, available at http://espressosoftware.com/pages/sputnik.jsp. 
-
-
 Local duplications, tandem repeats and satellites.
 
 Gary Benson's program "Tandem Repeat Finder" (another catchy name)
 currently is the standard for finding satellites and all other direct
 repeats (http://tandem.bu.edu/trf/trf.html).  
-Any local duplications (tandem, inverted, interrupted) can be detected
-with the program miropeats (http://www.genome.ou.edu/miropeats.html),
-which presents this similarity information graphically.
 
+Travis Wheeler's program "ULTRA" is another option for identifying 
+tandem repeats quickly in genomes.
 
 
 3  HOW TO READ THE RESULTS
 
 3.1 The annotation (.out) file
 
-The annotation file contains the cross_match summary lines. It lists
+The annotation file contains the repeat annotation summary lines. It lists
 all best matches (above a set minimum score) between the query
 sequence and any of the sequences in the repeat database or with low
 complexity DNA. The term "best matches" reflects that a match is not
@@ -1477,19 +1446,12 @@ your lab has, say, a rat and a pink fairy armadillo sequencing
 project, rat DNA in a supposedly armadillo sequence can be picked up
 quite reliably, depending on the length of the query.
 
-When the option -rodspec or -primspec is used, RepeatMasker only
-checks the query against a small library of repeats that have not
-(yet) been observed in the 'other' species. The locations of the
-matches are printed to <file>.alert. This function will be expanded to
-other mammals, when these species are starting to be sequenced in
-earnest.
-
-I've checked for the specificity of the reported matches quite
-extensively. Whenever two or more types of repeats are reported, the
-odds are that the alert is correct. Very occasionally, a single
-reported match could be a false alert. This is especially possible
-when a 'new' mammalian species is analyzed, because, unbeknownst to
-me, a related repeat may have amplified in such a genome.
+A straightforward way to check for rodent or primate contamination is
+to run RepeatMasker with a small species-specific library and look for
+matches. The locations of any matches are printed to <file>.alert.
+Very occasionally a single reported match could be a false alert,
+especially for newly sequenced mammalian species where a related repeat
+may have amplified independently.
 
 
 Other species contamination.
@@ -1691,8 +1653,8 @@ Smit, A.F.A. (1999) Interspersed repeats and other mementos of
 transposable elements in mammalian genomes. Curr Opin Genet Devel 9
 (6), 657-663.
 
-If you have ideas for improvements or found a problem, drop a note
-at rhubley@systemsbiology.org or asmit@systemsbiology.org
+If you have ideas for improvements or found a problem, please open an
+issue at https://github.com/Dfam-consortium/RepeatMasker
 
 /*****************************************************************************
 * Copyright (C) University of Washington 1996-1999 Developed by Arian Smit,
@@ -1701,10 +1663,10 @@ at rhubley@systemsbiology.org or asmit@systemsbiology.org
 *
 * Copyright (C) Arian Smit 2000-2001
 *
-* Copyright (C) Institute for Systems Biology 2002-2009 Developed by
+* Copyright (C) Institute for Systems Biology 2002-2025 Developed by
 * Arian Smit and Robert Hubley.
 *
 * This work is licensed under the Open Source License v2.1.  To view a copy
 * of this license, visit http://www.opensource.org/licenses/osl-2.1.php or
 * see the license.txt file contained in this distribution.
-/*****************************************************************************
+*****************************************************************************/
