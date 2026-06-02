@@ -333,6 +333,7 @@ sub predates {
   while ( $i < $#lineage1 && $i < $#lineage2 ) {
     last if !( $lineage1[$i] eq $lineage2[$i] );
     $commonAnc = $lineage1[$i];
+    $i++;
   }
 
   return $this->isA( $commonAnc, $species );

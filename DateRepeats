@@ -21,7 +21,7 @@
 #
 # ChangeLog
 #
-#   $Log$
+#   Updated to use FamDB instead of RepbaseEMBL/taxonomy.dat.
 #
 ###############################################################################
 #
@@ -34,13 +34,13 @@ DateRepeats - Annotate lineage of repeats.
 
 =head1 SYNOPSIS
 
-  DateRepeats <repeatmasker .out files> -query <species1> 
+  DateRepeats <repeatmasker .out files> -query <species1>
               -comp <species2> [-comp <species3> -mask <species2>]
 
 =head1 DESCRIPTION
 
 DateRepeats will create a file similar to the .out file with added column(s)
-indicating if a repeat is expected to be present in the indicated 
+indicating if a repeat is expected to be present in the indicated
 'other species'.
 
 Required Parameters:
@@ -51,9 +51,9 @@ Required Parameters:
 
 The species that has been analyzed.
 
-=item -c(omp) <species2>     
+=item -c(omp) <species2>
 
-Other mammalian species; can be used multiple times, adding extra 
+Other mammalian species; can be used multiple times, adding extra
 columns to the annotation in a  <file.out_species2_species3_etc>.
 
 =back
@@ -62,39 +62,26 @@ Optional Parameters:
 
 =over 4
 
-=item -m(ask) <species> 
+=item -m(ask) <species>
 
 Produces a sequence file with all lineage specific repeats masked, i.e.
 those predicted to be in the -query and absent in the -mask species
 (sequence <file> and RepeatMasker <file.out> must be in same directory)
 <species> must correspond to one of the -comp species.
 
-=item -a(ggressive)     
+=item -a(ggressive)
 
 Also mask those repeats unclear to be either lineage specific or ancestral.
 
-=item -n(olow)          
+=item -n(olow)
 
-Does not mask satellites, simple repeats and low complexity DNA, none 
-of which $script is trying to label lineage-specific or ancestral
-
-=item -libdir [path_to_library_directory]
-
-Use an alternate library directory to for the primary repeat libraries.
-These include the Dfam.hmm and the RBRM (Repbase RepeatMasker Edition )
-distribution files. Normally these are stored/updated in the "Libraries/" 
-subdirectory of the main program which RepeatMasker will use by default.  
-This parameter should only be used when it's not possible to keep the 
-libraries in the same place as the program. 
+Does not mask satellites, simple repeats and low complexity DNA, none
+of which $script is trying to label lineage-specific or ancestral.
 
 =back
 
-Only the following species are currently recognized:
-human, mouse, rat, cat, dog, cow, pig, horse, rabbit 
-Eventually all vertebrates and some other species should be included.
-The script is dependent on the presence of RepeatMasker repeat
-libraries of June 2003 or later, which contain information on the
-phylogeny of mammalian interspersed repeats.
+Species names are resolved via FamDB/NCBI Taxonomy.  Any species or clade
+recognized by famdb.py may be used.
 
 =head1 SEE ALSO
 
@@ -106,7 +93,7 @@ RepeatMasker
 
 =head1 COPYRIGHT
 
-Copyright 2003 Arian Smit, Institute for Systems Biology
+Copyright 2003-2025 Arian Smit, Institute for Systems Biology
 
 =head1 AUTHOR
 
@@ -122,7 +109,7 @@ Robert Hubley <rhubley@systemsbiology.org>
 #use strict;
 use FindBin;
 use lib $FindBin::RealBin;
-use RepbaseEMBL;
+use RepeatMaskerConfig;
 use Getopt::Long;
 use Taxonomy;
 
@@ -131,82 +118,48 @@ if ( $] && $] >= 5.008003 ) {
   use warnings;
 }
 
-##----------------------------------------------------------------------##
-##     CONFIGURE THE FOLLOWING PARAMETERS FOR YOUR INSTALLATION         ##
-##                                                                      ##
-##
-## Set the location for the RepeatMasker repeat libraries
-##
-##      my $dir = "/usr/local/RepeatMasker/Libraries";
-##
-my $dir = "$FindBin::RealBin/Libraries";
+my $FAMDB_DIR = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'};
 
-##
-##  Set the location of the RepeatMasker Taxonomy database file
-##
-##
-my $taxFile = "$dir/taxonomy.dat";
+die "FamDB is required for DateRepeats but is not configured.\n"
+    . "Please re-run the RepeatMasker configure script to set up FamDB.\n"
+    unless ( $FAMDB_DIR ne "" && -x "$FAMDB_DIR/famdb.py" );
 
-##                                                                      ##
-##                      END CONFIGURATION AREA                          ##
-##----------------------------------------------------------------------##
-
-#
-# Verify that the libraries exist
-#
-die "Indicate directory with the RepeatMasker repeat libraries near " . "line "
-    . &getFirstLineNumberMatching( "CONFIGURE THE", $0 )
-    . " of $0\n"
-    unless -s "$dir/RepeatMaskerLib.embl";
-
-die "Indicate directory with the RepeatMasker taxononmy database near "
-    . "line "
-    . &getFirstLineNumberMatching( "my \$taxfile", $0 )
-    . " of $0\n"
-    unless -s "$taxFile";
-
-#
 my ( $script ) = ( $0 =~ m|([^/]*)$| );
 my $usage = "\nUsage: $script <repeatmasker .out files> -query <species1>
               -comp <species2> [-comp <species3> -mask <species2>]
 
 $script will create a file similar to the .out file with added column(s)
-indicating if a repeat is expected to be present in the indicated \'other 
+indicating if a repeat is expected to be present in the indicated \'other
 species\'.
 
 Required:
 -q -query <species1> The species that has been analyzed.
--c -comp <species2>  Other mammalian species; can be used multiple times, 
-                     adding extra columns to the annotation in a 
+-c -comp <species2>  Other mammalian species; can be used multiple times,
+                     adding extra columns to the annotation in a
                      <file.out_species2_species3_etc>
 
 Optional parameters:
--m -mask <species> Produces a sequence file with all lineage specific 
-                   repeats masked, i.e. those predicted to be in the 
-                   -query and absent in the -mask species (sequence <file> u
+-m -mask <species> Produces a sequence file with all lineage specific
+                   repeats masked, i.e. those predicted to be in the
+                   -query and absent in the -mask species (sequence <file>
                    and RepeatMasker <file.out> must be in same directory)
                    <species> must correspond to one of the -comp species.
--a -aggressive     Also mask those repeats unclear to be lineage specific 
+-a -aggressive     Also mask those repeats unclear to be lineage specific
                    or ancestral.
--n -nolow          Does not mask satellites, simple repeats and low 
-                   complexity DNA, none of which $script is trying to 
+-n -nolow          Does not mask satellites, simple repeats and low
+                   complexity DNA, none of which $script is trying to
                    label lineage-specific or ancestral.
 -h -help           Print out the daterepeats help manual.
 
-Only the following species are currently recognized:
-human, mouse, rat, cat, dog, cow, pig, horse, rabbit 
-Eventually all vertebrates and some other species should be included.
-The script is dependent on the presence of RepeatMasker repeat
-libraries of June 2003 or later, which contain information on the
-phylogeny of mammalian interspersed repeats.
+Species names are resolved via FamDB/NCBI Taxonomy.  Any species or
+clade recognized by famdb.py may be used (e.g. \"homo sapiens\",
+\"mus musculus\", \"rodentia\", etc.).
 \n";
 
 ## currently the following are global parameters
-## @spec @pat %pattern %shared %div $opt_query $opt_comp $opt_mask $opt_help
-
 my @spec = ();
 my @opts =
-    ( "query=s", "comp=s" => \@spec, "mask=s", "aggressive", "nolow", "help", "libdir=s" );
+    ( "query=s", "comp=s" => \@spec, "mask=s", "aggressive", "nolow", "help" );
 $opt_query = $opt_mask = $opt_aggressive = $opt_nolow = $opt_help;
 @spec = ();    # global; used in all subroutines
 
@@ -222,34 +175,24 @@ system( "$PAGER $FindBin::Bin/daterepeats.help\n" ), exit if $opt_help;
 
 die "$usage" unless $opt_query && $spec[ 0 ];
 
-if ( $options{'libdir'} ) {
-  $dir = $options{'libdir'};
-}
-
-my $message = "Missing $dir/RepeatMaskerLib.embl file!";
-
-unless ( -s "$dir/RepeatMaskerLib.embl" ) {
-  open IN, "$dir/version" || die "$message";
-  $_ = <IN>;
-  my @check = split;
-  $check[ 0 ] && $check[ $#check ] >= 20030600 || die "$message";
-}
-
 @pat = ();    #global
 my $match;
 
-# Open the taxonomy database
-my $tax = Taxonomy->new( taxonomyDataFile => $taxFile );
+# Open the taxonomy database (backed by FamDB)
+my $tax = Taxonomy->new();
 
 # Standardize the species names passed to us
 my $query = $tax->isSpecies( $opt_query );
+die "Do not know of species/clade: $opt_query!\n" if ( !defined $query || $query eq "" );
 my $mask  = "";
 if ( $opt_mask ) {
   $mask = $tax->isSpecies( $opt_mask );
+  die "Do not know of species/clade: $opt_mask!\n" if ( !defined $mask || $mask eq "" );
 }
 for $i ( 0 .. $#spec ) {
   my $normalizedSpecies = $tax->isSpecies( $spec[ $i ] );
-  die "Do not know of species: $spec[$i]!\n" if ( $normalizedSpecies eq "" );
+  die "Do not know of species/clade: $spec[$i]!\n"
+      if ( !defined $normalizedSpecies || $normalizedSpecies eq "" );
   $spec[ $i ] = $normalizedSpecies;
   $match = $i if $mask && $spec[ $i ] eq $mask;
   die "Query and comparison species must be different\n\n"
@@ -290,8 +233,8 @@ foreach $rmfile ( @ARGV ) {
   die "Output file is input file. $script will not override $rmfile.\n"
       if ( $outfile eq $rmfile );
 
-  # This should never happen with the die on !$ARGV[2]
   open OUT, ">$outfile" or die "Could not open $outfile for writing!\n";
+  print "Processing $rmfile\n  Writing annotated output to: $outfile\n";
   my @bit         = ();
   my @correctedID = ();
   my $lineNum     = 0;
@@ -351,7 +294,7 @@ foreach $rmfile ( @ARGV ) {
       # Some repeat names do not appear in the repeatmasker database
       # The name changes here are invisible outside the script; they
       # only help to improve the age estimates. This code should be
-      # replaced by chanes in the database
+      # replaced by changes in the database
 
       # There can't be any case-ambiguity
       $bit[ 9 ] =~ tr/a-z/A-Z/;
@@ -459,18 +402,10 @@ foreach $rmfile ( @ARGV ) {
 }
 
 ##-------------------------------------------------------------------------##
-## Use:  my $blah = blah();
-##
-##  Input
-##
-##  Returns
-##
-##-------------------------------------------------------------------------##
 sub windback {
   my $linesRef       = shift;
   my $correctedIDRef = shift;
 
-  #  %pattern = ();
   my $i = $#{$linesRef};
   while ( $i >= 0 ) {
     my $xandos = "";
@@ -499,49 +434,38 @@ sub windback {
 }
 
 ##-------------------------------------------------------------------------##
-## Use:  my $blah = blah();
-##
-##  Input
-##
-##  Returns
-##
-##-------------------------------------------------------------------------##
 sub GetInfo {
   my $taxonomyDB     = shift;
   my $query          = shift;
   my $compSpeciesRef = shift;
 
-  my @combSpecies = ();
-  push @combSpecies, $query;
-  push @combSpecies, @{$compSpeciesRef};
+  &CollectInfo( $taxonomyDB, $query, $compSpeciesRef );
 
-  &CollectInfo( $taxonomyDB, \@combSpecies, "$dir/RepeatMaskerLib.embl" );
-
-  if (    $taxonomyDB->isA( $query, "homo" )
-       || $taxonomyDB->isA( $query, "pan" ) )
+  if (    $taxonomyDB->isA( $query, "homo" ) > 0
+       || $taxonomyDB->isA( $query, "pan" ) > 0 )
   {
     for $i ( 0 .. $#spec ) {
-      if ( $spec[ $i ] =~ /^homo[\s\S+]?$|^pan[\s\S+]?$|^gorilla[\s\S+]?$/ ) {
+      if ( $spec[ $i ] =~ /^homo[\s\S]|^pan[\s\S]/ ) {
         $div{ $spec[ $i ] } = 1;
       }
-      elsif ( $spec[ $i ] =~ /^hylobates[\s\S+]?$/ ) {
+      elsif ( $spec[ $i ] =~ /^hylobates[\s\S]/ ) {
         $div{ $spec[ $i ] } = 2;
       }
-      elsif ( $spec[ $i ] =~ /^macaca[\s\S+]?$/ ) {
+      elsif ( $spec[ $i ] =~ /^macaca[\s\S]/ ) {
         $div{ $spec[ $i ] } = 3;
       }
       else {    # temporarily only for other orders
-                # 15.5% is Higher than theoretically expected; empirically
+                # 15.5% is higher than theoretically expected; empirically
                 # best approximate though
         $div{ $spec[ $i ] } = 15.5;
       }
     }
   }
-  elsif (    $taxonomyDB->isA( $query, "mus" )
-          || $taxonomyDB->isA( $query, "rattus" ) )
+  elsif (    $taxonomyDB->isA( $query, "mus" ) > 0
+          || $taxonomyDB->isA( $query, "rattus" ) > 0 )
   {
     for $i ( 0 .. $#spec ) {
-      if ( $spec[ $i ] =~ /^mus musculus$|^rattus$/ ) {
+      if ( $spec[ $i ] =~ /^mus musculus$|^rattus/ ) {
         $div{ $spec[ $i ] } = 10;
       }
       else {
@@ -549,8 +473,8 @@ sub GetInfo {
       }
     }
   }
-  elsif (    $taxonomyDB->isA( $query, "canis" )
-          || $taxonomyDB->isA( $query, "felis" ) )
+  elsif (    $taxonomyDB->isA( $query, "canis" ) > 0
+          || $taxonomyDB->isA( $query, "felis" ) > 0 )
   {
     for $i ( 0 .. $#spec ) {
       if ( $spec[ $i ] =~ /^felis|^canis/ ) {
@@ -561,11 +485,11 @@ sub GetInfo {
       }
     }
   }
-  elsif (    $taxonomyDB->isA( $query, "bos" )
-          || $taxonomyDB->isA( $query, "sus" ) )
+  elsif (    $taxonomyDB->isA( $query, "bos" ) > 0
+          || $taxonomyDB->isA( $query, "sus" ) > 0 )
   {
     for $i ( 0 .. $#spec ) {
-      if ( $spec[ $i ] =~ /^bos$|^sus$/ ) {
+      if ( $spec[ $i ] =~ /^bos |^sus / ) {
         $div{ $spec[ $i ] } = 12;
       }
       else {
@@ -573,121 +497,142 @@ sub GetInfo {
       }
     }
   }
-  elsif ( $taxonomyDB->isA( $query, "horse" ) ) {
+  elsif ( $taxonomyDB->isA( $query, "equus" ) > 0 ) {
     for $i ( 0 .. $#spec ) {
       $div{ $spec[ $i ] } = 14;    # apparently slow rate
     }
   }
-  elsif ( $taxonomyDB->isA( $query, "rabbit" ) ) {
+  elsif ( $taxonomyDB->isA( $query, "lagomorpha" ) > 0 ) {
     for $i ( 0 .. $#spec ) {
-      $div{ $spec[ $i ] } = 30;    # worse then rodents
+      $div{ $spec[ $i ] } = 30;    # worse than rodents
     }
   }
-
 }
 
 ##-------------------------------------------------------------------------##
-## Use:  my $blah = blah();
+##  CollectInfo - Build %shared hash via FamDB queries.
 ##
-##  Input
-##
-##  Returns
-##
+##  For each comparison species, the common ancestor with the query is
+##  found.  All families annotated at or before that ancestor are
+##  considered "shared" (X).  Families in the query lineage but not
+##  in the shared set are "lineage-specific" (0).
 ##-------------------------------------------------------------------------##
 sub CollectInfo {
-  my $tax        = shift;
-  my $speciesRef = shift;
-  my $RMLib      = shift;
+  my $tax     = shift;
+  my $query   = shift;
+  my $compRef = shift;
 
-  my $db = RepbaseEMBL->new( fileName => "$RMLib" );
-  my $seqCount = $db->getRecordCount();
-  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
-    my $record  = $db->getRecord( $i );
-    my $repname = $record->getId();
-    $type = $record->getRMType();
-    if ( $record->getRMSubType() ne "" ) {
-      $type .= "/" . $record->getRMSubType();
-    }
-    next if ( $type =~ /RNA$/ );
-    $repname =~ s/_5end$//;
-    $repname =~ tr/a-z/A-Z/;
-    my $short = "";
-    if ( $repname =~ /_3END(EXTENDED)?$/ ) {
+  print "Querying FamDB for lineage information...\n";
 
-      # A bug in processrepeats left a bunch of '_3endextended's!
-      # Is fixed, but could happen again
-      ( $short = $repname ) =~ s/_3END(EXTENDED)?$//;
-    }
-    elsif ( $type eq 'SINE/Alu' ) {
-      ( $short = $repname ) =~ s/[A-Z1-9]$//;
-    }
-    elsif ( $type =~ /DNA/ ) {
+  my @queryLineage = $tax->getLineage( $query );
+  die "Could not retrieve lineage for '$query' from FamDB.\n"
+      unless @queryLineage;
 
-      # In PR unresolved DNA transposons lose their
-      # final subfamily classification
-      ( $short = $repname ) =~ s/[A-Z]$//;
+  # For each comp species, pre-compute the shared (ancestral) family name set
+  my @ancestralSets = ();
+  for my $j ( 0 .. $#{$compRef} ) {
+    my $comp = $compRef->[ $j ];
+    my @compLineage = $tax->getLineage( $comp );
+    die "Could not retrieve lineage for '$comp' from FamDB.\n"
+        unless @compLineage;
 
-      # if the short version exists as a separate entry,
-      # it will occur earlier in the repeat file (so it's okay)
-    }
-    my $long = "";
+    my $commonAnc = _findCommonAncestor( \@queryLineage, \@compLineage );
+    print "  Common ancestor of '$query' and '$comp': $commonAnc\n";
 
-    # ints named after LTRs by PR
-    $long = "$repname" . "-INT" if ( $type =~ /LTR/ );
+    my %ancestral = ();
+    _collectFamilyNames( $commonAnc, [ "--ancestors" ], \%ancestral );
+    printf "    %d shared (ancestral) families found.\n", scalar keys %ancestral;
+    push @ancestralSets, \%ancestral;
+  }
 
-    my $qMatch    = 0;
+  # Collect all families in the query lineage (what RM would use to mask)
+  my %queryFamilies = ();
+  _collectFamilyNames( $query, [ "--ancestors", "--descendants" ], \%queryFamilies );
+  printf "  %d total families found for '%s'.\n\n", scalar keys %queryFamilies, $query;
+
+  # Build %shared: for each query family, record X/0 per comparison species
+  foreach my $name ( keys %queryFamilies ) {
     my $sharedStr = "";
-    $qMatch = 1;
-    for $i ( 1 .. $#{$speciesRef} ) {
-      my $compSpecies = $comp[ $i ];
-      my $pMatch      = 0;
-      foreach my $clade ( $record->getRMSpeciesArray() ) {
-        $name =~ s/_/ /g;
+    for my $j ( 0 .. $#{$compRef} ) {
+      $sharedStr .= ( exists $ancestralSets[ $j ]{ $name } ) ? "X  " : "0  ";
+    }
+    $shared{ $name } = $sharedStr;
 
-        #if (    $tax->isA( $clade, $speciesRef->[ $i ] ) > 0
-        #     || $tax->isA( $speciesRef->[ $i ], $clade ) > 0 )
-        if ( $tax->predates( $clade, $query, $speciesRef->[ $i ] ) > 0 ) {
-          if ( $i == 0 ) {
-            $qMatch = 1;
-          }
-          else {
-            $pMatch = 1;
-            last;
-          }
-        }
-      }
-      if ( $i >= 1 ) {
-        if ( $pMatch || $repname =~ /_OLD/ ) {
-          $sharedStr .= "X  ";
-        }
-        else {
-          $sharedStr .= "0  ";
-        }
-      }
+    # Store short-name variants that RepeatMasker may use in .out files
+
+    # _3END suffix stripped
+    if ( $name =~ /_3END/ ) {
+      ( my $short = $name ) =~ s/_3END.*$//;
+      $shared{ $short } = $sharedStr unless $shared{ $short };
     }
 
-    if ( $qMatch == 1 || $repname =~ /_OLD/ ) {
-      if ( !$shared{$repname} ) {
-        $shared{$repname} = $sharedStr;
-      }
-      if ( $short && !$shared{$short} ) {
-        $shared{$short} = $sharedStr;
-      }
-      if ( $long && !$shared{$long} ) {
-        $shared{$long} = $sharedStr;
-      }
-    }    # if qMatch
-  }    # While
-  close IN;
+    # Alu: strip trailing subfamily letter/digit
+    if ( $name =~ /^ALU/ ) {
+      ( my $short = $name ) =~ s/[A-Z1-9]$//;
+      $shared{ $short } = $sharedStr unless $shared{ $short };
+    }
+    # DNA transposons: strip trailing letter for subfamily variants
+    elsif ( $name =~ /^(CHARLIE|TIGGER|MER\d|MARINER|HSMAR)/ ) {
+      ( my $short = $name ) =~ s/[A-Z]$//;
+      $shared{ $short } = $sharedStr unless $shared{ $short };
+    }
+    # LTR elements: also record the -INT internal variant name
+    elsif ( $name =~ /LTR|ERV|HERV|MLT|THE\d/ ) {
+      my $long = $name . "-INT";
+      $shared{ $long } = $sharedStr unless $shared{ $long };
+    }
+  }
 }
 
 ##-------------------------------------------------------------------------##
-## Use:  my $blah = blah();
+##  _findCommonAncestor
 ##
-##  Input
+##  Given two lineage arrays (root-first order, as returned by
+##  Taxonomy::getLineage), return the name of the most derived shared node.
+##-------------------------------------------------------------------------##
+sub _findCommonAncestor {
+  my $lineage1 = shift;
+  my $lineage2 = shift;
+
+  my $commonAnc = $lineage1->[ 0 ];    # "root" at minimum
+  my $maxIdx = ( $#{ $lineage1 } < $#{ $lineage2 } )
+               ? $#{ $lineage1 } : $#{ $lineage2 };
+  for my $i ( 0 .. $maxIdx ) {
+    last if lc( $lineage1->[ $i ] ) ne lc( $lineage2->[ $i ] );
+    $commonAnc = $lineage1->[ $i ];
+  }
+  return $commonAnc;
+}
+
+##-------------------------------------------------------------------------##
+##  _collectFamilyNames
 ##
-##  Returns
+##  Query FamDB for curated family names under a given clade and populate
+##  a hash (keys = uppercase family names).
 ##
+##  $flags is an arrayref of extra famdb.py flags, e.g. ["--ancestors"] or
+##  ["--ancestors", "--descendants"].
+##-------------------------------------------------------------------------##
+sub _collectFamilyNames {
+  my $clade    = shift;
+  my $flags    = shift;
+  my $namesRef = shift;
+
+  my $flagStr  = join( " ", @{ $flags } );
+  my $famdbCmd = "$FAMDB_DIR/famdb.py families '$clade' --curated $flagStr -f fasta_name";
+
+  open my $fh, "$famdbCmd |"
+      or die "Could not run famdb.py: $famdbCmd\n";
+  while ( <$fh> ) {
+    # FASTA header lines look like:  >FamilyName#Type/SubType
+    if ( /^>(\S+?)(?:#|\s|$)/ ) {
+      $namesRef->{ uc( $1 ) } = 1;
+    }
+  }
+  close $fh;
+  die "famdb.py returned an error for: $famdbCmd\n" if $?;
+}
+
 ##-------------------------------------------------------------------------##
 sub AdjustSharedInfo {
   my $div        = shift;
@@ -706,7 +651,7 @@ sub AdjustSharedInfo {
       # only effects close species; e.g. for chimp-human (0.6%
       # div at split, but 1% taken), even perfect matches to
       # a consensus does not suggest that a shared status is wrong
-      # (this depends on lenght of match and CpG #; perhaps can
+      # (this depends on length of match and CpG #; perhaps can
       # be worked in?)
 
       # labeled as lineage-specific, but high level of
@@ -740,13 +685,6 @@ sub AdjustSharedInfo {
 }
 
 ##-------------------------------------------------------------------------##
-## Use:  my $blah = blah();
-##
-##  Input
-##
-##  Returns
-##
-##-------------------------------------------------------------------------##
 sub MakeLikeOldPattern {
   my $div    = shift;
   my $id     = shift;
@@ -765,13 +703,6 @@ sub MakeLikeOldPattern {
   return @xs;
 }
 
-##-------------------------------------------------------------------------##
-## Use:  my $blah = blah();
-##
-##  Input
-##
-##  Returns
-##
 ##-------------------------------------------------------------------------##
 sub MaskLinSpec {
   my ( $beginRef, $endRef ) = @_;
@@ -827,13 +758,6 @@ sequences with the name \"$name\" in the file\"$seqfile\"\n";
 }
 
 ##-------------------------------------------------------------------------##
-## Use:  my $blah = blah();
-##
-##  Input
-##
-##  Returns
-##
-##-------------------------------------------------------------------------##
 sub XoutSeq {
   my ( $XedSeq, $beginRef, $endRef ) = @_;
   if ( $beginRef ) {
@@ -844,39 +768,6 @@ sub XoutSeq {
     }
   }
   return $XedSeq;
-}
-
-##-------------------------------------------------------------------------##
-## Use:  my $lineNum = getFirstLineNumberMatching( $regEx, $filename );
-##
-##  Input
-##
-##       $regex :   A regular expression to look for in the file.
-##       $filename: The filename to query.
-##
-##  Returns
-##
-##       $lineNum :  The first line number the regular expression
-##                   was found on or -1 if the the expression could
-##                   not be found or if the file could not be opened.
-##-------------------------------------------------------------------------##
-sub getFirstLineNumberMatching {
-  my $regEx    = shift;
-  my $filename = shift;
-
-  open IN, "<$filename" || return -1;
-
-  my $lineNum = 0;
-  while ( <IN> ) {
-    $lineNum++;
-    s/[\n\r]//g;
-    if ( /$regEx/ ) {
-      close IN;
-      return $lineNum;
-    }
-  }
-  close IN;
-  return -1;
 }
 
 1;

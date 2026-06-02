@@ -97,7 +97,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => ''
+                           'value' => '/usr/local/FamDB-Dfam-4.0_RB'
                          },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
