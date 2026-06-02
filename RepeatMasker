@@ -680,8 +680,8 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 # Species & Library Setup
 #
 my $tax;
-if ( $options{'species'} && $FAMDB_DIR eq "" ) {
-  die "FamDB is required for -species searches but is not configured.\n" .
+if ( !$options{'lib'} && $FAMDB_DIR eq "" ) {
+  die "FamDB is required for species-based searches but is not configured.\n" .
       "Re-run the RepeatMasker configure script to set up FamDB,\n" .
       "or use -lib to provide a custom repeat library directly.\n";
 }
