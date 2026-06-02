@@ -7585,6 +7585,47 @@ sub initLibrariesFromFamdb {
 
   my $orgFlag;
   my $dbLabel;
+  my ($modelPrefix, $famdbCmd, $dbTitle, $dbVersion, $dbDate, $dbConsCnt, $dbHMMCnt);
+
+  # When FamDB is configured, fetch database metadata and build $dbLabel now
+  # so it is available for both -lib and -species runs (the general
+  # contamination-check cache is keyed on $dbLabel).
+  if ( $FAMDB_DIR ne "" ) {
+    $modelPrefix = "CONS-";
+    $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) );
+    my $famdbInfoCmd = "$FAMDB_DIR/famdb.py info";
+    open IN,"$famdbInfoCmd |";
+    while (<IN>){
+      if ( /^Database\s*:\s*(\S.*)/ ) {
+        $dbTitle = $1;
+      }elsif ( /^Version\s*:\s*(\S.*)/ ) {
+        $dbVersion = $1;
+      }elsif ( /^Date\s*:\s*(\S.*)/ ) {
+        $dbDate = $1;
+      }elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
+        $dbConsCnt = $1;
+      }elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
+        $dbHMMCnt = $1;
+      }
+    }
+    close IN;
+    if ( $? ) {
+      die "Could not execute famdb.py using: $famdbInfoCmd\n";
+    }
+    my $sanitizedTitle = $dbTitle;
+    $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
+    $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
+    $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
+    print "\nUsing FamDB: $FAMDB_DIR\n";
+    print "  Title    : $dbTitle\n";
+    print "  Version  : $dbVersion\n";
+    print "  Date     : $dbDate\n";
+    if ( $dbConsCnt > $dbHMMCnt ) {
+      print "  Families : " . commify($dbConsCnt) . "\n\n";
+    }else {
+      print "  Families : " . commify($dbHMMCnt) . "\n\n";
+    }
+  }
 
   ##
   ## User supplied FASTA/HMM library
@@ -7651,65 +7692,15 @@ sub initLibrariesFromFamdb {
           . $customLibFile . ", or the file is empty.\n";
     }
     print "Using Custom Repeat Library: $customLibFile\n\n";
+    # If FamDB is not configured there is no source for the contamination-check
+    # sequences (is.lib), so skip the general cache entirely.
+    return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir, "" )
+        if ( $FAMDB_DIR eq "" );
   }
   else {
 
     # Default species if non given.
     $species = "homo sapiens" if ( $species eq "" );
-
-    # TODO: This should be moved above...because even with a -lib the general directory
-    # needs to be created.
-    my $modelPrefix = "CONS-";
-    $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
-    my $famdbCmd = "$FAMDB_DIR/famdb.py info";
-    open IN,"$famdbCmd |";
-    my $dbTitle;
-    my $dbVersion;
-    my $dbDate;
-    my $dbConsCnt;
-    my $dbHMMCnt;
-    while (<IN>){
-      # Database: Dfam
-      # Version: 3.1
-      # Date: 2019-06-20
-      #
-      # Dfam - A database of transposable element (TE) sequence alignments and HMMs.
-      #
-      # Total consensus sequences: 273655
-      # Total HMMs: 273655
-      if ( /^Database\s*:\s*(\S.*)/ ) { 
-        $dbTitle = $1;
-      }elsif ( /^Version\s*:\s*(\S.*)/ ) {
-        $dbVersion = $1;
-      }elsif ( /^Date\s*:\s*(\S.*)/ ) {
-        $dbDate = $1;
-      }elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
-        $dbConsCnt = $1;
-      }elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
-        $dbHMMCnt = $1;
-      }
-    }
-    close IN;
-    if ( $? ) {
-      die "Could not execute famdb.py using: $famdbCmd\n";
-    }
-    $dbLabel = $dbTitle;
-    $dbLabel = s/^\s+//;
-    $dbLabel = s/\s+$//;
-    $dbLabel = s/\s+/_/g;
-    my $sanitizedTitle = $dbTitle;
-    $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
-    $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
-    $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
-    print "\nUsing FamDB: $FAMDB_DIR\n";
-    print "  Title    : $dbTitle\n";
-    print "  Version  : $dbVersion\n";
-    print "  Date     : $dbDate\n";
-    if ( $dbConsCnt > $dbHMMCnt ) {
-      print "  Families : " . commify($dbConsCnt) . "\n\n";
-    }else {
-      print "  Families : " . commify($dbHMMCnt) . "\n\n";
-    }
 
     ## For minimal DB installs, -species is not an option.
     if ( $dbTitle eq "Sequencing_artifacts_only" ) {
