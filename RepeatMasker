@@ -6647,8 +6647,9 @@ sub createSubElements {
       }
 
       # Don't include the X/N
-      my $newQuerySeq = substr( $parentQuerySeq, 0, $i - 1 );
-      my $newSubjSeq  = substr( $parentSubjSeq,  0, $i - 1 );
+      my $newQuerySeq   = substr( $parentQuerySeq, 0, $i - 1 );
+      my $newSubjSeq    = substr( $parentSubjSeq,  0, $i - 1 );
+      my $clipAlignChar = substr( $parentSubjSeq,  $i - 1, 1 );
 
       $newSegment->setQueryString( $newQuerySeq );
       $newSegment->setSubjString( $newSubjSeq );
@@ -6662,14 +6663,17 @@ sub createSubElements {
       $newSubjSeq =~ s/-//g;
 
       if ( $parentElement->getOrientation() eq "C" ) {
-        # RMH: 8/2025 - One-off bug reported by Pio
         $newSegment->setSubjEnd( $segSubjEnd );
         if ( $newSubjSeq eq "" ) {
           $segSubjEnd = $segSubjStart;
         }
         else {
-          $segSubjEnd -= (length( $newSubjSeq ) + 1);
-          $segSubjStart = $segSubjEnd + 1 + $numX;
+          $segSubjStart = $segSubjEnd - length( $newSubjSeq ) + 1;
+          if ( $clipAlignChar eq '-' ) {
+            $segSubjEnd = $segSubjStart - 1;
+          }else {
+            $segSubjEnd = $segSubjStart - 1 - $numX;
+          }
         }
         $newSegment->setSubjRemaining( $parentSubjSize - $newSegment->getSubjEnd() );
         $newSegment->setSubjStart( $segSubjStart );
@@ -6680,9 +6684,12 @@ sub createSubElements {
           $segSubjEnd = $segSubjStart;
         }
         else {
-          # RMH: 8/2025 - One-off bug reported by Pio
-          $segSubjEnd = $segSubjStart + length( $newSubjSeq );
-          $segSubjStart += length( $newSubjSeq ) + 1;
+          $segSubjEnd = $segSubjStart + length( $newSubjSeq ) - 1;
+          if ( $clipAlignChar eq '-' ) {
+            $segSubjStart = $segSubjEnd + 1;
+          }else {
+            $segSubjStart = $segSubjEnd + 1 + $numX;
+          }
         }
         $newSegment->setSubjEnd( $segSubjEnd );
         $newSegment->setSubjRemaining(
