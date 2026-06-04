@@ -1,4 +1,6 @@
 4.2.4
+  - Support for new component-based FamDB and Dfam 4.0
+  - Updated documentation
   - An updated configure script without screen clears supports easier 
     history tracking and debugging.
   - FamDB is now a fully separate and optional package for RepeatMasker.  For some
