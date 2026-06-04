@@ -78,14 +78,14 @@ BEGIN {
                                 'expected_files' => [],
                                 'param_type' => 'directory',
                                 'required' => 0,
-                                'value' => '/usr/local/bin'
+                                'value' => ''
                               },
           'DEFAULT_SEARCH_ENGINE' => {
                                        'command_line_override' => 'default_search_engine',
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => 'rmblast'
+                                       'value' => ''
                                      },
           'FAMDB_DIR' => {
                            'command_line_override' => 'famdb_dir',
@@ -97,7 +97,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => '/usr/local/FamDB-Dfam-4.0_RB'
+                           'value' => ''
                          },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
@@ -109,7 +109,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => '/usr/local/hmmer/bin'
+                           'value' => ''
                          },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
@@ -126,7 +126,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => '/usr/local/rmblast/bin'
+                             'value' => ''
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',
@@ -134,7 +134,7 @@ BEGIN {
                           'environment_override' => 'TRF_PRGM',
                           'param_type' => 'program',
                           'required' => 1,
-                          'value' => '/usr/local/bin/trf'
+                          'value' => ''
                         }
         };
 
@@ -156,7 +156,7 @@ $VERSION = "4.2.4";
 #
 # Default Dfam Version
 #
-$DFAM_VERSION = "3.9";
+$DFAM_VERSION = "4.0";
 
 #
 # Set this flag to default to debug mode for the entire package
