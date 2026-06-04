@@ -30,6 +30,7 @@ See "repeatmasker.help" for a detailed program manual.
 RepeatMasker "open-4.0" and later versions are distributed under the
 Open Source License.  Please read LICENSE for more information.
 
+
 Libraries Overview
 ------------------
 
