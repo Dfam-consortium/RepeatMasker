@@ -87,6 +87,18 @@ BEGIN {
                                        'required' => 1,
                                        'value' => ''
                                      },
+          'FAMDB_DIR' => {
+                           'command_line_override' => 'famdb_dir',
+                           'description' => 'The path to the installation of the FamDB package (famdb.py).',
+                           'environment_override' => 'FAMDB_DIR',
+                           'expected_binaries' => [
+                                                    'famdb.py'
+                                                  ],
+                           'expected_files' => [],
+                           'param_type' => 'directory',
+                           'required' => 0,
+                           'value' => ''
+                         },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
                            'description' => 'The path to the HMMER profile HMM search software.',
@@ -99,20 +111,6 @@ BEGIN {
                            'required' => 0,
                            'value' => ''
                          },
-          'LIBDIR' => {
-                        'command_line_override' => 'libdir',
-                        'description' => 'Path to the RepeatMasker libraries directory.',
-                        'environment_override' => 'LIBDIR',
-                        'expected_binaries' => [],
-                        'expected_files' => [
-                                              'RepeatAnnotationData.pm',
-                                              'RepeatPeps.lib',
-                                              'RMRBMeta.embl'
-                                            ],
-                        'param_type' => 'directory',
-                        'required' => 0,
-                        'value' => ''
-                      },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
                              'description' => 'The path to the installation of the RMBLAST sequence alignment program.',
@@ -153,12 +151,12 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.2.3";
+$VERSION = "4.2.4";
 
 #
 # Default Dfam Version
 #
-$DFAM_VERSION = "3.9";
+$DFAM_VERSION = "4.0";
 
 #
 # Set this flag to default to debug mode for the entire package

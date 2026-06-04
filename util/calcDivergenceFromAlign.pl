@@ -337,6 +337,10 @@ sub processAlignment {
   my ( $div, $transi, $transv, $wellCharBases, $numCpGs );
 
   my $alen = $queryEnd - $queryStart + 1;
+  # For now let's assume that all aligned (no insertions) bases
+  # are well-characterized ('A', 'C', 'G' or 'T') -- ony a recalculation
+  # based on the sequences and really determine that.
+  # TODO: Modern alignments contain this data, considering parsing it here
   $wellCharBases = $alen - int( $alen * ( $result->getPctInsert() / 100 ) );
 
   if ( $class =~ /Simple|Low_complexity|ARTEFACT/ ) {
@@ -363,6 +367,7 @@ sub processAlignment {
       # Overlap
       my $overlapAbsLen = $prevQueryEnd - $queryStart + 1;
       if ( $prevQueryEnd >= $queryEnd ) {
+        # Don't count contained alignments
         if ( $outAlign ) {
           print COUT ""
               . $result->toStringFormatted( SearchResult::AlignWithQuerySeq )
@@ -371,7 +376,6 @@ sub processAlignment {
         return;
       }
       if ( $div > $prevDiv ) {
-
         # Previous gets overlap bases - subtract overlap from this hit
         $wellCharBases -= $overlapAbsLen;
         $alen          -= $overlapAbsLen;

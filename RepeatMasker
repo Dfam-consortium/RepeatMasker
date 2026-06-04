@@ -251,10 +251,6 @@ name.  All other repeats are listed in upper case.  Ambiguous
 fragments match multiple repeat elements and can only be
 called based on flanking repeat information.
 
-=item -small   
-
-Returns complete .masked sequence in lower case
-
 =item -xsmall  
 
 Returns repetitive regions in lowercase (rest capitals) rather than masked
@@ -395,9 +391,9 @@ my $cmdLine = $0 . join( ' ', @ARGV );
 my @opts = qw( a|alignments ace alu cutoff=s dir=s
     div=s excln frag=s gc=s gccalc gff
     help int noint inv is_clip is_only lib=s
-    low nolow lcambig libdir=s no_id no_is nocut
+    low nolow lcambig no_id no_is nocut
     noisy norna parallel=i poly q qq
-    s small species|sp=s uncurated u fptest rbrm_only
+    s species|sp=s uncurated u
     x xm xsmall nopost engine|e=s source html debug=s );
 # Add configuration parameters as additional command-line options
 push @opts, RepeatMaskerConfig::getCommandLineOptions();
@@ -462,27 +458,21 @@ RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
 my $NHMMSCAN_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/nhmmscan";
 my $HMMPRESS_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/hmmpress";
-my $HMMSTAT_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/hmmstat";
 my $RMBLASTN_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/rmblastn";
 my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
 my $CROSSMATCH_PRGM = $config->{'CROSSMATCH_DIR'}->{'value'} . "/cross_match";
 my $WUBLASTP_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastp";
 my $SETDB_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/setdb";
 my $TRF_PRGM = $config->{'TRF_PRGM'}->{'value'};
+my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
 
-# Determine the installation directory using 
+# Determine the installation directory using
 # location of the program that was invoked.
-my $LIBDIR = $config->{'LIBDIR'}->{'value'};
-if ( $LIBDIR eq "" ) {
-  die "The path to the RepeatMasker libraries is not set.  This\n" .
-      "is typically the case when the RepeatMasker has not been\n" .
-      "initially configured.  Please run the RepeatMasker/configure\n" .
-      "program before retrying RepeatMasker";
-}
+my $LIBDIR = "$FindBin::RealBin/Libraries";
 unless ( -d $LIBDIR ) {
-  die "The path to the Libraries directory is set incorrectly:\n" .
-      "    $LIBDIR\n".
-      "does not exist.  Please re-run the configure program.\n";
+  die "The RepeatMasker Libraries directory does not exist:\n" .
+      "    $LIBDIR\n" .
+      "The RepeatMasker installation may be incomplete.\n";
 }
 
 my $MATDIR = "$REPEATMASKER_DIR/Matrices";
@@ -684,8 +674,15 @@ my ( $tempdir, $runnumber ) = &createTempDir( \%options, $date, $ARGV[ 0 ] );
 #
 # Species & Library Setup
 #
-my $tax =
-    Taxonomy->new( famdb_dir => "$LIBDIR/famdb" );
+my $tax;
+if ( !$options{'lib'} && $FAMDB_DIR eq "" ) {
+  die "FamDB is required for species-based searches but is not configured.\n" .
+      "Re-run the RepeatMasker configure script to set up FamDB,\n" .
+      "or use -lib to provide a custom repeat library directly.\n";
+}
+if ( $FAMDB_DIR ne "" ) {
+  $tax = Taxonomy->new();
+}
 
 #
 # The search path for finding a place to store the cache
@@ -710,8 +707,10 @@ $options{'species'} = $resolvedSpecies;
 
 # Call isA a few times to populate the isACache. This must be done before
 # forking so that each fork sees the cached value instead of re-checking
-$tax->isA($options{'species'}, 'primates');
-$tax->isA($options{'species'}, 'rodentia');
+if ( $tax && $options{'species'} ) {
+  $tax->isA($options{'species'}, 'primates');
+  $tax->isA($options{'species'}, 'rodentia');
+}
 
 # Read in a frozen hash of element id's which are refineable.  This
 # hash is created by initLibraries the first time a library is initialized.
@@ -822,9 +821,7 @@ foreach my $file ( @ARGV ) {
   $totGClevel = sprintf "%4.2f", $totGClevel;
 
   my $maskfile        = "$file.masked";
-  my $fullmaskfile    = "$file.masked.all";
   my $fullcatfile     = "$file.cat.all";
-  my $fullRefinedFile = "$file.ref";
   my $fullcutfile     = "$file.cut.all";
   my $fullLogFile     = "$file.log";
   my $fullErrFile     = "$file.stderr";
@@ -1089,7 +1086,6 @@ JOBLOOP:
 
         # Check for E coli insertion elements
         unless (    $options{'no_is'}
-                 || $options{'fptest'}
                  || !-s "$generalLibDir/is.lib" )
         {
           my $sequenceArrayRef;
@@ -1114,22 +1110,8 @@ JOBLOOP:
                                          maxIDLength => 50
           );
 
-          if ( $options{'fptest'} ) {
-            &runLowComplexTests(
-                      \%options,          $REPEATMASKER_DIR,
-                      $GC_frac,           $batchSeqFile,
-                      $batchMaskFile,     $generalLibDir,
-                      $speciesLibDir,     $batchCount,
-                      $searchEngine,      $numX,
-                      $batchSeqDB,        "batch $batchNums[$k] of $batchCount",
-                      $tax,               $customLibDir,
-                      $tempdir,           $batchNums[ $k ],
-                      $refineableHashRef, $batcher
-            );
-          }
-          else {
-            if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-              &runHMMERSearchStages(
+          if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
+            &runHMMERSearchStages(
                       \%options,          $REPEATMASKER_DIR,
                       $GC_frac,           $batchSeqFile,
                       $batchMaskFile,     $generalLibDir,
@@ -1140,8 +1122,8 @@ JOBLOOP:
                       $tempdir,           $batchNums[ $k ],
                       $refineableHashRef, $batcher
               );
-            }
-            else {
+          }
+          else {
               &runSearchStages(
                       \%options,          $REPEATMASKER_DIR,
                       $GC_frac,           $batchSeqFile,
@@ -1153,7 +1135,6 @@ JOBLOOP:
                       $tempdir,           $batchNums[ $k ],
                       $refineableHashRef, $batcher
               );
-            }
           }
 
           ## The rule of thumb is that if we didn't return
@@ -1291,7 +1272,7 @@ JOBLOOP:
     }
   }
 
-  unless ( exists $options{'nopost'} || $options{'fptest'} ) {
+  unless ( exists $options{'nopost'} ) {
 
     #
     # Alter source file for masking if we want to go with
@@ -1541,7 +1522,6 @@ sub locateISElements {
   my @ISFailed    = ();
   my $ISclipornot = 0;
   my $qualprob    = 0;
-  my %clipfailed  = ();
 
   my $seqDB = FastaDB->new(
                             fileName    => $file,
@@ -1891,7 +1871,6 @@ sub locateISElements {
     close ALERTOUT;
   }
 
-  #elsif ( $clipfailed{$file} ) {
   elsif ( @ISFailed ) {
     my $ISreport =
           "The following E coli IS elements could not be "
@@ -2986,487 +2965,6 @@ sub runStage {
 }
 
 ##-------------------------------------------------------------------------##
-## Use:  &runLowComplexTests (
-##           \%options, $REPEATMASKER_DIR, $GC,
-##           $file, $maskfile,
-##           $generalLibDir,
-##           $speciesLibDir, $fragCnt,
-##           $searchEngine,
-##           $numX, $seqDB, [$batchIdentifierText],
-##           $tax, $customLibDir, $tmpDir, $batchNum, $refineableHashRef );
-##
-##  Returns
-##
-##         Phases of a search:
-##          - Search for simple repeats ( simple.lib )
-##
-##          Species Specific:
-##            - Search user supplied library
-##
-##          Mammal Specific:
-##          - Search sinecutlib if it exists ( full length abundant SINEs )
-##          - Search shortcutlib if it exists ( full-length IRs )
-##          - Search cutlib if it exists
-##
-##          Homo:
-##              - Search sinecutlib again
-##
-##          - Search shortlib if it exists
-##          - Search longlib if it exists
-##          - Search mirs.lib
-##          - Search mir.lib
-##          - Search retro.lib ***if it exists***
-##          - Search l1.lib
-##
-##          - Search simple.lib (again?)
-##          - Search at.lib
-##
-##
-##    Globals Used: None
-##    Globals Modified: None
-##-------------------------------------------------------------------------##
-sub runLowComplexTests {
-  my %options   = %{ shift() };    # The RepeatMasker option hashtable
-  my $DIRECTORY = shift;
-  my $GC_frac   = shift;
-  my $file      = shift;
-  my $maskfile  = shift;
-
-  #  my $sinecutlib          = shift;
-  #  my $cutlib              = shift;
-  #  my $shortcutlib         = shift;
-  #  my $shortlib            = shift;
-  #  my $longlib             = shift;
-  #  my $retrolib            = shift;
-  my $generalLibDir       = shift;
-  my $speciesLibDir       = shift;
-  my $fragCnt             = shift;
-  my $searchEngine        = shift;
-  my $numX                = shift;
-  my $seqDB               = shift;
-  my $batchIdentifierText = shift;
-  my $tax                 = shift;
-  my $customLibDir        = shift;
-  my $tempdir             = shift;
-  my $batchNum            = shift;
-  my $refineableHashRef   = shift;
-  my $batcher             = shift;
-
-  my $searchRecipes = &getSearchRecipes();
-
-  my $repBoundRef;
-  my $stage = 0;
-  my $resultsCollection;
-  my %refinementHash = ();
-  my $cutAlus        = 0;
-
-  # reused to hold overlaplist
-  my $excisions = [];
-
-  my (
-       $minscore,         $minmatch,      $lib,
-       $matrix,           $gap_initValue, $ins_gap_extValue,
-       $del_gap_extValue, $bandwidth,     $masklevel,
-       $raw,              $wordraw,       $outfile
-      )
-      = ();
-
-  # Stages block.
-  {
-
-    $options{'species'} = "human";
-    my ( $custLibVol, $custLibDir, $custLibFile ) =
-        File::Spec->splitpath( $options{'lib'} );
-    my $message = "identifying matches to " . $custLibFile . " sequences";
-    $lib = "$customLibDir/$custLibFile";
-
-    my $db = FastaDB->new(
-                           fileName    => $options{'lib'},
-                           openMode    => SeqDBI::ReadOnly,
-                           maxIDLength => 50
-    );
-
-    # >SINEC_Fc#SINE/tRNA-Lys @Felis @Carnivora  [S:40,50]
-
-    my %stageToLibName = (
-                           35 => "sinecutlib",
-                           40 => "shortcutlib",
-                           45 => "cutlib",
-                           50 => "shortlib",
-                           55 => "longlib",
-                           60 => "mirslib",
-                           65 => "mirlib",
-                           70 => "retrolib",
-                           75 => "l1.lib",
-                           85 => "refinelib",
-                           80 => "specieslib"
-    );
-
-    my %inStage = ();
-
-    #print "$lib contains " . $db->getSeqCount() . "\n";
-    foreach my $seqID ( $db->getIDs() ) {
-      my $desc = $db->getDescription( $seqID );
-
-      #print "Desc = $desc\n";
-      if ( $desc =~ /\[S:([\d,]+)\]/ ) {
-        my @values = split( /,/, $1 );
-        foreach my $value ( @values ) {
-          $inStage{ $stageToLibName{$value} } = 1;
-        }
-      }
-      else {
-        $inStage{'specieslib'} = 1;
-      }
-    }
-
-    #print "Stages: " . Dumper( \%inStage ) . "\n";
-
-    # all species but mammals are currently treated in a naive fashion
-    my $message = "Testing using species_specific params";
-    &runTestStage(
-            \%options,            $message,
-            $batchIdentifierText, $searchRecipes->{'general_search_parameters'},
-            $lib,                 "$file.tmp.t$stage",
-            $maskfile,            $searchEngine,
-            $batchNum,            $batcher,
-            $tax,                 $excisions,
-            $numX,                $refineableHashRef,
-            \%refinementHash,     "general_search_parameters-" . $stage++,
-            "masking",            $DIRECTORY,
-            $seqDB
-        )
-        if ( $inStage{'specieslib'} );
-
-    if ( $tax->isA( $options{'species'}, "primates" ) == 1 ) {
-      &runTestStage(
-                     \%options,
-                     "Testing using full-length ALUs (masking) params",
-                     $batchIdentifierText,
-                     $searchRecipes->{'mask_young_sines_in_primates'},
-                     $lib,
-                     "$file.tmp.t$stage",
-                     $maskfile,
-                     $searchEngine,
-                     $batchNum,
-                     $batcher,
-                     $tax,
-                     $excisions,
-                     $numX,
-                     $refineableHashRef,
-                     \%refinementHash,
-                     "mask_young_sines_in_primates-" . $stage++,
-                     "alumask",
-                     $DIRECTORY,
-                     $seqDB
-          )
-          if ( $inStage{'sinecutlib'} );
-      &runTestStage(
-                     \%options,
-                     "Testing using full-length ALUs (cut) params",
-                     $batchIdentifierText,
-                     $searchRecipes->{'cut_young_sines_in_primates'},
-                     $lib,
-                     "$file.tmp.t$stage",
-                     $maskfile,
-                     $searchEngine,
-                     $batchNum,
-                     $batcher,
-                     $tax,
-                     $excisions,
-                     $numX,
-                     $refineableHashRef,
-                     \%refinementHash,
-                     "cut_young_sines_in_primates-" . $stage++,
-                     "alu",
-                     $DIRECTORY,
-                     $seqDB
-          )
-          if ( $inStage{'sinecutlib'} );
-      &runTestStage(
-                     \%options,
-                     "",
-                     $batchIdentifierText,
-                     $searchRecipes->{'cut_young_sines_in_primates'},
-                     $lib,
-                     "$file.tmp.t$stage",
-                     $maskfile,
-                     $searchEngine,
-                     $batchNum,
-                     $batcher,
-                     $tax,
-                     $excisions,
-                     $numX,
-                     $refineableHashRef,
-                     \%refinementHash,
-                     "cut_young_sines_in_primates-" . $stage++,
-                     "alu",
-                     $DIRECTORY,
-                     $seqDB
-      );
-
-      &runTestStage(
-               \%options,            "Testing using remaining ALU params",
-               $batchIdentifierText, $searchRecipes->{'mask_sines_in_primates'},
-               $lib,                 "$file.tmp.t$stage",
-               $maskfile,            $searchEngine,
-               $batchNum,            $batcher,
-               $tax,                 $excisions,
-               $numX,                $refineableHashRef,
-               \%refinementHash,     "mask_sines_in_primates-" . $stage++,
-               "alumask",            $DIRECTORY,
-               $seqDB
-          )
-          if ( $inStage{'sinecutlib'} );
-
-      ##
-      ## Non-primate mammals
-      ##
-    }
-    else {
-      &runTestStage(
-                     \%options,
-                     "Testing using young abundant SINEs params",
-                     $batchIdentifierText,
-                     $searchRecipes->{'mask_sines_in_non_primate_mammals'},
-                     $lib,
-                     "$file.tmp.t$stage",
-                     $maskfile,
-                     $searchEngine,
-                     $batchNum,
-                     $batcher,
-                     $tax,
-                     $excisions,
-                     $numX,
-                     $refineableHashRef,
-                     \%refinementHash,
-                     "mask_sines_in_non_primate_mammals-" . $stage++,
-                     "cut1",
-                     $DIRECTORY,
-                     $seqDB
-          )
-          if ( $inStage{'sinecutlib'} );
-    }
-
-    ##
-    ## shortcut lib exists
-    ##
-    &runTestStage(
-                   \%options,
-                   "Testing using full-length interspersed repeats params",
-                   $batchIdentifierText,
-                   $searchRecipes->{'general_full_length_repeats'},
-                   $lib,
-                   "$file.tmp.t$stage",
-                   $maskfile,
-                   $searchEngine,
-                   $batchNum,
-                   $batcher,
-                   $tax,
-                   $excisions,
-                   $numX,
-                   $refineableHashRef,
-                   \%refinementHash,
-                   "general_full_length_repeats-" . $stage++,
-                   "cut1",
-                   $DIRECTORY,
-                   $seqDB
-        )
-        if ( $inStage{'shortcutlib'} );
-
-    &runTestStage(
-                   \%options,
-                   "",
-                   $batchIdentifierText,
-                   $searchRecipes->{'complete_3end_of_young_line1s'},
-                   $lib,
-                   "$file.tmp.t$stage",
-                   $maskfile,
-                   $searchEngine,
-                   $batchNum,
-                   $batcher,
-                   $tax,
-                   $excisions,
-                   $numX,
-                   $refineableHashRef,
-                   \%refinementHash,
-                   "complete_3end_of_young_line1s-" . $stage++,
-                   "cut2",
-                   $DIRECTORY,
-                   $seqDB
-        )
-        if ( $inStage{'cutlib'} );
-
-    ##
-    ##  primates
-    ##
-    if ( $tax->isA( $options{'species'}, "primates" ) == 1 ) {
-      ######  mask more alus #####
-      &runTestStage(
-               \%options,            "Testing using remaining ALUs params",
-               $batchIdentifierText, $searchRecipes->{'older_ALUs_in_primates'},
-               $lib,                 "$file.tmp.t$stage",
-               $maskfile,            $searchEngine,
-               $batchNum,            $batcher,
-               $tax,                 $excisions,
-               $numX,                $refineableHashRef,
-               \%refinementHash,     "older_ALUs_in_primates-" . $stage++,
-               "alumask",            $DIRECTORY,
-               $seqDB
-          )
-          if ( $inStage{'sinecutlib'} );
-
-      ######  mask even more alus #####
-      &runTestStage(
-                \%options,            "",
-                $batchIdentifierText, $searchRecipes->{'more_ALUs_in_primates'},
-                $lib,                 "$file.tmp.t$stage",
-                $maskfile,            $searchEngine,
-                $batchNum,            $batcher,
-                $tax,                 $excisions,
-                $numX,                $refineableHashRef,
-                \%refinementHash,     "more_ALUs_in_primates-" . $stage++,
-                "alumask",            $DIRECTORY,
-                $seqDB
-          )
-          if ( $inStage{'sinecutlib'} );
-    }
-
-    if ( $tax->isA( $options{'species'}, "rodentia" ) == 1 ) {
-      &runTestStage(
-                     \%options,
-                     "Testing using most interspersed repeats params",
-                     $batchIdentifierText,
-                     $searchRecipes->{'short_repeats_and_satellites_rodents'},
-                     $lib,
-                     "$file.tmp.t$stage",
-                     $maskfile,
-                     $searchEngine,
-                     $batchNum,
-                     $batcher,
-                     $tax,
-                     $excisions,
-                     $numX,
-                     $refineableHashRef,
-                     \%refinementHash,
-                     "short_repeats_and_satellites_rodents-" . $stage++,
-                     "sines",
-                     $DIRECTORY,
-                     $seqDB
-          )
-          if ( $inStage{'shortlib'} );
-    }
-    else {
-      &runTestStage(
-                     \%options,
-                     "Testing using most interspersed repeats params",
-                     $batchIdentifierText,
-                     $searchRecipes->{'short_repeats_and_satellites'},
-                     $lib,
-                     "$file.tmp.t$stage",
-                     $maskfile,
-                     $searchEngine,
-                     $batchNum,
-                     $batcher,
-                     $tax,
-                     $excisions,
-                     $numX,
-                     $refineableHashRef,
-                     \%refinementHash,
-                     "short_repeats_and_satellites" . $stage++,
-                     "sines",
-                     $DIRECTORY,
-                     $seqDB
-          )
-          if ( $inStage{'shortlib'} );
-    }
-
-    # currently long and short together for
-    # non-primate/non-rodent mammals
-    ##### mask longer rep seqs  #####
-    &runTestStage(
-            \%options,            "identifying long interspersed repeats",
-            $batchIdentifierText, $searchRecipes->{'long_interspersed_repeats'},
-            $lib,                 "$file.tmp.t$stage",
-            $maskfile,            $searchEngine,
-            $batchNum,            $batcher,
-            $tax,                 $excisions,
-            $numX,                $refineableHashRef,
-            \%refinementHash,     "long_interspersed_repeats-" . $stage++,
-            "longlib",            $DIRECTORY,
-            $seqDB
-        )
-        if ( $inStage{'longlib'} );
-    &runTestStage(
-                   \%options,            "identifying ancient repeats",
-                   $batchIdentifierText, $searchRecipes->{'ancient_repeats'},
-                   $lib,                 "$file.tmp.t$stage",
-                   $maskfile,            $searchEngine,
-                   $batchNum,            $batcher,
-                   $tax,                 $excisions,
-                   $numX,                $refineableHashRef,
-                   \%refinementHash,     "ancient_repeats-" . $stage++,
-                   "mirs",               $DIRECTORY,
-                   $seqDB
-        )
-        if ( $inStage{'mirslib'} );
-
-    &runTestStage(
-                \%options,            "",
-                $batchIdentifierText, $searchRecipes->{'tough_ancient_repeats'},
-                $lib,                 "$file.tmp.t$stage",
-                $maskfile,            $searchEngine,
-                $batchNum,            $batcher,
-                $tax,                 $excisions,
-                $numX,                $refineableHashRef,
-                \%refinementHash,     "tough_ancient_repeats-" . $stage++,
-                "masking",            $DIRECTORY,
-                $seqDB
-        )
-
-#        if ( $inStage{'mirlib'} );
-#    &runTestStage(
-#                  \%options,            "identifying retrovirus-like sequences",
-#                  $batchIdentifierText, $searchRecipes->{'retroviruses'},
-#                  $lib,                 "$file.tmp.t$stage",
-#                  $maskfile,            $searchEngine,
-#                  $batchNum,            $batcher,
-#                  $tax,                 $excisions,
-#                  $numX,                $refineableHashRef,
-#                  \%refinementHash,     "retroviruses-" . $stage++,
-#                  "masking",            $DIRECTORY,
-#                  $seqDB
-#        )
-#        if ( $inStage{'retrolib'} );
-
-#    if ( $tax->isA( $options{'species'}, "eutheria" ) == 1 ) {
-#
-#      # these LINEs are not scanned in marsupials; perhaps will
-#      # find LINEs to put in later
-#      ##### mask undetected LINE1 bodies #####
-#      &runTestStage(
-#             \%options,            "identifying tough LINE1s",
-#             $batchIdentifierText, $searchRecipes->{'tough_line1s_in_eutheria'},
-#             $lib,                 "$file.tmp.t$stage",
-#             $maskfile,            $searchEngine,
-#             $batchNum,            $batcher,
-#             $tax,                 $excisions,
-#             $numX,                $refineableHashRef,
-#             \%refinementHash,     "tough_line1s_in_eutheria-" . $stage++,
-#             "l1",                 $DIRECTORY,
-#             $seqDB
-#          )
-#          if ( $inStage{'l1.lib'} );
-#    }    # if eutheria
-  }
-
-  if ( <$file.tmp.t*> ) {
-    systemint( "cat $file.tmp.t* > $file.cat" );
-  }
-
-  return;
-}
-##-------------------------------------------------------------------------##
 ## Use:  &runHMMERSearchStages (
 ##           \%options, $REPEATMASKER_DIR, $GC,
 ##           $file, $maskfile,
@@ -3634,35 +3132,8 @@ sub runHMMERSearchStages {
         ## Primates
         ##
         my $aluIdx = 1;
-        print "is a $options{'species'} a primate?" .  $tax->isA( $options{'species'}, "primates" ) . "\n";
         if ( $tax->isA( $options{'species'}, "primates" ) == 1 ) {
 
-          # 11/9/2015
-          #if ( $options{'nocut'} ) {
-          if ( 0 ) {
-            &runStage(
-                       \%options,
-                       "identifying full-length ALUs",
-                       $batchIdentifierText,
-                       $searchRecipes->{'mask_young_sines_in_primates'},
-                       "$speciesLibDir/sinecutlib",
-                       "$file.tmp.alu0",
-                       $maskfile,
-                       $searchEngine,
-                       $batchNum,
-                       $batcher,
-                       $tax,
-                       $excisions,
-                       $numX,
-                       $refineableHashRef,
-                       \%refinementHash,
-                       "351",
-                       "alumask",
-                       $DIRECTORY,
-                       $seqDB
-            );
-          }
-          else {
             $cutAlus = &runStage(
                                 \%options,
                                 "identifying full-length ALUs",
@@ -3700,7 +3171,7 @@ sub runHMMERSearchStages {
                          "353", "alu", $DIRECTORY, $seqDB
               );
             }    # if ( $cutAlus )
-          }
+          
 
           if ( $options{'alu'} ) {
             ######  mask remaining Alus  #####
@@ -4194,32 +3665,6 @@ sub runSearchStages {
         my $aluIdx = 1;
         if ( $tax->isA( $options{'species'}, "primates" ) == 1 ) {
 
-          # 11/9/2015
-          #if ( $options{'nocut'} ) {
-          if ( 0 ) {
-            &runStage(
-                       \%options,
-                       "identifying full-length ALUs",
-                       $batchIdentifierText,
-                       $searchRecipes->{'mask_young_sines_in_primates'},
-                       "$speciesLibDir/sinecutlib",
-                       "$file.tmp.alu0",
-                       $maskfile,
-                       $searchEngine,
-                       $batchNum,
-                       $batcher,
-                       $tax,
-                       $excisions,
-                       $numX,
-                       $refineableHashRef,
-                       \%refinementHash,
-                       "351",
-                       "alumask",
-                       $DIRECTORY,
-                       $seqDB
-            );
-          }
-          else {
             $cutAlus = &runStage(
                                 \%options,
                                 "identifying full-length ALUs",
@@ -4257,7 +3702,7 @@ sub runSearchStages {
                          "353", "alu", $DIRECTORY, $seqDB
               );
             }    # if ( $cutAlus )
-          }
+          
 
           if ( $options{'alu'} ) {
             ######  mask remaining Alus  #####
@@ -6644,8 +6089,9 @@ sub createSubElements {
       }
 
       # Don't include the X/N
-      my $newQuerySeq = substr( $parentQuerySeq, 0, $i - 1 );
-      my $newSubjSeq  = substr( $parentSubjSeq,  0, $i - 1 );
+      my $newQuerySeq   = substr( $parentQuerySeq, 0, $i - 1 );
+      my $newSubjSeq    = substr( $parentSubjSeq,  0, $i - 1 );
+      my $clipAlignChar = substr( $parentSubjSeq,  $i - 1, 1 );
 
       $newSegment->setQueryString( $newQuerySeq );
       $newSegment->setSubjString( $newSubjSeq );
@@ -6659,14 +6105,17 @@ sub createSubElements {
       $newSubjSeq =~ s/-//g;
 
       if ( $parentElement->getOrientation() eq "C" ) {
-        # RMH: 8/2025 - One-off bug reported by Pio
         $newSegment->setSubjEnd( $segSubjEnd );
         if ( $newSubjSeq eq "" ) {
           $segSubjEnd = $segSubjStart;
         }
         else {
-          $segSubjEnd -= (length( $newSubjSeq ) + 1);
-          $segSubjStart = $segSubjEnd + 1 + $numX;
+          $segSubjStart = $segSubjEnd - length( $newSubjSeq ) + 1;
+          if ( $clipAlignChar eq '-' ) {
+            $segSubjEnd = $segSubjStart - 1;
+          }else {
+            $segSubjEnd = $segSubjStart - 1 - $numX;
+          }
         }
         $newSegment->setSubjRemaining( $parentSubjSize - $newSegment->getSubjEnd() );
         $newSegment->setSubjStart( $segSubjStart );
@@ -6677,9 +6126,12 @@ sub createSubElements {
           $segSubjEnd = $segSubjStart;
         }
         else {
-          # RMH: 8/2025 - One-off bug reported by Pio
-          $segSubjEnd = $segSubjStart + length( $newSubjSeq );
-          $segSubjStart += length( $newSubjSeq ) + 1;
+          $segSubjEnd = $segSubjStart + length( $newSubjSeq ) - 1;
+          if ( $clipAlignChar eq '-' ) {
+            $segSubjStart = $segSubjEnd + 1;
+          }else {
+            $segSubjStart = $segSubjEnd + 1 + $numX;
+          }
         }
         $newSegment->setSubjEnd( $segSubjEnd );
         $newSegment->setSubjRemaining(
@@ -7007,394 +6459,7 @@ sub cleanUp {
   }
 }
 
-##----
-# DEPRECATED
-##----
-#sub getDBStats {
-#  my $options     = %{ shift() };
-#  my $db          = shift;
-#  my $specPattern = shift;
-#  my $tax         = shift;
-#
-#  print "RepeatMasker::getDBStats( \$db, " . "$specPattern, \$tax );\n"
-#      if ( $DEBUG );
-#
-#  my $seqCount = $db->getRecordCount();
-#
-#  my $cladeCnt  = 0;
-#  my $ancestCnt = 0;
-#
-#  # For each sequence in the master library
-#  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
-#    my $record = $db->getRecord( $i );
-#    foreach my $name ( $record->getRMSpeciesArray() ) {
-#      $name =~ s/_/ /g;
-#      my $isDescendant = $tax->isA( $name,        $specPattern );
-#      my $isAncestor   = $tax->isA( $specPattern, $name );
-#
-#      if ( $isDescendant == 1 ) {
-#        $cladeCnt++;
-#        last;
-#      }
-#      else {
-#        if ( $isAncestor ) {
-#          $ancestCnt++;
-#          last;
-#        }
-#      }
-#    }
-#  }
-#
-#  print
-#      "   - $ancestCnt ancestral and ubiquitous sequence(s) for $specPattern\n";
-#  print "   - $cladeCnt lineage specific sequence(s) for $specPattern\n";
-#}
 
-
-#### DEPRECATED
-##-------------------------------------------------------------------------##
-## Use:  my $libSize = createLib( \%options, $db, $libName, $specPattern,
-##                                $stageNum, $tax);
-##
-##         \%options     :  RepeatMasker options hash
-##         $db           :  A FastaDB or EMBL object open to
-##                          the repeat datbase.
-##         $libName      :  The name of the library to create.
-##         $specPattern  :  The name of the species to include seqs for.
-##         $stageNum:  The name of the old RM database.  Used to
-##                          screen the repeats ( will generalize in the
-##                          future ).
-##         $tax          :  The Taxonomy.pm object.
-##
-##  Returns
-##
-##     Creates a library by filtering the RepeatMasker.lib file
-##     given specific filtering parameters ( specPattern and stageNum).
-##     If wublast is being used it also creates the binary versions
-##     of the fasta library.  Returns the number of sequences stored
-##     in the library.  Removes the library file if there are no
-##     matching sequences.
-##
-##  Globals Used: None
-##-------------------------------------------------------------------------##
-#sub createLib {
-#  my $options      = %{ shift() };
-#  my $db           = shift;
-#  my $libName      = shift;
-#  my $specPattern  = shift;
-#  my $stageNum     = shift;
-#  my $tax          = shift;
-#  my $searchEngine = shift;
-#
-#  print "RepeatMasker::createLib( \$db, "
-#      . "$libName, $specPattern, $stageNum, \$tax );\n"
-#      if ( $DEBUG );
-#
-#  my @ids;
-#  my @descs;
-#  my $seqCount = $db->getRecordCount();
-#
-#  my $outFile = $libName;
-#  $outFile = "$libName-wublast"
-#      if ( $searchEngine->isa( "WUBlastSearchEngine" ) );
-#
-#  $outFile .= ".hmm" if ( $searchEngine->isa( "HMMERSearchEngine" ) );
-#
-#  open OUT, ">$outFile"
-#      or die "RepeatMasker::createLib(): Could "
-#      . "not open library file $outFile!\n";
-#
-#  # The number of sequences stored in this library
-#  my $librarySize = 0;
-#
-#  # For each sequence in the master library
-#  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
-#    my $match   = 0;
-#    my @buffers = ();
-#    my $seq     = "";
-#    my $id      = "";
-#    my $type    = "";
-#    my $desc    = "";
-#    my $record  = $db->getRecord( $i );
-#    foreach my $name ( $record->getRMSpeciesArray() ) {
-#      $name =~ s/_/ /g;
-#      if (    $tax->isA( $name, $specPattern ) > 0
-#           || $tax->isA( $specPattern, $name ) > 0 )
-#      {
-#        if ( $stageNum == 80 ) {
-#
-#          # For the specieslib it is sufficient to be in
-#          # the clade or in the ancestral species.  No
-#          # need to breakout into seperate search stages
-#          # yet.
-#          $match = 1;
-#        }
-#        else {
-#
-#          # Full length sequence non-buffered
-#          my @stages = $record->getRMSearchStagesArray();
-#          foreach my $stage ( @stages ) {
-#            if (
-#                 $stage eq $stageNum
-#                 || (
-#                      $stageNum == 95
-#                      && (    $stage == 35
-#                           || $stage == 50
-#                           || $stage == 55
-#                           || $stage == 60
-#                           || $stage == 65
-#                           || $stage == 70
-#                           || $stage == 75 )
-#                 )
-#                )
-#            {
-#              $match = 1;
-#            }
-#          }
-#
-#          # Buffered Sequence
-#          @stages = $record->getRMBufferStagesArray();
-#          foreach my $stage ( @stages ) {
-#            if ( $stage =~ /(\d+)\[(\d+)\-(\d+)\]/ ) {
-#              if ( $1 == $stageNum ) {
-#                push @buffers, "$2-$3";
-#              }
-#            }
-#            elsif ( $stage =~ /(\d+)/ ) {
-#              if ( $1 == $stageNum ) {
-#                push @buffers, "full";
-#              }
-#            }
-#            else {
-#              print "RepeatMasker::createLib: Warning buffer stage $stage "
-#                  . "understood!\n";
-#            }
-#          }
-#        }
-#        last if ( $match == 1 );
-#      }
-#    }
-#
-#    if ( $match > 0 || @buffers ) {
-#      $librarySize++;
-#      $id = $record->getId();
-#      if ( $id =~ /D[FR]\d+/ && defined $record->getName() ) {
-#        $id = $record->getName();
-#      }
-#      $type = "#" . $record->getRMType();
-#      if ( $record->getRMSubType() ne "" ) {
-#        $type .= "/" . $record->getRMSubType();
-#      }
-#
-#      if ( $match > 0 ) {
-#        if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-#
-#          # Use species-specific thresholds if supplied
-#          my @thresholds    = $record->getThreshArray();
-#          my %subThresholds = ();
-#          foreach my $thresh ( @thresholds ) {
-#            if ( $tax->isSpecies( $thresh->{'taxname'} ) eq
-#                 $tax->isSpecies( $specPattern ) )
-#            {
-#              $subThresholds{'GA'} = $thresh->{'hit_ga'};
-#              $subThresholds{'TC'} = $thresh->{'hit_tc'};
-#              $subThresholds{'NC'} = $thresh->{'hit_nc'};
-#              last;
-#            }
-#          }
-#          if ( exists $subThresholds{'GA'}
-#               && $subThresholds{'GA'} > 0 )
-#          {
-#            my $recordLines = $record->getRecordLines();
-#            while ( $recordLines =~ /(.*)[\n\r]+/ig ) {
-#              my $line = $1;
-#              if ( $line =~ /^(GA|TC|NC) / ) {
-#                print OUT "$1   " . $subThresholds{$1} . ";\n";
-#              }
-#              else {
-#                print OUT $line . "\n";
-#              }
-#            }
-#          }
-#          else {
-#            print OUT $record->getRecordLines();
-#          }
-#        }
-#        else {
-#          $desc = $record->getDescription();
-#          $seq  = $record->getSequence();
-#          if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-#            my $rseq = uc( $seq );
-#            $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
-#            $rseq = reverse $rseq;
-#
-#            die "Repeat consensus ( $id ) contains the "
-#                . "word \"anti\" in it's name.  This will cause "
-#                . "incorrect orientation calls in the output when "
-#                . "running with wublast."
-#                if ( $id =~ /anti/ );
-#
-#            print OUT ">$id" . $type;
-#            print OUT " (anti)\n";
-#            $rseq =~ s/(\S{50})/$1\n/g;
-#            $rseq .= "\n"
-#                unless ( $rseq =~ /.*\n+$/s );
-#            print OUT $rseq;
-#          }
-#
-#          print OUT ">" . $id . "$type\n";
-#          $seq =~ s/(\S{50})/$1\n/g;
-#          $seq .= "\n"
-#              unless ( $seq =~ /.*\n+$/s );
-#          print OUT $seq;
-#        }
-#      }
-#
-#      if ( @buffers ) {
-#        foreach my $buffer ( @buffers ) {
-#          if ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-#
-#            # TODO: Consider need for buffering with HMMs
-#            #warn "Currently we do not support sequence "
-#            #    . "buffers for HMMs $id ( $buffer )\n";
-#          }
-#          else {
-#            $desc = $record->getDescription();
-#            $seq  = $record->getSequence();
-#            if ( $buffer eq "full" ) {
-#              $type = "#buffer";
-#            }
-#            elsif ( $buffer =~ /(\d+)-(\d+)/ ) {
-#              $seq = substr( $seq, $1 - 1, $2 - $1 + 1 );
-#              $type = "_$1" . "_$2#buffer";
-#            }
-#            if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-#              my $rseq = uc( $seq );
-#              $rseq =~ tr/ACGTRYWSKMNXBDHV/TGCAYRSWMKNXVHDB/;
-#              $rseq = reverse $rseq;
-#
-#              die "Repeat consensus ( $id ) contains the "
-#                  . "word \"anti\" in it's name.  This will cause "
-#                  . "incorrect orientation calls in the output when "
-#                  . "running with wublast."
-#                  if ( $id =~ /anti/ );
-#
-#              print OUT ">" . $id . "$type";
-#              print OUT " (anti)\n";
-#              $rseq =~ s/(\S{50})/$1\n/g;
-#              $rseq .= "\n"
-#                  unless ( $rseq =~ /.*\n+$/s );
-#              print OUT $rseq;
-#            }
-#
-#            print OUT ">" . $id . "$type\n";
-#            $seq =~ s/(\S{50})/$1\n/g;
-#            $seq .= "\n"
-#                unless ( $seq =~ /.*\n+$/s );
-#            print OUT $seq;
-#          }
-#        }
-#      }
-#    }
-#  }
-#  close OUT;
-#
-#  if ( $librarySize == 0 ) {
-#    unlink( $outFile );
-#  }
-#  else {
-#    my ( $outFileVol, $outFileDir, $outFileBasename ) =
-#        File::Spec->splitpath( $outFile );
-#    $outFileDir = "." if ( $outFileDir eq "" );
-#
-#    if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-#      system(   "$SETDB_PRGM $outFile > "
-#              . "$outFileDir/setdb.log 2>&1" ) == 0
-#          or die "RepeatMasker::createLib(): Error invoking setdb on file "
-#          . "$outFile.  We tried using the setdb program ( "
-#          . "$SETDB_PRGM ).\n";
-#      unlink( $outFile ) unless ( $DEBUG );
-#      move( "$outFile.ahd", "$libName.ahd" );
-#      move( "$outFile.atb", "$libName.atb" );
-#      move( "$outFile.bsq", "$libName.bsq" );
-#    }
-#    elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-#      system(   "$NCBIBLASTDB_PRGM -dbtype nucl "
-#              . "-in $outFile > $outFileDir/rmblastdb.log 2>&1" ) == 0
-#          or die "RepeatMasker::createLib(): Error invoking "
-#          . "$NCBIBLASTDB_PRGM"
-#          . " on file $outFile.\n";
-#    }
-#    elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-#      system(   "$HMMPRESS_PRGM"
-#              . " $outFile > $outFileDir/hmmPress.log 2>&1" ) == 0
-#          or die "RepeatMasker::createLib(): Error invoking "
-#          . "$HMMPRESS_PRGM on file "
-#          . "$outFile.\n";
-#    }
-#  }
-#
-#  return ( $librarySize );
-#
-#}
-
-#sub createValidIDList {
-#  my $db          = shift;
-#  my $specPattern = shift;
-#  my $speciesDir  = shift;
-#  my $tax         = shift;
-#
-#  print "RepeatMasker::createValidIDList( \$db, "
-#      . "$specPattern, $speciesDir, \$tax );\n"
-#      if ( $DEBUG );
-#
-#  open OUT, ">$speciesDir/speciesMeta.pm"
-#      or die "RepeatMasker::createValidIDList(): Could "
-#      . "not open library file $speciesDir/speciesMeta.pm!\n";
-#
-#  my %validIDs = ();
-#  my $seqCount = $db->getRecordCount();
-#
-#  # For each sequence in the master library
-#  for ( my $i = 0 ; $i < $seqCount ; $i++ ) {
-#    my $record = $db->getRecord( $i );
-#    my $id     = $record->getId();
-#
-#    my $match = 0;
-#    foreach my $name ( $record->getRMSpeciesArray() ) {
-#      $name =~ s/_/ /g;
-#      if (    $tax->isA( $name, $specPattern ) > 0
-#           || $tax->isA( $specPattern, $name ) > 0 )
-#      {
-#        $match = 1;
-#        last;
-#      }
-#    }
-#    if ( $match ) {
-#      $validIDs{ lc( $id ) } = 1;
-#    }
-#  }
-#
-#  ##
-#  ##
-#  ##
-#  print OUT "package speciesMeta;\n";
-#  print OUT "require Exporter;\n";
-#  print OUT "\@EXPORT_OK   = qw( \%validIDs );\n";
-#  print OUT "\%EXPORT_TAGS = ( all => [ \@EXPORT_OK ] );\n";
-#  print OUT "\@ISA         = qw(Exporter);\n";
-#  print OUT "BEGIN {\n";
-#  print OUT "  \%validIDs = (\n";
-#  my $output = Dumper( \%validIDs );
-#  $output =~ s/^\$VAR1 = \{//;
-#  $output =~ s/\};//;
-#  print OUT $output;
-#  print OUT "\n";
-#  print OUT "  ); }\n";
-#  close OUT;
-#
-#}
-#
 ##-------------------------------------------------------------------------##
 ## Use:  my &processCustomLib( $libFile, $wublastSetDB, $tempdir );
 ##
@@ -7540,7 +6605,7 @@ sub commify {
 ##
 ##      species       : "-species" option provided by the user or undef.
 ##      customLibFile : "-lib" option provided by the user or undef.
-##      rmLibDir      : Directory containing the famdb/ subdirectory.
+##      rmLibDir      : The RepeatMasker libraries directory.
 ##      workingDir    : The programs working directory (e.g "RM_#####..").
 ##      libraryPath   : Search path for cached RM libraries.
 ##      searchEngine  : The search engine object.
@@ -7580,6 +6645,47 @@ sub initLibrariesFromFamdb {
 
   my $orgFlag;
   my $dbLabel;
+  my ($modelPrefix, $famdbCmd, $dbTitle, $dbVersion, $dbDate, $dbConsCnt, $dbHMMCnt);
+
+  # When FamDB is configured, fetch database metadata and build $dbLabel now
+  # so it is available for both -lib and -species runs (the general
+  # contamination-check cache is keyed on $dbLabel).
+  if ( $FAMDB_DIR ne "" ) {
+    $modelPrefix = "CONS-";
+    $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) );
+    my $famdbInfoCmd = "$FAMDB_DIR/famdb.py info";
+    open IN,"$famdbInfoCmd |";
+    while (<IN>){
+      if ( /^Database\s*:\s*(\S.*)/ ) {
+        $dbTitle = $1;
+      }elsif ( /^Version\s*:\s*(\S.*)/ ) {
+        $dbVersion = $1;
+      }elsif ( /^Date\s*:\s*(\S.*)/ ) {
+        $dbDate = $1;
+      }elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
+        $dbConsCnt = $1;
+      }elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
+        $dbHMMCnt = $1;
+      }
+    }
+    close IN;
+    if ( $? ) {
+      die "Could not execute famdb.py using: $famdbInfoCmd\n";
+    }
+    my $sanitizedTitle = $dbTitle;
+    $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
+    $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
+    $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
+    print "\nUsing FamDB: $FAMDB_DIR\n";
+    print "  Title    : $dbTitle\n";
+    print "  Version  : $dbVersion\n";
+    print "  Date     : $dbDate\n";
+    if ( $dbConsCnt > $dbHMMCnt ) {
+      print "  Families : " . commify($dbConsCnt) . "\n\n";
+    }else {
+      print "  Families : " . commify($dbHMMCnt) . "\n\n";
+    }
+  }
 
   ##
   ## User supplied FASTA/HMM library
@@ -7646,78 +6752,21 @@ sub initLibrariesFromFamdb {
           . $customLibFile . ", or the file is empty.\n";
     }
     print "Using Custom Repeat Library: $customLibFile\n\n";
+    # If FamDB is not configured there is no source for the contamination-check
+    # sequences (is.lib), so skip the general cache entirely.
+    return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir, "" )
+        if ( $FAMDB_DIR eq "" );
   }
   else {
 
     # Default species if non given.
     $species = "homo sapiens" if ( $species eq "" );
 
-    # TODO: This should be moved above...because even with a -lib the general directory
-    # needs to be created.
-    my $modelPrefix = "CONS-";
-    $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) ); 
-    my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb info ";
-    open IN,"$famdbCmd |";
-    my $dbTitle;
-    my $dbVersion;
-    my $dbDate;
-    my $dbConsCnt;
-    my $dbHMMCnt;
-    while (<IN>){
-      # Database: Dfam
-      # Version: 3.1
-      # Date: 2019-06-20
-      #
-      # Dfam - A database of transposable element (TE) sequence alignments and HMMs.
-      #
-      # Total consensus sequences: 273655
-      # Total HMMs: 273655
-      if ( /^Database\s*:\s*(\S.*)/ ) { 
-        $dbTitle = $1;
-      }elsif ( /^Version\s*:\s*(\S.*)/ ) {
-        $dbVersion = $1;
-      }elsif ( /^Date\s*:\s*(\S.*)/ ) {
-        $dbDate = $1;
-      }elsif ( /^Total consensus sequences present\s*:\s*(\d+)/ ) {
-        $dbConsCnt = $1;
-      }elsif ( /^Total HMMs present\s*:\s*(\d+)/ ) {
-        $dbHMMCnt = $1;
-      }
-    }
-    close IN;
-    if ( $? ) {
-      die "Could not execute famdb.py using: $famdbCmd\n";
-    }
-    $dbLabel = $dbTitle;
-    $dbLabel = s/^\s+//;
-    $dbLabel = s/\s+$//;
-    $dbLabel = s/\s+/_/g;
-    my $sanitizedTitle = $dbTitle;
-    $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
-    $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
-    $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
-    print "\nUsing Master RepeatMasker Database: $rmLibDir/famdb\n";
-    print "  Title    : $dbTitle\n";
-    print "  Version  : $dbVersion\n";
-    print "  Date     : $dbDate\n";
-    if ( $dbConsCnt > $dbHMMCnt ) {
-      print "  Families : " . commify($dbConsCnt) . "\n\n";
-    }else {
-      print "  Families : " . commify($dbHMMCnt) . "\n\n";
-    }
-
     ## For minimal DB installs, -species is not an option.
     if ( $dbTitle eq "Sequencing_artifacts_only" ) {
       die "\nERROR: A database of TE families is not present.\n" .
-          "         Either install the Dfam famDB root partition and additional\n" .
-          "         optional partitions or use the -lib option and provide your\n" .
-          "         own custom TE FASTA library file.\n\n".
-          "  To install Dfam FamDB partitions, simply download the root ('0') partition\n" .
-          "  from https://www.dfam.org/releases/current/families/FamDB/ into your\n".
-          "  RepeatMasker/Libraries/famdb folder and rerun the RepeatMasker 'configure'\n" .
-          "  tool to complete the installation. See the FamDB release notes and partition\n" .
-          "  descriptions https://www.dfam.org/releases/current/families/FamDB/README.txt\n" .
-          "  for further details.\n\n";
+          "         Either install FamDB (see https://github.com/Dfam-consortium/FamDB)\n" .
+          "         or use the -lib option and provide your own custom TE FASTA library file.\n\n";
     }
 
     # TODO Print total Taxa count
@@ -7725,7 +6774,7 @@ sub initLibrariesFromFamdb {
     # NOTE: orgFlag is a bit of a legacy concept that will probably disappear
     #       in a future RM version. 
     # TODO: Should REPEATMASKER_DIR be global???
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
+    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
                     $species . "' -f semicolon";
     #print "FamdbCMD: $famdbCmd\n";
     open IN,"$famdbCmd |";
@@ -7734,13 +6783,12 @@ sub initLibrariesFromFamdb {
     my $NCBITaxName;
     my $msg = "";
     while ( <IN> ) {
-      # current famdb lineage output:
-      # 370040(0): root;cellular organisms;Eukaryota;Opisthokonta;Metazoa;Eumetazoa;Bilateria;Deuterostomia;Chordata;Craniata;Vertebrata;Gnathostomata;Teleostomi;Euteleostomi;Actinopterygii;Actinopteri;Neopterygii;Teleostei;Osteoglossocephalai;Clupeocephala;Euteleosteomorpha;Neoteleostei;Eurypterygia;Ctenosquamata;Acanthomorphata;Euacanthomorphacea;Percomorphaceae;Ovalentaria;Mugilomorphae;Mugiliformes;Mugilidae;Planiliza;Planiliza haematocheilus [1469]
-      #1299 entries in ancestors; 8 lineage-specific entries
-      $orgFlag = "mammalia" if ( /^\d+\(\d+\):\s.*;Mammalia(;| \[)/ );
-      $orgFlag = "rodentia" if ( /^\d+\(\d+\):\s.*;Rodentia(;| \[)/ );
-      $orgFlag = "primates" if ( /^\d+\(\d+\):\s.*;Primates(;| \[)/ );
-      if ( /^(\d+)\(\d+\):\s+(root.*)\;(\S.*)\s+\[.*/ ) {
+      # current famdb lineage output (FamDB 4.0+):
+      # 9606(cc:0,ch:1,uc:0,uh:50): root;cellular organisms;...;Homo sapiens [52]
+      $orgFlag = "mammalia" if ( /^\d+\([^)]+\):\s.*;Mammalia(;| \[)/ );
+      $orgFlag = "rodentia" if ( /^\d+\([^)]+\):\s.*;Rodentia(;| \[)/ );
+      $orgFlag = "primates" if ( /^\d+\([^)]+\):\s.*;Primates(;| \[)/ );
+      if ( /^(\d+)\([^)]+\):\s+(root.*)\;(\S.*)\s+\[.*/ ) {
         $NCBITaxID = $1;
         $lineage = $2;
         $NCBITaxName = $3;
@@ -7786,16 +6834,22 @@ sub initLibrariesFromFamdb {
 
  
     # Tabulate curated
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
-                    $species . "' --curated --ancestors --descendants -f totals";
+    my $modelType = "consensus";
+    $modelType = "hmm" if ( $searchEngine->isa( "HMMERSearchEngine" ));
+    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
+                    $species . "' --curated --ancestors --model $modelType --descendants -f totals";
     open IN,"$famdbCmd |";
     my $curated_ancestor_counts = 0;
     my $curated_lineage_counts = 0;
+    my $present_curated_ancestor_counts = 0;
+    my $present_curated_lineage_counts = 0;
     while ( <IN> ) {
-      #1299 entries in ancestors; 8 lineage-specific entries
-      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+      # 1394 entries in ancestors; 58 lineage-specific entries; 0 ancestral entries present; 0 lineage-specific entries present
+      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific entries;\s*(\d+)\s+ancestral entries present;\s*(\d+)\s+lineage-specific entries present/ ) {
         $curated_ancestor_counts = $1;
         $curated_lineage_counts = $2;
+        $present_curated_ancestor_counts = $3;
+        $present_curated_lineage_counts = $4;
       }
     }
     close IN;
@@ -7804,16 +6858,20 @@ sub initLibrariesFromFamdb {
     }
     
     # Tabulate uncurated
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb lineage '" .
-                    $species . "' --uncurated --ancestors --descendants -f totals";
+    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
+                    $species . "' --uncurated --ancestors --model $modelType --descendants -f totals";
     open IN,"$famdbCmd |";
     my $uncurated_ancestor_counts = 0;
     my $uncurated_lineage_counts = 0;
+    my $present_uncurated_ancestor_counts = 0;
+    my $present_uncurated_lineage_counts = 0;
     while ( <IN> ) {
-      #1299 entries in ancestors; 8 lineage-specific entries
-      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific/ ) {
+      # 1394 entries in ancestors; 58 lineage-specific entries; 0 ancestral entries present; 0 lineage-specific entries present
+      if ( /^(\d+)\s+entries in ancestors;\s*(\d+)\s+lineage-specific entries;\s*(\d+)\s+ancestral entries present;\s*(\d+)\s+lineage-specific entries present/ ) {
         $uncurated_ancestor_counts = $1;
         $uncurated_lineage_counts = $2;
+        $present_uncurated_ancestor_counts = $3;
+        $present_uncurated_lineage_counts = $4;
       }
     }
     close IN;
@@ -7847,13 +6905,33 @@ sub initLibrariesFromFamdb {
        print "Including curated and uncurated families:\n";
        my $tot_ancestral = $uncurated_ancestor_counts + $curated_ancestor_counts;
        my $tot_lineage = $uncurated_lineage_counts + $curated_lineage_counts;
-       print "  $tot_ancestral families in ancestor taxa; $tot_lineage lineage-specific families\n";
+       my $present_tot_ancestral = $present_uncurated_ancestor_counts + $present_curated_ancestor_counts;
+       my $present_tot_lineage = $present_uncurated_lineage_counts + $present_curated_lineage_counts;
+       print "  $present_tot_ancestral/$tot_ancestral families in ancestor taxa; $present_tot_lineage/$tot_lineage lineage-specific families\n";
+       die   "    ** ERROR: There are applicable families available in this release of Dfam however there\n" .
+             "    **        currently no components/partitions present.  Please use `famdb.py check $species`\n" .
+             "    **        to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n\n" .
+             "    **        download them.\n\n" 
+         if ( $present_tot_ancestral == 0 && $present_tot_lineage == 0 && ($tot_ancestral > 0 || $tot_lineage > 0) );
+       print "    ** WARNING: Some Dfam components/partitions applicable to this search are not present on this system.\n" .
+             "    **          Please use `famdb.py check $species` to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n" .
+             "    **          download them.\n" 
+         if ( $present_tot_ancestral != $tot_ancestral || $present_tot_lineage != $tot_lineage);
        print "    ** NOTE: No uncurated families were found for this taxon **\n" 
            if ( ($uncurated_ancestor_counts + $uncurated_lineage_counts) == 0 );
        print "\n";
     }else{
        print "Including only curated families:\n";
-       print "  $curated_ancestor_counts families in ancestor taxa; $curated_lineage_counts lineage-specific families\n\n";
+       print "  $present_curated_ancestor_counts/$curated_ancestor_counts families in ancestor taxa; $present_curated_lineage_counts/$curated_lineage_counts lineage-specific families\n\n";
+       die   "    ** ERROR: There are applicable curated families available in this release of Dfam however there\n" .
+             "    **        currently no components/partitions present.  Please use `famdb.py check $species`\n" .
+             "    **        to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n" .
+             "    **        download them.\n\n" 
+         if ( $present_curated_ancestor_counts == 0 && $present_curated_lineage_counts == 0 && ($curated_ancestor_counts > 0 || $curated_lineage_counts > 0) );
+       print "    ** WARNING: Some Dfam components/partitions applicable to this search are not present on this system.\n" .
+             "    **          Please use `famdb.py check $species` to identify missing partitions and use `FamDB/utils/download_famdb.py` to\n" .
+             "    **          download them.\n" 
+         if ( $present_curated_ancestor_counts != $curated_ancestor_counts || $present_curated_lineage_counts != $curated_lineage_counts);
     }
   }
 
@@ -8013,7 +7091,7 @@ sub initLibrariesFromFamdb {
         # the refinelib.
         my $cOpt = "--curated";
         $cOpt = "" if ( $options{'uncurated'} );
-        my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+        my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
                        $species . "' $cOpt --ancestors --descendants -f embl_meta";
         open IN,"$famdbCmd|";
         my $acc;
@@ -8171,8 +7249,8 @@ sub initLibrariesFromFamdb {
 ##
 ##  Returns
 ##
-##     Creates a library by filtering the RepeatMasker.lib file
-##     given specific filtering parameters ( species and stageNum).
+##     Creates a library by querying FamDB for families matching the
+##     given species and stageNum filtering parameters.
 ##     If wublast is being used it also creates the binary versions
 ##     of the fasta library. Removes the library file if there are no
 ##     matching sequences.
@@ -8205,7 +7283,7 @@ sub createLibFromFamdb {
   #       special case selections internally.
   my $cOpt = "--curated";
   $cOpt = "" if ( $options{'uncurated'} );
-  my $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" . 
+  my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
               $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
   if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
     $famdbCmd .= " --add-reverse-complement";
@@ -8219,7 +7297,7 @@ sub createLibFromFamdb {
   # RMH: 6/27/2025
   if ( $addUndefined ) {
     # Add the undefined sequences to the library
-    $famdbCmd = "$REPEATMASKER_DIR/famdb.py -i $rmLibDir/famdb families '" .
+    $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
                  $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage 0 -f $format";
     if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
       $famdbCmd .= " --add-reverse-complement";

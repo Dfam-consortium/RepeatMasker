@@ -1,3 +1,18 @@
+4.2.4
+  - Support for new component-based FamDB and Dfam 4.0
+  - Updated documentation
+  - An updated configure script without screen clears supports easier 
+    history tracking and debugging.
+  - FamDB is now a fully separate and optional package for RepeatMasker.  For some
+    time RepeatMasker has been able to run custom library searches without the need
+    for a local copy of the Dfam database.  This step simply removes the need to
+    update FamDB every time RepeatMasker is updated.
+  - BUGFIX: Negative subject coordinates were produced when splitting alignments
+    in RepeatMasker::createSubElements().  The coordinate arithmetic contained
+    an off-by-one error and incorrectly assumed the X/N separator always consumed
+    one subject position, causing coordinates to drift negative when the separator
+    aligned to a gap in the subject.  Reported by Mark Diekhans.
+
 4.2.3
   - BUGFIX: Since the 4.1.1 release the staged approach to searching
     TE families has not been applied species in the 'rodentia' order

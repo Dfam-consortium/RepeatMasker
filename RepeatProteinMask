@@ -189,29 +189,45 @@ if ( $options{'help'} || !$#ARGV < 1 )
 #
 RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
-my $LIBDIR = $config->{'LIBDIR'}->{'value'};
-my $NCBIBLASTX_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/blastx";
+my $LIBDIR    = "$FindBin::RealBin/Libraries";
+my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
+my $NCBIBLASTX_PRGM  = $config->{'RMBLAST_DIR'}->{'value'} . "/blastx";
 my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
-my $ABBLASTX_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastx";
-my $XDFORMAT_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
-my $ABBLAST_DIR = $config->{'ABBLAST_DIR'}->{'value'};
+my $ABBLASTX_PRGM    = $config->{'ABBLAST_DIR'}->{'value'} . "/blastx";
+my $XDFORMAT_PRGM    = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
+my $ABBLAST_DIR      = $config->{'ABBLAST_DIR'}->{'value'};
 
 #
 # Setup the search engine                                              
 #                                                                           
-my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};       
-if ( exists $options{'engine'} ) {                               
-  if ( $options{'engine'} =~                                            
-       /^(ncbi|rmblast|wublast|abblast)$/i )      
-  {                                                                     
-    $engine = lc( $options{'engine'} );                   
-  }                               
-  else {                                                                       
+my $engine = $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'};
+if ( exists $options{'engine'} ) {
+  if ( $options{'engine'} =~ /^(ncbi|rmblast|wublast|abblast)$/i ) {
+    $engine = lc( $options{'engine'} );
+  }
+  else {
     die "I have never heard of the search engine $options{'engine'}.  Please\n"
-        . "use rmblast/ncbi or abblast/wublast.\n";                       
-  }                               
-}                                 
-# Save normalized engine name back into options as well
+      . "use rmblast/ncbi or abblast/wublast.\n";
+  }
+}
+
+# RepeatProteinMask only supports blast-based engines (blastx).
+# If the configured default is hmmer/nhmmer, fall back to the best
+# available blast engine.
+if ( $engine =~ /^(hmmer|nhmmer)$/i ) {
+  if ( RepeatMaskerConfig::validateParam('RMBLAST_DIR') ) {
+    $engine = 'rmblast';
+  }
+  elsif ( RepeatMaskerConfig::validateParam('ABBLAST_DIR') ) {
+    $engine = 'abblast';
+  }
+  else {
+    die "RepeatProteinMask requires RMBlast or ABBlast.\n"
+      . "The configured default engine ($engine) is not supported here.\n"
+      . "Please configure RMBlast or ABBlast and re-run configure.\n";
+  }
+}
+
 $options{'engine'} = $engine;
 
 
@@ -340,17 +356,73 @@ if ( defined $options{'querystatlen'} )
   $queryStatLen = $options{'querystatlen'};
 }
 
+##
+## Locate (or generate) the versioned RepeatPeps protein library.
+##
+unless ( $FAMDB_DIR && -x "$FAMDB_DIR/famdb.py" ) {
+  die "\nRepeatProteinMask requires FamDB to be configured.\n"
+    . "Please install FamDB and re-run the RepeatMasker configure script.\n"
+    . "See: https://github.com/Dfam-consortium/FamDB\n\n";
+}
+
+my $dfam_version = "";
+{
+  my $info = `$FAMDB_DIR/famdb.py info 2>/dev/null`;
+  $dfam_version = $1 if $info =~ /^Version\s*:\s*(\S+)/m;
+}
+die "Could not determine Dfam version from: $FAMDB_DIR/famdb.py info\n"
+  unless $dfam_version;
+
+my $prot_cache_name = "PROT-Dfam_$dfam_version";
+my @prot_search_path = (
+  "$LIBDIR/$prot_cache_name",
+  "$ENV{HOME}/.RepeatMaskerCache/$prot_cache_name",
+);
+
+my $prot_dir = "";
+for my $path ( @prot_search_path ) {
+  if ( -s "$path/RepeatPeps.lib" ) {
+    $prot_dir = $path;
+    last;
+  }
+}
+
+unless ( $prot_dir ) {
+  my $write_dir = "";
+  for my $path ( @prot_search_path ) {
+    my $parent = $path;
+    $parent =~ s|/[^/]+$||;
+    if ( -d $parent && -w $parent ) {
+      $write_dir = $path;
+      last;
+    }
+  }
+  unless ( $write_dir ) {
+    die "\nCould not find or create the RepeatPeps protein library ($prot_cache_name).\n"
+      . "None of the following locations are writable:\n"
+      . join( "", map { "  $_\n" } @prot_search_path )
+      . "\nEnsure at least one of those directories is writable and retry.\n\n";
+  }
+  mkdir $write_dir
+    or die "Cannot create directory $write_dir: $!\n";
+  print "Generating RepeatPeps protein library from FamDB $dfam_version...\n";
+  my $ret = system("$FAMDB_DIR/famdb.py repeat_peps > $write_dir/RepeatPeps.lib");
+  die "famdb.py repeat_peps failed (exit $ret)\n" if $ret || !-s "$write_dir/RepeatPeps.lib";
+  $prot_dir = $write_dir;
+}
+
+my $prot_lib = "$prot_dir/RepeatPeps.lib";
+
 if ( $options{'engine'} =~ /ncbi|rmblast/i )
 {
   $searchEngineX =
       NCBIBlastXSearchEngine->new(
                          pathToEngine => $NCBIBLASTX_PRGM );
 
-  if ( !-s "$LIBDIR/RepeatPeps.lib.psq" )
+  if ( !-s "$prot_lib.psq" )
   {
-    system(   "$NCBIBLASTDB_PRGM -dbtype prot -in "
-            . "$LIBDIR/RepeatPeps.lib "
-            . "> /dev/null 2>&1" );
+    system(   "$NCBIBLASTDB_PRGM -dbtype prot -in $prot_lib"
+            . " > /dev/null 2>&1" );
   }
 
   my $additionalParams =
@@ -364,9 +436,9 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
       WUBlastXSearchEngine->new(
                     pathToEngine => $ABBLASTX_PRGM );
 
-  if ( !-s "$LIBDIR/RepeatPeps.lib.xps" )
+  if ( !-s "$prot_lib.xps" )
   {
-    system( "$XDFORMAT_PRGM -p $LIBDIR/RepeatPeps.lib" );
+    system( "$XDFORMAT_PRGM -p $prot_lib" );
   }
 
   my $additionalParams =
@@ -375,7 +447,7 @@ if ( $options{'engine'} =~ /ncbi|rmblast/i )
 }
 
 $searchEngineX->setQuery( "$fastaFile.rmsimple" );
-$searchEngineX->setSubject( "$LIBDIR/RepeatPeps.lib" );
+$searchEngineX->setSubject( $prot_lib );
 $searchEngineX->setFilterWords( 1 );
 if ( defined $options{'pvalue'} )
 {
