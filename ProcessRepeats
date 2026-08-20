@@ -180,6 +180,26 @@ use RepeatAnnotationData;
 # Global variables
 my $DEBUG     = 0;
 
+# Autoflush STDOUT so progress output (the "." markers) appears in real time
+# instead of accumulating in the block buffer and flushing in bursts.
+$| = 1;
+
+# --- Optional phase timing (diagnostic only; no effect on output) ----------
+#   Enable with:  PR_TIMING=1 ProcessRepeats ...
+#   Each _prMark() call reports the wall-clock seconds elapsed since the
+#   previous mark to STDERR, so we can see where time really goes (parse vs
+#   the individual cycles vs masking vs output) without a profiler's overhead.
+use Time::HiRes qw( time );
+my $PR_TIMING = $ENV{'PR_TIMING'};
+my $_prLastMark;
+sub _prMark {
+  return unless ( $PR_TIMING );
+  my $now = time();
+  warn sprintf( "[timing] %-22s %9.2fs\n", $_[ 0 ], $now - $_prLastMark )
+      if ( defined $_prLastMark );
+  $_prLastMark = $now;
+}
+
 #
 #  Refinement Hash:
 #     Contains re-alignments for *.cat alignments which were refined.
@@ -389,6 +409,7 @@ foreach my $file ( @ARGV ) {
                          $lenSearchedSeqs, $lenSearchedSeqsExcludingXNRuns, 
                          $versionmode, $engine,
                          $poundformat );
+  _prMark( "generateTableOutput (incl. masking)" );
 
   print "\ndone\n"
 } # For each file
@@ -517,6 +538,7 @@ sub parseCATFile {
     }
   }
 
+  _prMark();    # baseline for parse timing
   if ( $noAlignData ) {
         CrossmatchSearchEngine::parseOutput(
                                                          searchOutput => $INCAT,
@@ -529,6 +551,7 @@ sub parseCATFile {
                                              callback => \&callback );
   }
   close $INCAT;
+  _prMark( "PARSE (parseOutput)" );
 
   # Trailing case
   if ( $searchResults->size() > 0 ) {
@@ -553,6 +576,11 @@ sub parseCATFile {
 }
 
 
+# Cached scoring matrix for the cycle-7 Alu refinement rescore.  This is a
+# constant file (18p35g.matrix); it was previously re-read and re-parsed from
+# disk once per Alu chain head, which dominates runtime on Alu-rich (primate)
+# genomes.  Load it lazily once and reuse.
+my $_alu18p35gMatrix;
 
 sub processSequence  {
   my $batchNum = shift;
@@ -577,7 +605,7 @@ sub processSequence  {
   #   NOTE: Only needed because we are not updating LeftOver
   #         when we modify Seq1Beg/End
   #
-  $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
+  &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
   print "annotations sorted\n" if ( $DEBUG );
 
   my $cycleAnnotIter;
@@ -596,10 +624,11 @@ sub processSequence  {
   #          Rename Satellite Shifted Copies
   #          build DNA transposon equivalency datastructure
   ##########################################################################
+  _prMark( "setup+cycle1(cycleReJoin)" );
   print "\ncycle 2 " if ( $DEBUG );
 
   # Sort by name, begin position, and end position descending
-  $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
+  &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
 
   # Create an ArrayListIterator for this cycle
   $cycleAnnotIter = $sortedAnnotationsList->getIterator();
@@ -1158,8 +1187,9 @@ CYCLE2:
     #printHitArrayList( $sortedAnnotationsList );
 
     # Sort by name, begin position, and end position descending
+    _prMark( "cycle2" );
     print "\ncycle 3 " if ( $DEBUG );
-    $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
+    &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
     $i              = -1;
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
     $DEBUG          = 0;
@@ -1452,8 +1482,9 @@ CYCLE3:
 
     #printHitArrayList( $sortedAnnotationsList );
     # Sort by name, begin position, and end position descending
+    _prMark( "cycle3" );
     print "\ncycle 4 " if ( $DEBUG );
-    $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
+    &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
 
     $i = -1;
     ##
@@ -1594,11 +1625,12 @@ CYCLE3:
     #printHitArrayList( $sortedAnnotationsList );
 
     # Sort by name, begin position, and end position descending
+    _prMark( "cycle4" );
     print "\ncycle 5 " if ( $DEBUG );
 
     if ( keys( %refinementHash ) ) {
 
-      $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
+      &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
       $i              = -1;
       $cycleAnnotIter = $sortedAnnotationsList->getIterator();
       $DEBUG          = 0;
@@ -2171,6 +2203,7 @@ CYCLE3:
     #
     ########################################################################
 
+    _prMark( "cycle5" );
     print "\ncycle 6 " if ( $DEBUG );
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
     $i              = -1;
@@ -2391,13 +2424,17 @@ CYCLE3:
             # LINE Equivalences ( SINE/LTR are not handled this way )
             my @currentNames = ( $currentAnnot->getSubjName() );
             if ( defined $currentAnnot->getEquivHash() ) {
-              push @currentNames, keys( %{ $currentAnnot->getEquivHash() } );
+              # sort the equiv names: the loop below takes the FIRST name pair
+              # that scores, and that score feeds a downstream check that can
+              # void the link -- so an unsorted (per-process randomized) hash
+              # key order makes borderline join decisions non-deterministic.
+              push @currentNames, sort( keys( %{ $currentAnnot->getEquivHash() } ) );
             }
 
             #print  "Dumper: " . Dumper(\@currentNames) . "\n";
             my @nextNames = ( $nextAnnot->getSubjName() );
             if ( defined $nextAnnot->getEquivHash() ) {
-              push @nextNames, keys( %{ $nextAnnot->getEquivHash() } );
+              push @nextNames, sort( keys( %{ $nextAnnot->getEquivHash() } ) );
             }
             my $savedCName = $currentAnnot->getSubjName();
             my $savedNName = $nextAnnot->getSubjName();
@@ -2569,6 +2606,7 @@ CYCLE3:
     #
     ########################################################################
 
+    _prMark( "cycle6" );
     print "\ncycle 7 " if ( $DEBUG );
 
     ##
@@ -2664,13 +2702,17 @@ CYCLE3:
         ##
         ## TODO: Consider changing this to a less extreme matrix.
         ##       I.e 18p41g or 18p43g
-        my $matrix =
+        $_alu18p35gMatrix ||=
             Matrix->new(
             fileName => "$FindBin::RealBin/Matrices/crossmatch/18p35g.matrix" );
+        my $matrix    = $_alu18p35gMatrix;
         my $numEquiv  = 0;
         my $totalEles = 0;
 
-        # TODO : Optimisation potential.  Cache rescore.
+        # NOTE: memoizing rescoreAlignment by element does NOT help here -- the
+        # refinement set (getEquivArray, keyed by the per-annotation lineageId)
+        # is distinct per Alu, so there is no reuse (measured 0 cache hits).
+        # The cost below is genuine per-Alu rescoring work.
         foreach my $ele ( getEquivArray( $currentAnnot ) ) {
           my ( $score, $div ) = $ele->rescoreAlignment(
                                                    scoreMatrix    => $matrix,
@@ -2920,6 +2962,7 @@ CYCLE3:
     #
     ########################################################################
 
+    _prMark( "cycle7" );
     print "\ncycle 8 " if ( $DEBUG );
 
     ##
@@ -3245,9 +3288,10 @@ CYCLE3:
     #
     ########################################################################
 
+    _prMark( "cycle8" );
     print "\ncycle 9 " if ( $DEBUG );
 
-    $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
+    &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
 
     $i              = -1;
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
@@ -3868,8 +3912,9 @@ CYCLE9:
     #
     ########################################################################
 
+    _prMark( "cycle9" );
     print "\ncycle 10 " if ( $DEBUG );
-    $sortedAnnotationsList->sort( \&byNameBeginEndrevSWrev );
+    &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
 
     $i              = -1;
     $cycleAnnotIter = $sortedAnnotationsList->getIterator();
@@ -4691,14 +4736,17 @@ CYCLE10:
 
     #printHitArrayList( $sortedAnnotationsList );
 
+    _prMark( "cycle10" );
+
     #
     # Generate output for this cat file!
     #
-    %aggregateStats = &generateOutput( \%options, \%seq1Lengths, 
+    %aggregateStats = &generateOutput( \%options, \%seq1Lengths,
                                    \%aggregateStats, $file,
                                    $engine, $sortedAnnotationsList,
                                    $batchNum );
- 
+    _prMark( "generateOutput" );
+
   }   # else....if ( ! $poundformat
    
   return ( %aggregateStats );
@@ -4971,204 +5019,6 @@ sub replaceRMFragmentChainWithRefinement {
 }
 
 #
-# OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD OLD
-#
-# replaceRMFragmentChainWithRefinement:
-#   RepeatMasker fragments alignment's that span a ( previously )
-#   clipped out repeat.  The RM refinement process is run prior
-#   to RM fragmentation and therefore creates contiguous re-alignments.
-#   RM does not fragment these re-alignments.  If we choose to replace
-#   a RM fragmented alignment with a contiguous re-alignment then
-#   we need to fragment the re-alignment ourselves.  This operation
-#   is highly subjective as we do not have the alignment data
-#   accessible to determine the breakpoint location.  Here are
-#   a few examples of how we are doing this:
-#
-#  Given that b1s4i3 joins to the previously joined
-#  RM fragmented repeat b1s6i8:
-#
-#                                     +-----------+
-#         ---b1s4i3--->               |           |
-#                          ---b1s6i8--->        -----b1s6i8--->
-#
-#  and given the relalignment:
-#
-#                          --------[b1s6i8]---------->
-#
-#  we must fragment [b1s6i8] into something approximating the
-#  original fragments and then replace the original ones.
-#
-#
-# Scenario #1:                    +-----------+
-#                                 |           |
-# RM Frags ----------------------->           ---->
-# Refined  ......................../         /....>
-#
-# Replace original fragments with new ones:
-#                                 +-----------+
-#                                 |           |
-#          .......................>           ....>
-#
-#
-# Scenario #2:                    +-----------+
-#                                 |           |
-#          ----------------------->           ---->
-#          ......................../         /.>
-#
-# If fragment coverage is less than 10 than remove fragment:
-#          .......................>
-# else:
-#                                 +-----------+
-#                                 |           |
-#          .......................>           ..>
-#
-#
-#
-# Scenario #2:                    +-----------+
-#                                 |           |
-#          ----------------------->           ---->
-#          .....................>
-#
-# Remove uncovered fragment
-#          .....................>
-#
-sub replaceRMFragmentChainWithRefinementOLD {
-  my $rightAnnot = shift;
-  my $rightEquiv = shift;
-
-  my $DEBUG   = 0;
-  my $chainId = $rightAnnot->getLineageId();
-
-  print "WARNING: Using old replaceRMFragmentChainWithRefinement routine!\n";
-
-  print "replaceRMFragmentChainWithRefinement: Entered...\n"
-      if ( $DEBUG );
-
-  # Make sure we are at the begining of the chain before we attempt to
-  # replace with the refinement annotation.
-  while ( $rightAnnot->getLeftLinkedHit() ) {
-    if ( $rightAnnot->getLeftLinkedHit()->getLineageId() eq $chainId ) {
-      $rightAnnot = $rightAnnot->getLeftLinkedHit();
-    }
-    else {
-      last;
-    }
-  }
-
-  #
-  my $newSeq1Width =
-      $rightEquiv->getQueryEnd() - $rightEquiv->getQueryStart() + 1;
-  my $newConsSize = $rightEquiv->getSubjEnd() + $rightEquiv->getSubjRemaining();
-  my $newConsLeft = $rightEquiv->getSubjStart();
-  my $newConsPerSeq1 =
-      ( $rightEquiv->getSubjEnd() - $rightEquiv->getSubjStart() + 1 ) /
-      $newSeq1Width;
-
-  my $currentLinFragPos = 1;
-  my $currentLen        =
-      ( $rightAnnot->getQueryEnd() - $rightAnnot->getQueryStart() + 1 );
-
-  while ( 1 ) {
-
-    $currentLen =
-        ( $rightAnnot->getQueryEnd() - $rightAnnot->getQueryStart() + 1 );
-
-    if ( $DEBUG ) {
-      print "  Fix frag starting chain: ";
-      $rightAnnot->print();
-      print "  With this one: ";
-      $rightEquiv->print();
-      print "  Current linear frag pos = $currentLinFragPos\n";
-    }
-
-    my $overlapStart = $currentLinFragPos;
-    $overlapStart = $rightEquiv->getQueryStart()
-        if ( $overlapStart < $rightEquiv->getQueryStart() );
-    my $overlapEnd = $currentLinFragPos +
-        ( $rightAnnot->getQueryEnd() - $rightAnnot->getQueryStart() + 1 );
-    $overlapEnd = $rightEquiv->getQueryEnd()
-        if ( $overlapEnd > $rightEquiv->getQueryEnd() );
-    if ( ( $rightAnnot->getQueryEnd() - $rightAnnot->getQueryStart() + 1 ) < 10
-         || ( $overlapEnd - $overlapStart + 1 ) < 10 )
-    {
-      print "  Marking as deleted $overlapStart - $overlapEnd\n" if ( $DEBUG );
-
-      # NOTE: This is a bit of a synthetic removal.  Since we do not have the
-      #       arraylist and it's iterators all we can do is simply alter the
-      #       annotation to have a 0 length seq1Length and a silly name like
-      #       "DELETE_ME.  In subsequent cycles 0 length repeats get removed.
-      $rightAnnot->setQueryStart( $rightAnnot->getQueryEnd() );
-      $rightAnnot->setHitName( "DELETE_ME" );
-      if ( $rightAnnot->getLeftLinkedHit() ) {
-        if ( $rightAnnot->getRightLinkedHit() ) {
-          ( $rightAnnot->getRightLinkedHit() )
-              ->setLeftLinkedHit( $rightAnnot->getLeftLinkedHit() );
-          ( $rightAnnot->getLeftLinkedHit() )
-              ->setRightLinkedHit( $rightAnnot->getRightLinkedHit() );
-        }
-        else {
-          ( $rightAnnot->getLeftLinkedHit() )->setRightLinkedHit();
-        }
-      }
-      elsif ( $rightAnnot->getRightLinkedHit() ) {
-        ( $rightAnnot->getRightLinkedHit() )->setLeftLinkedHit();
-      }
-      $rightAnnot->setRightLinkedHit();
-      $rightAnnot->setLeftLinkedHit();
-    }
-    else {
-      if ( $rightEquiv->getQueryEnd() < ( $currentLinFragPos + $currentLen ) ) {
-        $rightAnnot->setQueryEnd(
-                $rightAnnot->getQueryEnd() - $rightEquiv->getQueryRemaining() );
-        $rightAnnot->setQueryRemaining(
-          $rightAnnot->getQueryRemaining() + $rightEquiv->getQueryRemaining() );
-
-      }
-
-      # Fix queryStart for first fragment
-      if ( $rightEquiv->getQueryStart() < ( $currentLinFragPos + $currentLen )
-           && $rightEquiv->getQueryStart() > $currentLinFragPos )
-      {
-        $rightAnnot->setQueryStart(
-              $rightAnnot->getQueryStart() + $rightEquiv->getQueryStart() - 1 );
-      }
-
-      my $newConsWidth =
-          int(
-             ( $rightAnnot->getQueryEnd() - $rightAnnot->getQueryStart() + 1 ) *
-                 $newConsPerSeq1 );
-
-      $rightAnnot->setSubjStart( $newConsLeft );
-
-      $newConsLeft += $newConsWidth;
-      $newConsLeft = $rightEquiv->getSubjEnd()
-          if ( $newConsLeft > $rightEquiv->getSubjEnd() );
-      $rightAnnot->setSubjEnd( $newConsLeft );
-      $rightAnnot->setSubjRemaining( $newConsSize - $newConsLeft );
-      $newConsLeft++;
-
-      $rightAnnot->setHitName( $rightEquiv->getHitName() );
-      $rightAnnot->setScore( $rightEquiv->getScore() );
-      $rightAnnot->setPctDiverge( $rightEquiv->getPctDiverge() );
-      $rightAnnot->setPctKimuraDiverge( $rightEquiv->getPctKimuraDiverge() );
-      $rightAnnot->setPctDelete( $rightEquiv->getPctDelete() );
-      $rightAnnot->setPctInsert( $rightEquiv->getPctInsert() );
-      $rightAnnot->setOrientation( $rightEquiv->getOrientation() );
-      $rightAnnot->setClassName( $rightEquiv->getClassName() );
-    }
-    last
-        if ( !$rightAnnot->getRightLinkedHit()
-             || $rightAnnot->getRightLinkedHit()->getLineageId() ne
-             $rightAnnot->getLineageId() );
-    $currentLinFragPos +=
-        $rightAnnot->getQueryEnd() - $rightAnnot->getQueryStart() + 1;
-    $rightAnnot = $rightAnnot->getRightLinkedHit();
-  }
-  print "replaceRMFragmentChainWithRefinement: Leaving...\n"
-      if ( $DEBUG );
-}
-
-#
 # getRefinedHighScore:
 #     Given a RM annotation that has associated refinement ( re-alignment ) data,
 #     return the highest re-alignment score in the refinement set.
@@ -5317,6 +5167,20 @@ sub generateOutput {
                       );
   }
 
+  # Precompile the aggregate-stats category patterns once per sequence.  The
+  # classification loop below used to iterate keys(%aggregateStats) and compile
+  # /$regExp/ afresh for every (annotation x category) pair -- the single
+  # hottest line in the program.  Order is irrelevant here: every matching
+  # category is counted independently, so we just pair each category's stats
+  # hashref with its compiled pattern.
+  my @statCategories;
+  foreach my $aggKey ( keys( %aggregateStats ) ) {
+    my $entry = $aggregateStats{$aggKey};
+    next unless ( ref $entry eq 'HASH' && exists $entry->{'RE'} );
+    my $re = $entry->{'RE'};
+    push @statCategories, [ $entry, qr/$re/ ];
+  }
+
   # calculate stats
   while ( $cycleAnnotIter->hasNext() ) {
     $i++;
@@ -5367,17 +5231,13 @@ sub generateOutput {
     $aggregateStats{'totlength'}->{$CN} += $length;
     $aggregateStats{'annotatedlength'} += $length;
 
-    # Aggregate Stats
+    # Aggregate Stats (category patterns precompiled into @statCategories above)
     my $cataloged = 0;
-    foreach my $aggKey ( keys( %aggregateStats ) ) {
-      if ( ref $aggregateStats{$aggKey} eq ref {} &&
-           exists $aggregateStats{$aggKey}->{'RE'}) { 
-        my $regExp = $aggregateStats{$aggKey}->{'RE'};
-        if ( $CN =~ /$regExp/ ) {
-          $aggregateStats{$aggKey}->{'count'}++ unless $checked;
-          $aggregateStats{$aggKey}->{'length'} += $length;
-          $cataloged = 1;
-        }
+    foreach my $cat ( @statCategories ) {
+      if ( $CN =~ $cat->[1] ) {
+        $cat->[0]->{'count'}++ unless $checked;
+        $cat->[0]->{'length'} += $length;
+        $cataloged = 1;
       }
     }
     if ( !$cataloged ) {
@@ -6383,10 +6243,43 @@ sub generateTableOutput {
 sub cycleReJoin {
   my $sortedAnnotationsList = shift;
 
-  $sortedAnnotationsList->sort( \&bySeqSWConbegin );
+  &_sortBySeqSWConbegin( $sortedAnnotationsList );
   my $cycleAnnotIter = $sortedAnnotationsList->getIterator();
   my %chainSeq2Beg   = ();
   my %chainSeq2End   = ();
+
+  # Pre-bucket the annotations by the full set of join-key fields.  Two
+  # fragments can only be rejoined if they share QueryName, Score, HitName,
+  # LineageId and all three divergence percentages (the equality tests in the
+  # inner loop below); the remaining tests are "not already linked" and
+  # subject-coordinate adjacency.  The original inner scan walked the entire
+  # same-(QueryName,Score) run for every seed -- O(sum run^2), which dominates
+  # runtime on a large single sequence.  Since the list is sorted by
+  # (QueryName, Score, SubjStart), the members of each bucket are collected in
+  # that same order, so a seed walking only its bucket-tail visits exactly the
+  # candidates the old scan would have matched, in the same order.  Numeric
+  # fields are normalized (+0) so the key matches the inner loop's numeric '=='.
+  my %buckets;         # key -> ordered arrayref of annots
+  my @bucketOf;        # global index -> that annot's bucket arrayref
+  my @idxInBucketOf;   # global index -> that annot's position in its bucket
+  {
+    my $bIt = $sortedAnnotationsList->getIterator();
+    my $gi  = -1;
+    while ( $bIt->hasNext() ) {
+      $gi++;
+      my $a   = $bIt->next();
+      my $key = join( "\x00",
+                      $a->getQueryName(),      $a->getScore() + 0,
+                      $a->getHitName(),        $a->getLineageId(),
+                      $a->getPctDiverge() + 0, $a->getPctInsert() + 0,
+                      $a->getPctDelete() + 0 );
+      my $b = ( $buckets{$key} ||= [] );
+      push @$b, $a;
+      $bucketOf[ $gi ]      = $b;
+      $idxInBucketOf[ $gi ] = $#$b;
+    }
+  }
+
   my $i              = -1;
   while ( $cycleAnnotIter->hasNext() ) {
     $i++;
@@ -6419,7 +6312,6 @@ sub cycleReJoin {
     #         Same Sequence
     #         Same Score, divg's
     #         Cons Boundaries match
-    my $proxIter           = $cycleAnnotIter->getIterator();
     my @compatIDs          = ( $currentAnnot );
     my $lastSeq2Begin      = $currentAnnot->getSubjStart();
     my $lastSeq2End        = $currentAnnot->getSubjEnd();
@@ -6432,33 +6324,37 @@ sub cycleReJoin {
     my $highestSeq2Pos = $lastSeq2Begin;
     $highestSeq2Pos = $lastSeq2End
         if ( $highestSeq2Pos < $lastSeq2End );
-    my $contained = 0;
 
-    while ( $proxIter->hasNext() ) {
-      my $nextAnnot = $proxIter->next();
-      if ( $nextAnnot->containsElement( $currentAnnot ) ) {
-        $contained = 1;
-      }
-      last
-          unless ( $currentAnnot->getQueryName() eq $nextAnnot->getQueryName()
-                   && $nextAnnot->getScore() == $currentAnnot->getScore() );
-      my $nextHitName   = $nextAnnot->getHitName();
-      my $nextClassName = $nextAnnot->getClassName();
+    # Hoist currentAnnot's loop-invariant join-key fields into locals so the
+    # inner bucket-tail comparisons below avoid repeated accessor calls.
+    my $curHitName   = $currentAnnot->getHitName();
+    my $curLineageId = $currentAnnot->getLineageId();
+    my $curPctDiv    = $currentAnnot->getPctDiverge();
+    my $curPctIns    = $currentAnnot->getPctInsert();
+    my $curPctDel    = $currentAnnot->getPctDelete();
+
+    # Walk only this seed's bucket-tail (candidates sharing the full join key)
+    # rather than the entire same-(QueryName,Score) run -- see the pre-bucket
+    # pass above.  Same candidates, same order => identical join decisions.
+    my $seedBucket = $bucketOf[ $i ];
+    for ( my $bk = $idxInBucketOf[ $i ] + 1 ; $bk <= $#$seedBucket ; $bk++ ) {
+      my $nextAnnot   = $seedBucket->[ $bk ];
+      my $nextHitName = $nextAnnot->getHitName();
 
       # Note: Currently annotations in RepeatMasker may skip reporting
       # segments of alignments between clipped out markers "x"s which are
       # smaller than 5 bp long.  I upped the tolerance here to handle
       # these separated fragments.
       if (
-           $nextHitName eq $currentAnnot->getHitName()
+           $nextHitName eq $curHitName
         && !$nextAnnot->getLeftLinkedHit()
         && !$nextAnnot->getRightLinkedHit()
 
         # TODO: Check this
-        && $nextAnnot->getLineageId() eq $currentAnnot->getLineageId()
-        && $nextAnnot->getPctDiverge() == $currentAnnot->getPctDiverge()
-        && $nextAnnot->getPctInsert() == $currentAnnot->getPctInsert()
-        && $nextAnnot->getPctDelete() == $currentAnnot->getPctDelete()
+        && $nextAnnot->getLineageId() eq $curLineageId
+        && $nextAnnot->getPctDiverge() == $curPctDiv
+        && $nextAnnot->getPctInsert() == $curPctIns
+        && $nextAnnot->getPctDelete() == $curPctDel
         && (
           abs( $nextAnnot->getSubjStart() - $lastSeq2End ) < 5
           ||
@@ -6473,11 +6369,6 @@ sub cycleReJoin {
           $currentAnnot->print();
           print "  because of next:\n";
           $nextAnnot->print();
-        }
-
-        if ( $contained && $DEBUG ) {
-          print "\n\n\n\n\n\nWARNING WARNING -- containment "
-              . "breached!\n\n\n\n\n\n";
         }
 
         $lastAnnot->join( $nextAnnot );
@@ -7095,119 +6986,6 @@ sub printSourceAlignments {
     }
   }
   else {
-    # recurse
-    ## May need to sort by seq1beg.  Look for examples
-    my @srcMembers = @{ $annot->getDerivedFromAnnot() };
-    foreach my $member ( @srcMembers ) {
-      if ( $member == $annot ) {
-        warn "printSourceAlignments(): Warning - a loop was detected!\n"
-            . "Please notify the site administrator of this problem.\n";
-        print $FILE "WARNING: A loop was detected in the evidence reporting\n";
-        print $FILE "code.  Please notify the site administrator of this\n";
-        print $FILE "problem.\n";
-        return;
-      }
-      &printSourceAlignments( $FILE, $member, $widthsRef, $html, $fixedID );
-    }
-  }
-}
-
-sub printSourceAlignmentsOrig {
-  my $FILE      = shift;
-  my $annot     = shift;
-  my $widthsRef = shift;
-  my $html      = shift;
-  my $fixedID   = shift;
-
-  my %colWidths = undef;
-  %colWidths = %{$widthsRef}
-      if ( defined $widthsRef );
-
-  if ( !defined $annot->getDerivedFromAnnot() ) {
-
-    # Allow ID to be overriden.
-    my $displayID = $annot->getPRID();
-    $displayID = $fixedID if ( $fixedID );
-
-    # print
-    if ( defined $widthsRef ) {
-      if ( $html ) {
-        printf $FILE
-            "Annotation: %${colWidths{'SW'}}d  %${colWidths{'PctSubst'}}s "
-            . "%${colWidths{'PctDelete'}}s "
-            . "%${colWidths{'PctInsert'}}s  "
-            . "%-${colWidths{'Seq1Name'}}s  "
-            . "%${colWidths{'BeginAlign'}}s "
-            . "%${colWidths{'EndAlign'}}s "
-            . "%${colWidths{'LeftOver'}}s %1s "
-            . "<a class='nound' href='http://www.repeatmasker.org/cgi-bin"
-            . "/ViewRepeat?id="
-            . $annot->getHitName() . "'>"
-            . "%-${colWidths{'HitName'}}s</a> "
-            . "%-${colWidths{'class'}}s "
-            . "%${colWidths{'Seq2Begin'}}s "
-            . "%${colWidths{'Seq2End'}}s "
-            . "%${colWidths{'LeftUnaligned'}}s %${colWidths{'ID'}}s\n",
-            $annot->getScore(), $annot->getPctDiverge(), $annot->getPctDelete(),
-            $annot->getPctInsert(),      $annot->getQueryName(),
-            $annot->getQueryStart(),     $annot->getQueryEnd(),
-            $annot->getQueryRemaining(), $annot->getOrientation(),
-            $annot->getHitName(),        $annot->getClassName(),
-            $annot->getSubjStart(),      $annot->getSubjEnd(),
-            $annot->getSubjRemaining(),  $displayID;
-      }
-      else {
-        if ( $annot->getOrientation() eq "C" ) {
-          printf $FILE
-              "Annotation: %${colWidths{'SW'}}d  %${colWidths{'PctSubst'}}s "
-              . "%${colWidths{'PctDelete'}}s "
-              . "%${colWidths{'PctInsert'}}s  "
-              . "%-${colWidths{'Seq1Name'}}s  "
-              . "%${colWidths{'BeginAlign'}}s "
-              . "%${colWidths{'EndAlign'}}s "
-              . "%${colWidths{'LeftOver'}}s %1s "
-              . "%-${colWidths{'HitName'}}s "
-              . "%-${colWidths{'class'}}s "
-              . "%${colWidths{'LeftUnaligned'}}s "
-              . "%${colWidths{'Seq2End'}}s "
-              . "%${colWidths{'Seq2Begin'}}s %${colWidths{'ID'}}s\n",
-              $annot->getScore(),       $annot->getPctDiverge(),
-              $annot->getPctDelete(),   $annot->getPctInsert(),
-              $annot->getQueryName(),   $annot->getQueryStart(),
-              $annot->getQueryEnd(),    "(" . $annot->getQueryRemaining() . ")",
-              $annot->getOrientation(), $annot->getHitName(),
-              $annot->getClassName(),   "(" . $annot->getSubjRemaining() . ")",
-              $annot->getSubjEnd(),     $annot->getSubjStart(), $displayID;
-        }
-        else {
-          printf $FILE "%${colWidths{'SW'}}d  %${colWidths{'PctSubst'}}s "
-              . "%${colWidths{'PctDelete'}}s "
-              . "%${colWidths{'PctInsert'}}s  "
-              . "%-${colWidths{'Seq1Name'}}s  "
-              . "%${colWidths{'BeginAlign'}}s "
-              . "%${colWidths{'EndAlign'}}s "
-              . "%${colWidths{'LeftOver'}}s %1s "
-              . "%-${colWidths{'HitName'}}s "
-              . "%-${colWidths{'class'}}s "
-              . "%${colWidths{'Seq2Begin'}}s "
-              . "%${colWidths{'Seq2End'}}s "
-              . "%${colWidths{'LeftUnaligned'}}s %${colWidths{'ID'}}s\n",
-              $annot->getScore(),       $annot->getPctDiverge(),
-              $annot->getPctDelete(),   $annot->getPctInsert(),
-              $annot->getQueryName(),   $annot->getQueryStart(),
-              $annot->getQueryEnd(),    "(" . $annot->getQueryRemaining() . ")",
-              $annot->getOrientation(), $annot->getHitName(),
-              $annot->getClassName(),   $annot->getSubjStart(),
-              $annot->getSubjEnd(),     "(" . $annot->getSubjRemaining() . ")",
-              $displayID;
-        }
-      }
-    }
-    print $FILE "Evidence:\n";
-    print $FILE $annot->getAlignData();
-  }
-  else {
-
     # recurse
     ## May need to sort by seq1beg.  Look for examples
     my @srcMembers = @{ $annot->getDerivedFromAnnot() };
@@ -8311,6 +8089,95 @@ sub translateAnnotation {
 
 ##sorting subroutines
 # Cycle 0B
+
+##
+## Keyed (decorate-sort-undecorate) replacements for the two annotation sort
+## orders used below.  These are PERFORMANCE ONLY: each produces the identical
+## permutation to the like-named ($$) comparator, because the comparison is the
+## same sequence of operators applied to the same field values, and perl's sort
+## (a stable mergesort since 5.8) breaks ties by original position in both the
+## old and new forms.
+##
+## Why it is faster: a ($$) prototype defeats perl's $a/$b sort optimization,
+## forcing a real sub call with @_ setup for EVERY comparison; each comparison
+## then made up to 8 further accessor sub calls.  Decorating once reduces that
+## to O(N) accessor calls plus comparisons on plain scalars, instead of
+## O(N log N) accessor calls.  These lists are re-sorted 8x per sequence.
+##
+## The lists are mutated in place via toArrayRef().  That is equivalent to
+## ArrayList::sort()'s install-a-new-arrayref: ArrayListIterator holds the
+## ArrayList *object* and re-reads elements through ->get() on every next(),
+## so it observes the current contents either way.
+##
+## NOTE: if byNameBeginEndrevSWrev() or bySeqSWConbegin() is ever changed,
+##       change its keyed twin here to match.
+##
+
+sub _sortByNameBeginEndrevSWrev {
+  my $list = shift;
+  my $ref  = $list->toArrayRef();
+  return if ( !defined $ref || @$ref < 2 );
+
+  my @d = map {
+    [ $_->getQueryName(), $_->getQueryStart(), $_->getQueryEnd(),
+      $_->getScore(), $_ ]
+  } @$ref;
+
+  # Several cycles re-sort a list that nothing has reordered since the last
+  # sort.  A sort of already-ordered input is a no-op (stable, no inversions),
+  # so skipping it is result-identical and saves the whole O(N log N) pass.
+  my $inOrder = 1;
+  for ( my $i = 1 ; $i <= $#d ; $i++ ) {
+    my $p = $d[ $i - 1 ];
+    my $q = $d[ $i ];
+    if ( (    $p->[ 0 ] cmp $q->[ 0 ]
+           || $p->[ 1 ] <=> $q->[ 1 ]
+           || $q->[ 2 ] <=> $p->[ 2 ]
+           || $q->[ 3 ] <=> $p->[ 3 ] ) > 0 )
+    {
+      $inOrder = 0;
+      last;
+    }
+  }
+  return if ( $inOrder );
+
+  @$ref = map { $_->[ 4 ] } sort {
+         $a->[ 0 ] cmp $b->[ 0 ]
+      || $a->[ 1 ] <=> $b->[ 1 ]
+      || $b->[ 2 ] <=> $a->[ 2 ]
+      || $b->[ 3 ] <=> $a->[ 3 ]
+  } @d;
+}
+
+sub _sortBySeqSWConbegin {
+  my $list = shift;
+  my $ref  = $list->toArrayRef();
+  return if ( !defined $ref || @$ref < 2 );
+
+  my @d = map {
+    [ $_->getQueryName(), $_->getScore(), $_->getSubjStart(), $_ ]
+  } @$ref;
+
+  my $inOrder = 1;
+  for ( my $i = 1 ; $i <= $#d ; $i++ ) {
+    my $p = $d[ $i - 1 ];
+    my $q = $d[ $i ];
+    if ( (    $p->[ 0 ] cmp $q->[ 0 ]
+           || $p->[ 1 ] <=> $q->[ 1 ]
+           || $p->[ 2 ] <=> $q->[ 2 ] ) > 0 )
+    {
+      $inOrder = 0;
+      last;
+    }
+  }
+  return if ( $inOrder );
+
+  @$ref = map { $_->[ 3 ] } sort {
+         $a->[ 0 ] cmp $b->[ 0 ]
+      || $a->[ 1 ] <=> $b->[ 1 ]
+      || $a->[ 2 ] <=> $b->[ 2 ]
+  } @d;
+}
 sub bySeqSWConbegin ($$) {
   ( $_[ 0 ]->getQueryName() ) cmp( $_[ 1 ]->getQueryName() )
       || ( $_[ 0 ]->getScore() ) <=>     ( $_[ 1 ]->getScore() )
@@ -8324,17 +8191,6 @@ sub byNameBeginEndrevSWrev ($$) {
       || ( $_[ 1 ]->getQueryEnd() ) <=>   ( $_[ 0 ]->getQueryEnd() )
       || ( $_[ 1 ]->getScore() ) <=>      ( $_[ 0 ]->getScore() );
   ### note: takes the longer sequence starting at the same position first
-}
-
-# Cycle 0Da
-sub byNameClassBeginEndrevAndSWrev ($$) {
-  my ( $aSeqName, $aClassName ) = $_[ 0 ]->getSubjName() =~ /(.*)#(.*)/;
-  my ( $bSeqName, $bClassName ) = $_[ 1 ]->getSubjName() =~ /(.*)#(.*)/;
-  ( $_[ 0 ]->getQueryName() ) cmp( $_[ 1 ]->getQueryName() )
-      || ( $aClassName ) cmp( $bClassName )
-      || ( $_[ 0 ]->getQueryStart() ) <=> ( $_[ 1 ]->getQueryStart() )
-      || ( $_[ 1 ]->getQueryEnd() ) <=> ( $_[ 0 ]->getQueryEnd() )
-      || ( $_[ 1 ]->getScore() ) <=> ( $_[ 0 ]->getScore() );
 }
 
 # Line Preprocessing notes:

@@ -85,7 +85,7 @@ BEGIN {
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => ''
+                                       'value' => 'rmblast'
                                      },
           'FAMDB_DIR' => {
                            'command_line_override' => 'famdb_dir',
@@ -97,7 +97,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => ''
+                           'value' => '/usr/local/FamDB-Dfam-4.0_RB'
                          },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
@@ -126,7 +126,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => ''
+                             'value' => '/usr/local/rmblast/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',
@@ -134,7 +134,7 @@ BEGIN {
                           'environment_override' => 'TRF_PRGM',
                           'param_type' => 'program',
                           'required' => 1,
-                          'value' => ''
+                          'value' => '/usr/local/bin/trf'
                         }
         };
 
