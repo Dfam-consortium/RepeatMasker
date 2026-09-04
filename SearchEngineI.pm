@@ -653,6 +653,45 @@ sub setSubject {
 
 =over 4
 
+=item Use: my $value = getSubjectIDList( );
+
+=item Use: my $oldValue = setSubjectIDList( $file );
+
+Get/Set a file that restricts the search to a subset of the subject
+database.  The file holds one identifier per line.  For a database whose
+sequences are named "gi|N" the identifiers are the bare numbers.  Pass
+undef to search the whole database again.
+
+Only the rmblastn engines honour this setting.  An engine that needs the
+list in another format converts it when the list is set and removes what
+it made when the list is cleared, so the caller owns only the file it
+wrote.
+
+=back 
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getSubjectIDList {
+  my $this = shift;
+
+  return $this->{'subjectIDList'};
+}
+
+sub setSubjectIDList {
+  my $this  = shift;
+  my $value = shift;
+
+  my $oldValue = $this->{'subjectIDList'};
+  $this->{'subjectIDList'} = $value;
+
+  return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
 =item Use: my $subjectPath = prepareSubject( $seqFile,
                                              [outputDir => $dir],
                                              [dbName    => $name],
@@ -673,6 +712,10 @@ call unconditionally.
   dbName    : Basename to give the artifacts.  Defaults to the basename
               of $seqFile.
   force     : Rebuild even if the artifacts appear current.
+
+Engines may accept further options of their own and must ignore any
+they do not understand, so a caller can pass one set of options to
+whichever engine it was handed.
 
 The default implementation is for engines which search a plain sequence
 file directly and therefore have nothing to prepare.

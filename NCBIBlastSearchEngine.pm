@@ -493,10 +493,13 @@ sub getSubjectArtifacts {
 
   return () if ( !defined $path );
 
-  # BLASTDB version 4 and 5 suffixes.  Not all are produced for every
-  # database, so callers must tolerate absent members.
-  return map { "$path.$_" }
-      qw( nhr nin nsq ndb not ntf nto njs nog nos nod );
+  # BLASTDB version 4 and 5 suffixes, including the ones -parse_seqids
+  # adds, plus the log prepareSubject() writes.  Not all are produced for
+  # every database, so callers must tolerate absent members.
+  return ( ( map { "$path.$_" }
+             qw( nhr nin nsq ndb not ntf nto njs nog nos nod
+                 nnd nni nsd nsi nsg ) ),
+           "$path.makeblastdb.log" );
 }
 
 ##-------------------------------------------------------------------------##
@@ -516,7 +519,10 @@ sub isSubjectPrepared {
 
   return 0 if ( !defined $path );
 
-  return ( -s "$path.nin" || -s "$path.nhr" || -s "$path.nsq" );
+  return (    -s "$path.nin"
+           || -s "$path.nhr"
+           || -s "$path.nsq"
+           || -s "$path.nal" );
 }
 
 ##-------------------------------------------------------------------------##
@@ -524,10 +530,12 @@ sub isSubjectPrepared {
 =head2 prepareSubject()
 
   Use: my $subjectPath = prepareSubject( $seqFile,
-                                         [outputDir  => $dir],
-                                         [dbName     => $name],
-                                         [checkStale => 1],
-                                         [force      => 1] );
+                                         [outputDir   => $dir],
+                                         [dbName      => $name],
+                                         [checkStale  => 1],
+                                         [force       => 1],
+                                         [parseSeqIDs => 1],
+                                         [dbVersion   => 4] );
 
   Run makeblastdb over $seqFile and return the database basename to hand
   to setSubject().  This is not always $seqFile: when outputDir is given
@@ -537,6 +545,11 @@ sub isSubjectPrepared {
   By default an existing database is left alone.  Pass checkStale to also
   rebuild when $seqFile is newer than its artifacts, or force to rebuild
   unconditionally.
+
+  parseSeqIDs passes -parse_seqids, which a database needs before
+  setSubjectIDList() can restrict a search over it.  dbVersion selects
+  the BLASTDB format version.  Both are specific to this engine; the 3.x
+  engine ignores them.
 
 =cut
 
@@ -580,13 +593,76 @@ sub prepareSubject {
       . "makeblastdb alongside rmblastn.\n"
       if ( !-x $formatter );
 
+  my $opts = "-dbtype nucl";
+  $opts .= " -parse_seqids" if ( $params{'parseSeqIDs'} );
+  $opts .= " -blastdb_version " . $params{'dbVersion'}
+      if ( defined $params{'dbVersion'} );
+
   my $log = "$dbPath.makeblastdb.log";
-  system( "$formatter -dbtype nucl -out $dbPath -in $seqFile > $log 2>&1" ) == 0
+  system( "$formatter $opts -out $dbPath -in $seqFile > $log 2>&1" ) == 0
       or croak $CLASS
       . "::prepareSubject(): Error running $formatter on $seqFile.\n"
       . "See $log for details.\n";
 
   return $dbPath;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 setSubjectIDList()
+
+  Use: my $oldValue = setSubjectIDList( $file );
+
+  Restrict the search to the subjects listed in $file, one bare GI
+  number per line.  The 2.x series reads its list in the packed format
+  blastdb_aliastool produces, so the text file is converted to "$file.gil"
+  here and that copy is removed again when the list is cleared or
+  replaced.  The subject database must have been prepared with
+  parseSeqIDs for the restriction to take effect.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub setSubjectIDList {
+  my $this  = shift;
+  my $value = shift;
+
+  my $rendered = $this->{'subjectIDListRendered'};
+  unlink( $rendered ) if ( defined $rendered && -e $rendered );
+  delete $this->{'subjectIDListRendered'};
+
+  if ( defined $value ) {
+    croak $CLASS
+        . "::setSubjectIDList(): List file ($value) does not exist or "
+        . "is empty!\n"
+        if ( !-s $value );
+
+    my $aliasTool = dirname( $this->getPathToEngine() ) . "/blastdb_aliastool";
+    croak $CLASS
+        . "::setSubjectIDList(): Cannot find blastdb_aliastool ($aliasTool). "
+        . "A 2.x rmblast installation must provide it alongside rmblastn.\n"
+        if ( !-x $aliasTool );
+
+    $rendered = "$value.gil";
+    system( "$aliasTool -gi_file_in $value -gi_file_out $rendered "
+            . "> /dev/null 2>&1" ) == 0
+        or croak $CLASS
+        . "::setSubjectIDList(): Error running $aliasTool on $value.\n";
+    $this->{'subjectIDListRendered'} = $rendered;
+  }
+
+  return $this->SUPER::setSubjectIDList( $value );
+}
+
+##-------------------------------------------------------------------------##
+##  Use: my $file = $this->_subjectIDListForEngine();
+##
+##  The list file in the form this engine's command line takes.
+##-------------------------------------------------------------------------##
+sub _subjectIDListForEngine {
+  my $this = shift;
+
+  return $this->{'subjectIDListRendered'};
 }
 
 ##-------------------------------------------------------------------------##
@@ -740,6 +816,13 @@ sub _computeSearchParameters {
   }
   else {
     croak $CLASS. "::search: Error subject undefined!\n";
+  }
+
+  if ( defined( $value = $this->_subjectIDListForEngine() ) ) {
+    croak $CLASS
+        . "::search: Error...subject ID list ($value) does not exist!\n"
+        if ( !-f $value );
+    $p{'gilist'} = $value;
   }
 
   if ( ( $value = $this->getQuery() ) ) {
@@ -980,6 +1063,7 @@ sub _renderParameters {
   $parameters .= " -mt_mode " . $p->{'mt_mode'} . " "
       if ( defined $p->{'mt_mode'} );
   $parameters .= " -matrix " . $p->{'matrix'} if ( defined $p->{'matrix'} );
+  $parameters .= " -gilist " . $p->{'gilist'} if ( defined $p->{'gilist'} );
 
   return $parameters;
 }
