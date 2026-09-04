@@ -146,7 +146,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.2.4";
+$VERSION = "4.2.5";
 
 #
 # Default Dfam Version
