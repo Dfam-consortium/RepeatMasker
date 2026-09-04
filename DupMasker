@@ -297,7 +297,6 @@ my $realignNonRepMaxWidth = 300;
 my $ABBLASTN_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastn";
 my $XDFORMAT_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
 my $RMBLASTN_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/rmblastn";
-my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
 
 
 #
@@ -869,20 +868,20 @@ foreach my $reAlignRange ( @ranges )
   print OUT $seq;
   close OUT;
 
-  $searchEngineN->setSubject( "$tmpLibFile" );
-
   ##
   ##
   ##
   if ( $searchEngineN->isa( "NCBIBlastSearchEngine" ) )
   {
-      system(   "$NCBIBLASTDB_PRGM -dbtype nucl "
-              . "-in $tmpLibFile > /dev/null 2>&1" ) == 0
-          or die "DupMasker:: Error invoking "
-          . "$NCBIBLASTDB_PRGM"
-          . " on file $tmpLibFile.\n";
+      # force, because the temporary library is rewritten under the same
+      # name on every realignment and a stale index must not be reused.
+      # Under 2.x this runs makeblastdb as before.  Under 3.x it does
+      # nothing, which saves a format step per realignment.
+      $searchEngineN->setSubject(
+              $searchEngineN->prepareSubject( $tmpLibFile, force => 1 ) );
   }else
   {
+      $searchEngineN->setSubject( "$tmpLibFile" );
       system(   "$XDFORMAT_PRGM -n $tmpLibFile > "
               . "/dev/null 2>&1" ) == 0
           or die "DupMasker: Error invoking xdformat on file "

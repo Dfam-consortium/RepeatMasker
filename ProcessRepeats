@@ -7254,6 +7254,7 @@ sub scoreLINEPair {
       #      3 --->|  anything
       #  or  anything |<---- 5
       #
+      # 20260903: RMH: The reverse orientation was checking the queryRemaining rather than the subjRemaining
       my $modelCompat = 1;
       if (
               $leftAnnot->getOrientation() eq "+"
@@ -7263,7 +7264,7 @@ sub scoreLINEPair {
            || $rightAnnot->getOrientation() eq "C"
            && $rightAnnot->getSubjName() =~ /_3end/
            && (    $leftAnnot->getSubjName() =~ /_5end/
-                || $rightAnnot->getQueryRemaining() < 10 )
+                || $rightAnnot->getSubjRemaining() < 10 )
           )
       {
         $modelCompat = 0;
@@ -7784,7 +7785,10 @@ sub joinDNATransposonFragments {
                             $curNameRangeLastEnd,       $adjCandidateBegin,
                             $adjCandidateEnd,           $adjPotStrand,
                             $seedSeq1Pos,               $seedSeq1End,
-                            $potAnnot->getQueryStart(), $potAnnot->getQueryEnd()
+                            $potAnnot->getQueryStart(), $potAnnot->getQueryEnd(),
+                            (   exists $repeatDB->{ lc( $curName ) }
+                              ? $repeatDB->{ lc( $curName ) }->{'conlength'}
+                              : undef )
                 );
                 if ( $isCompatible ) {
                   print "            ---> isCompatible = $isCompatible\n"
@@ -8496,6 +8500,8 @@ sub isTransposonPairCompatible {
   my $curEndAlign    = shift;
   my $nextBeginAlign = shift;
   my $nextEndAlign   = shift;
+  my $conLength      = shift;    # length of the consensus both fragments are
+                                 # expressed in; undef if unknown
 
   my $DEBUG = 0;
   if ( $DEBUG ) {
@@ -8534,12 +8540,19 @@ sub isTransposonPairCompatible {
   print "conGap = $conGap, seqGap = $seqGap: "
       . "Is conGap > -75 && ( conGap < 500 )\n"
       if ( $DEBUG );
+  # A candidate placed against the current fragment may not run more than
+  # 10 bp past either end of the consensus. On the "C" strand the candidate
+  # extends toward position 1; on the "+" strand toward the consensus end,
+  # which needs the consensus length. When the length is unknown the "+"
+  # strand check is skipped.
+  # 20260903: RMH: added the "+" strand case; previously only "C" could pass.
   if (
        $conGap > -75
     && $conGap < 500
-    && ( ( $curStrand eq "C" && $adjCurBegin - $conExt > -10 ) )
-    ## TODO: Must check that we don't go beyond the length
-    ##       of the adjusted consensus.
+    && (    ( $curStrand eq "C" && $adjCurBegin - $conExt > -10 )
+         || (    $curStrand ne "C"
+              && ( !defined $conLength
+                   || $adjCurEnd + $conExt < $conLength + 10 ) ) )
       )
   {
     return ( 1 );

@@ -116,17 +116,12 @@ BEGIN {
                              'description' => 'The path to the installation of the RMBLAST sequence alignment program.',
                              'environment_override' => 'RMBLAST_DIR',
                              'expected_binaries' => [
-                                                      'rmblastn',
-                                                      'dustmasker',
-                                                      'makeblastdb',
-                                                      'blastdbcmd',
-                                                      'blastdb_aliastool',
-                                                      'blastn'
+                                                      'rmblastn'
                                                     ],
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => '/usr/local/rmblast/bin'
+                             'value' => '/usr/local/rmblast-3.0.7/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',

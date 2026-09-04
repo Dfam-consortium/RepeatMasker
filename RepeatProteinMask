@@ -191,8 +191,11 @@ RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
 my $LIBDIR    = "$FindBin::RealBin/Libraries";
 my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
-my $NCBIBLASTX_PRGM  = $config->{'RMBLAST_DIR'}->{'value'} . "/blastx";
-my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
+# NOTE: blastx and makeblastdb are NCBI toolkit programs which the 3.x
+# series of rmblast does not ship, and RepeatProteinMask is the only tool
+# here that needs them.  Rather than make every user configure them, they
+# are located on demand in the ncbi branch below and reported as missing
+# only if someone actually runs this program with that engine.
 my $ABBLASTX_PRGM    = $config->{'ABBLAST_DIR'}->{'value'} . "/blastx";
 my $XDFORMAT_PRGM    = $config->{'ABBLAST_DIR'}->{'value'} . "/xdformat";
 my $ABBLAST_DIR      = $config->{'ABBLAST_DIR'}->{'value'};
@@ -415,6 +418,9 @@ my $prot_lib = "$prot_dir/RepeatPeps.lib";
 
 if ( $options{'engine'} =~ /ncbi|rmblast/i )
 {
+  my $NCBIBLASTX_PRGM  = &findNCBIProgram( "blastx" );
+  my $NCBIBLASTDB_PRGM = &findNCBIProgram( "makeblastdb" );
+
   $searchEngineX =
       NCBIBlastXSearchEngine->new(
                          pathToEngine => $NCBIBLASTX_PRGM );
@@ -576,6 +582,48 @@ exit;
 ##
 ##
 ##---------------------------------------------------------------------##
+##-------------------------------------------------------------------------##
+##  my $path = &findNCBIProgram( $name );
+##
+##  Locate an NCBI toolkit program, looking first in the configured
+##  RMBLAST_DIR and then on the PATH.  Dies with instructions if it is not
+##  found anywhere.
+##
+##  RepeatProteinMask needs blastx and makeblastdb, which the rest of
+##  RepeatMasker does not, and which the 3.x series of rmblast does not
+##  ship.  Looking for them here rather than in configure keeps a
+##  dependency that only this program has out of everybody else's install.
+##-------------------------------------------------------------------------##
+sub findNCBIProgram {
+  my $name = shift;
+
+  my $rmblastDir = $config->{'RMBLAST_DIR'}->{'value'};
+  if ( defined $rmblastDir && $rmblastDir ne "" ) {
+    return "$rmblastDir/$name"
+        if ( -x "$rmblastDir/$name" && !-d "$rmblastDir/$name" );
+  }
+
+  foreach my $dir ( split( /:/, ( $ENV{'PATH'} || "" ) ) ) {
+    next if ( $dir eq "" );
+    return "$dir/$name" if ( -x "$dir/$name" && !-d "$dir/$name" );
+  }
+
+  die "RepeatProteinMask: Could not find the NCBI BLAST+ program '$name'.\n"
+      . "\n"
+      . "This program uses blastx and makeblastdb from the NCBI BLAST+\n"
+      . "distribution.  They are not part of the rmblast 3.x series and are\n"
+      . "not checked by configure, since RepeatProteinMask is the only tool\n"
+      . "here that needs them.\n"
+      . "\n"
+      . "Either put '$name' on your PATH, or install NCBI BLAST+ (or an\n"
+      . "rmblast 2.x distribution, which bundles it) into the directory\n"
+      . "configured as RMBLAST_DIR, currently:\n"
+      . "    " . ( $rmblastDir || "<unset>" ) . "\n"
+      . "\n"
+      . "Alternatively run with -engine abblast if you have AB/WUBlast.\n";
+}
+
+##-------------------------------------------------------------------------##
 sub maskResults
 {
   my %parameters = @_;

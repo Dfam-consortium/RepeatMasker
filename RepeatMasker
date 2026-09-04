@@ -311,7 +311,7 @@ Crossmatch, ProcessRepeats
 
 =head1 COPYRIGHT
 
-2002-2025 Copyright (C) Institute for Systems Biology Developed by
+2002-2026 Copyright (C) Institute for Systems Biology Developed by
 Arian Smit and Robert Hubley.
 
 2000-2001 Copyright (C) Arian Smit.
@@ -457,9 +457,11 @@ system( "$PAGER $REPEATMASKER_DIR/repeatmasker.help\n" ),
 RepeatMaskerConfig::resolveConfiguration(\%options);
 my $config = $RepeatMaskerConfig::configuration;
 my $NHMMSCAN_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/nhmmscan";
-my $HMMPRESS_PRGM = $config->{'HMMER_DIR'}->{'value'} . "/hmmpress";
 my $RMBLASTN_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/rmblastn";
-my $NCBIBLASTDB_PRGM = $config->{'RMBLAST_DIR'}->{'value'} . "/makeblastdb";
+# NOTE: makeblastdb is no longer invoked from here.  The search engine
+# prepares its own subject database (see prepareSubject() in
+# SearchEngineI), because whether there is anything to prepare depends on
+# which rmblastn series is installed.
 my $CROSSMATCH_PRGM = $config->{'CROSSMATCH_DIR'}->{'value'} . "/cross_match";
 my $WUBLASTP_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastp";
 my $SETDB_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/setdb";
@@ -6544,20 +6546,25 @@ sub processCustomLib {
     }
     undef $libDB;
 
+    return ( "$tempdir/$custLibFile" );
   }
-  elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-    system(   "$NCBIBLASTDB_PRGM -out $tempdir/$custLibFile "
-            . "-dbtype nucl -in $libFile > "
-            . "$tempdir/makeblastdb.log 2>&1" );
-  }
-  elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-    system( "cp $libFile $tempdir/$custLibFile" );
-    system(   "$HMMPRESS_PRGM "
-            . " $tempdir/$custLibFile > $tempdir/hmmPress.log 2>&1" ) == 0
-        or die "RepeatMasker::createLib(): Error invoking "
-        . "$HMMPRESS_PRGM on file "
-        . "$tempdir/$custLibFile.\n";
-  }
+
+  #
+  # Every other engine prepares itself.  Return the path prepareSubject()
+  # gives back rather than composing one here: under rmblastn 3.x nothing
+  # is written to $tempdir and the library is searched where it sits.
+  #
+  # checkStale is on because a custom library is a file the user edits.
+  # We leave it off for the shared caches under Libraries/, which are
+  # rebuilt by the code that generates them.
+  #
+  return (
+      $searchEngine->prepareSubject(
+                                     $libFile,
+                                     outputDir  => $tempdir,
+                                     checkStale => 1
+      )
+  );
 }
 
 ##-------------------------------------------------------------------------##
@@ -6692,60 +6699,39 @@ sub initLibrariesFromFamdb {
   ##
   if ( $customLibFile ne "" ) {
     if ( -s $customLibFile ) {
-      # Validate/Generate required pre-processed files for
-      # the search engine requested.
-      if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-        if (    -s "$customLibFile.bsq"
-             || -s "$customLibFile.xps" )
-        {
-          my ( $custLibVol, $custLibDir, $custLibFile ) =
-              File::Spec->splitpath( $customLibFile );
-          $customCacheDir = $custLibDir || ".";
-          warn "NOTE: Compressed versions of your custom library were\n"
-              . "found in the $custLibDir directory.  The program will\n"
-              . "use these by default. If these databases do not contain\n"
-              . "reverse complemented copies of your sequences the reverse\n"
-              . "strand hits will not be returned!";
-        }
-        else {
-          &processCustomLib( $customLibFile, $workingDir, $searchEngine );
-        }
-      }
-      elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-        if (    -s "$customLibFile.nsq"
-             || -s "$customLibFile.nhr" )
-        {
-          my ( $custLibVol, $custLibDir, $custLibFile ) =
-              File::Spec->splitpath( $customLibFile );
-          $customCacheDir = $custLibDir || ".";
-        }
-        else {
-          &processCustomLib( $customLibFile, $workingDir, $searchEngine );
-        }
-      }
-      elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
-        # mylib.hmm.h3f
-        # mylib.hmm.h3i
-        # mylib.hmm.h3m
-        # mylib.hmm.h3p
-        if (    -s "$customLibFile.h3f"
-             && -s "$customLibFile.h3i"
-             && -s "$customLibFile.h3m"
-             && -s "$customLibFile.h3p" )
-        {
-          my ( $custLibVol, $custLibDir, $custLibFile ) =
-              File::Spec->splitpath( $customLibFile );
-          $customCacheDir = $custLibDir || ".";
-        }
-        else {
-          &processCustomLib( $customLibFile, $workingDir, $searchEngine );
-        }
+      #
+      # Validate/Generate the pre-processed files the search engine needs.
+      # Ask the engine which files those are, and whether it needs any,
+      # rather than globbing for suffixes here.
+      #
+      my $customSubject;
+      if ( $searchEngine->isSubjectPrepared( $customLibFile ) ) {
+
+        # Already prepared alongside the user's library, so use it in place.
+        $customSubject = $customLibFile;
+
+        my ( $vol, $dir, $file ) = File::Spec->splitpath( $customLibFile );
+        warn "NOTE: Compressed versions of your custom library were\n"
+            . "found in the "
+            . ( $dir || "." )
+            . " directory.  The program will\n"
+            . "use these by default. If these databases do not contain\n"
+            . "reverse complemented copies of your sequences the reverse\n"
+            . "strand hits will not be returned!"
+            if ( $searchEngine->isa( "WUBlastSearchEngine" ) );
       }
       else {
-        my ( $custLibVol, $custLibDir, $custLibFile ) =
-            File::Spec->splitpath( $customLibFile );
-        $customCacheDir = $custLibDir || ".";
+        $customSubject =
+            &processCustomLib( $customLibFile, $workingDir, $searchEngine );
       }
+
+      # The prepared library does not always land where we asked for it,
+      # so take the directory from the path we got back.
+      my ( $custSubjVol, $custSubjDir, $custSubjFile ) =
+          File::Spec->splitpath( $customSubject );
+      $customCacheDir = $custSubjDir || ".";
+      $customCacheDir =~ s/\/+$//;
+      $customCacheDir = "." if ( $customCacheDir eq "" );
     }
     else {
       die "RepeatMasker::setspecies: Could not find user specified library "
@@ -6954,23 +6940,27 @@ sub initLibrariesFromFamdb {
   foreach my $path ( @libraryPath ) {
     if ( -d "$path/$dbLabel" ) {
       if ( -d "$path/$dbLabel/$speciesWord" ) {
-        if (
-          (
-            $searchEngine->isa( "WUBlastSearchEngine" )
-            && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*.ahd" ) )
-          )
-          || ( $searchEngine->isa( "NCBIBlastSearchEngine" )
-            && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*.nhr" ) )
-          )
-          || ( $searchEngine->isa( "CrossmatchSearchEngine" )
-             && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*lib" ) )
-          )
-          || ( $searchEngine->isa( "HMMERSearchEngine" )
-             && ( my @pathFiles = glob( "$path/$dbLabel/$speciesWord/*hmm" ) )
-          )
-            )
-        {
-          $speciesCacheDir = "$path/$dbLabel/$speciesWord";
+        #
+        # A cached species directory is usable when it holds at least one
+        # library this engine can search.  Recover the library names from
+        # the directory contents: either the library file itself, or the
+        # index files beside it under the same basename, since the wublast
+        # path deletes the library once it has been compressed.  Then ask
+        # the engine whether any of them is ready to use.
+        #
+        my %libBases = ();
+        foreach my $cacheFile ( glob( "$path/$dbLabel/$speciesWord/*" ) ) {
+          next if ( -d $cacheFile );
+          my $base = $cacheFile;
+          $base =~ s/\.(ahd|atb|bsq|xn[a-z]|xp[a-z]|n[a-z][a-z]|h3[fimp])$//;
+          $libBases{ $base } = 1 if ( $base =~ /(lib|hmm)$/ );
+        }
+
+        foreach my $libBase ( keys( %libBases ) ) {
+          if ( $searchEngine->isSubjectPrepared( $libBase ) ) {
+            $speciesCacheDir = "$path/$dbLabel/$speciesWord";
+            last;
+          }
         }
       }elsif ( -d "$path/$dbLabel/$speciesWord" . ".working" ) {
         # Make sure checkpointing name has been cleared in previous run
@@ -6982,8 +6972,12 @@ sub initLibrariesFromFamdb {
       if ( -d "$path/$dbLabel/general" ) {
         if ( $searchEngine->isa( "NCBIBlastSearchEngine" ) && 
              -s "$path/$dbLabel/general/is.lib" && 
-             ! -s "$path/$dbLabel/general/is.lib.nhr") {
-             # Must build frozen version of is.lib
+             ! $searchEngine->isSubjectPrepared(
+                                     "$path/$dbLabel/general/is.lib" ) ) {
+             # The library is present but not prepared for this engine, so
+             # it has to be regenerated.  Under rmblastn 3.x nothing needs
+             # preparing, so this no longer re-runs famdb to rebuild a
+             # library that already exists.
              $generalCacheDir = "";
         }else {
           # Fallback on .working to makes sure this gets built for hmmer/crossmatch
@@ -7020,7 +7014,7 @@ sub initLibrariesFromFamdb {
           if ( -d "$path/$dbLabel" ) {
             if ( open( TEST, ">$path/$dbLabel/rmwritetest.deleteme" ) ) {
               close TEST;
-              unlink "$path/rmwritetest.deleteme";
+              unlink "$path/$dbLabel/rmwritetest.deleteme";
               $writableCacheDir = $path;
               last;
             }
@@ -7330,11 +7324,9 @@ sub createLibFromFamdb {
       move( "$outFile.bsq", "$libName.bsq" );
     }
     elsif ( $searchEngine->isa( "NCBIBlastSearchEngine" ) ) {
-      system(   "$NCBIBLASTDB_PRGM -dbtype nucl "
-              . "-in $outFile > $outFileDir/rmblastdb.log 2>&1" ) == 0
-          or die "RepeatMasker::createLib(): Error invoking "
-          . "$NCBIBLASTDB_PRGM"
-          . " on file $outFile.\n";
+      # Under 2.x this runs makeblastdb beside the library.  Under 3.x the
+      # library is already the database, so it does nothing.
+      $searchEngine->prepareSubject( $outFile );
     }
     elsif ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
       #
@@ -7414,11 +7406,7 @@ sub createLibFromFamdb {
         unlink("$outFile.preThresh");
       }
 
-      system(   "$HMMPRESS_PRGM"
-              . " $outFile > $outFileDir/hmmPress.log 2>&1" ) == 0
-          or die "RepeatMasker::createLib(): Error invoking "
-          . "$HMMPRESS_PRGM on file "
-          . "$outFile.\n";
+      $searchEngine->prepareSubject( $outFile, force => 1 );
     }
   }
 }

@@ -70,6 +70,7 @@ use SearchResultCollection;
 use Data::Dumper;
 use FileHandle;
 use File::Basename;
+use File::Spec;
 use Carp;
 # For debugging only
 #use Time::HiRes qw(gettimeofday); 
@@ -112,6 +113,19 @@ sub new {
   bless $this, $class;
 
   $this->setPathToEngine( $nameValuePairs{'pathToEngine'} );
+
+  #
+  # Version dispatch.  The 3.x series takes the same settings but spells
+  # them differently on the command line and has no separate database
+  # step, so hand the caller a subclass that knows how to drive it.
+  # Substituting here rather than at every call site keeps existing code
+  # working: callers still ask for an NCBIBlastSearchEngine, and
+  # isa("NCBIBlastSearchEngine") tests still match.
+  #
+  if ( $this->getMajorVersion() >= 3 && ref( $this ) eq $CLASS ) {
+    require RMBlastSearchEngine;
+    bless $this, "RMBlastSearchEngine";
+  }
 
   # TODO: Figure out a better design
   $this->setUseDustSeg( 1 );
@@ -318,42 +332,261 @@ sub setPathToEngine {
   croak $CLASS. "::setPathToEngine( $value ): Program does not exist!"
       if ( not -x $value || `which $value` );
 
-  my $result = `$value -version 2>&1`;
-  if ( $result =~ /rmblast[n]\s*:?\s*(\S.*)/ ) {
-    $this->{'engineName'} = "rmblastn";
-    $this->{'version'}    = $1;
-    if ( $this->{'version'} =~ /(\d+)\.(\d+)\.(\d+)\+/ ) {
-      my $majorVer = $1;
-      my $minorVer = $2;
-      my $revision = $3;
-      if ( $majorVer > 2 || ($majorVer == 2 && $minorVer >= 13 )) {
-         # Since the 2.13.0+ release of RMBlast we now have:
-         #    - pre-computed Kimura divergence, Kimura CpG adjusted,
-         #      transitions, transversions, cpg_sites, and the cross_match
-         #      stats (perc_sub, perc_query_gap, perc_subj_gap).
-         #    - Ability to thread on the query sequences rather than just
-         #      the subject sequences.
-         #    - The ability to output tab delimited format with all the above
-         #      fields.
-         $this->{'hasQueryThreading'} = 1;
-         $this->{'hasTabFormat'} = 1;
-      }
-      if ( $majorVer > 2 || ($majorVer == 2 && $minorVer > 14) ||
-           ($majorVer == 2 && $minorVer == 14 && $revision >= 1) ) {
-         $this->{'hasDBSoftMasking'} = 1;
-      }
-    }
-  }
-  else {
-    croak $CLASS
-        . "::setPathToEngine( $value ): Cannot determine "
-        . "engine variant and version!\n";
-  }
+  $this->_probeVersion( $value );
 
   my $oldValue = $this->{'pathToEngine'};
   $this->{'pathToEngine'} = $value;
 
   return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+##  Use: $this->_probeVersion( $pathToBinary );
+##
+##  Ask the binary what it is, and set the version and capability flags.
+##  Broken out of setPathToEngine() so that a subclass driving a different
+##  rmblastn series can extend it.
+##-------------------------------------------------------------------------##
+sub _probeVersion {
+  my $this  = shift;
+  my $value = shift;
+
+  # NCBI toolkit binaries accept "-version".  The 3.x series uses GNU
+  # style long options, so try both before giving up.
+  my $result = `$value -version 2>&1`;
+  if ( $result !~ /rmblast/i ) {
+    $result = `$value --version 2>&1`;
+  }
+
+  croak $CLASS
+      . "::setPathToEngine( $value ): Cannot determine "
+      . "engine variant and version!\n"
+      if ( $result !~ /rmblast[n]\s*:?\s*(\S.*)/ );
+
+  $this->{'engineName'} = "rmblastn";
+  $this->{'version'}    = $1;
+
+  # 2.x reports "2.17.1+" following the NCBI convention; 3.x reports a
+  # bare "3.0.4".  Do not require the trailing "+".  This test used to,
+  # which meant a 3.x binary parsed as having no version, left
+  # hasTabFormat unset, and fell through to the legacy report parser
+  # without any error.
+  croak $CLASS
+      . "::setPathToEngine( $value ): Could not parse a version number "
+      . "out of \""
+      . $this->{'version'}
+      . "\"!\n"
+      if ( $this->{'version'} !~ /(\d+)\.(\d+)\.(\d+)/ );
+
+  my $majorVer = $1;
+  my $minorVer = $2;
+  my $revision = $3;
+  $this->{'majorVersion'} = $majorVer;
+  $this->{'minorVersion'} = $minorVer;
+  $this->{'revision'}     = $revision;
+
+  if ( $majorVer == 2 ) {
+    if ( $minorVer >= 13 ) {
+      # Since the 2.13.0+ release of RMBlast we now have:
+      #    - pre-computed Kimura divergence, Kimura CpG adjusted,
+      #      transitions, transversions, cpg_sites, and the cross_match
+      #      stats (perc_sub, perc_query_gap, perc_subj_gap).
+      #    - Ability to thread on the query sequences rather than just
+      #      the subject sequences.
+      #    - The ability to output tab delimited format with all the above
+      #      fields.
+      $this->{'hasQueryThreading'} = 1;
+      $this->{'hasTabFormat'}      = 1;
+    }
+    if ( $minorVer > 14 || ( $minorVer == 14 && $revision >= 1 ) ) {
+      $this->{'hasDBSoftMasking'} = 1;
+    }
+  }
+  elsif ( $majorVer == 3 ) {
+    # The 3.x series is a reimplementation with GNU style options and no
+    # separate database formatting step.  RMBlastSearchEngine drives it;
+    # new() substitutes that class for this one.
+    $this->{'hasQueryThreading'} = 1;
+    $this->{'hasTabFormat'}      = 1;
+    $this->{'hasDBSoftMasking'}  = 1;
+  }
+  else {
+    # Refuse rather than guess.  An unrecognized series may differ from
+    # both of the ones we know how to drive, and guessing wrong produces
+    # bad annotations with no error to show for it.
+    croak $CLASS
+        . "::setPathToEngine( $value ): Unsupported rmblastn version "
+        . $this->{'version'}
+        . ".  This release can drive the 2.x and 3.x series.\n";
+  }
+
+  return;
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
+=item Use: my $value = getMajorVersion( );
+
+Get the major version number of the engine binary.  2 for the NCBI
+toolkit derived series, 3 for the reimplemented series.
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getMajorVersion {
+  my $this = shift;
+
+  return $this->{'majorVersion'};
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 get_setPathToDBFormatter()
+
+  Use: my $value    = getPathToDBFormatter( );
+  Use: my $oldValue = setPathToDBFormatter( $value );
+
+  The program used to format a subject database for this engine.  Derived
+  from the engine binary by default, since makeblastdb ships alongside
+  rmblastn, so callers need not carry a second configuration value.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getPathToDBFormatter {
+  my $this = shift;
+
+  return $this->{'pathToDBFormatter'}
+      if ( defined $this->{'pathToDBFormatter'} );
+
+  return dirname( $this->getPathToEngine() ) . "/makeblastdb";
+}
+
+sub setPathToDBFormatter {
+  my $this  = shift;
+  my $value = shift;
+
+  my $oldValue = $this->{'pathToDBFormatter'};
+  $this->{'pathToDBFormatter'} = $value;
+
+  return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 getSubjectArtifacts()
+
+  Use: my @files = getSubjectArtifacts( $path );
+
+  The files makeblastdb produces for a nucleotide database.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getSubjectArtifacts {
+  my $this = shift;
+  my $path = shift;
+
+  return () if ( !defined $path );
+
+  # BLASTDB version 4 and 5 suffixes.  Not all are produced for every
+  # database, so callers must tolerate absent members.
+  return map { "$path.$_" }
+      qw( nhr nin nsq ndb not ntf nto njs nog nos nod );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 isSubjectPrepared()
+
+  Use: my $bool = isSubjectPrepared( $path );
+
+  True if $path names a formatted BLAST database.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub isSubjectPrepared {
+  my $this = shift;
+  my $path = shift;
+
+  return 0 if ( !defined $path );
+
+  return ( -s "$path.nin" || -s "$path.nhr" || -s "$path.nsq" );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 prepareSubject()
+
+  Use: my $subjectPath = prepareSubject( $seqFile,
+                                         [outputDir  => $dir],
+                                         [dbName     => $name],
+                                         [checkStale => 1],
+                                         [force      => 1] );
+
+  Run makeblastdb over $seqFile and return the database basename to hand
+  to setSubject().  This is not always $seqFile: when outputDir is given
+  the artifacts are written there, and the returned path points at that
+  directory, which holds the index but not the sequence file.
+
+  By default an existing database is left alone.  Pass checkStale to also
+  rebuild when $seqFile is newer than its artifacts, or force to rebuild
+  unconditionally.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub prepareSubject {
+  my $this    = shift;
+  my $seqFile = shift;
+  my %params  = @_;
+
+  croak $CLASS
+      . "::prepareSubject(): Sequence file ($seqFile) does not "
+      . "exist or is empty!\n"
+      if ( !-s $seqFile );
+
+  my ( $vol, $dir, $file ) = File::Spec->splitpath( $seqFile );
+  my $outputDir = $params{'outputDir'};
+  $outputDir = ( $dir eq "" ? "." : $dir ) if ( !defined $outputDir );
+  $outputDir =~ s/\/+$//;
+  my $dbName = $params{'dbName'};
+  $dbName = $file if ( !defined $dbName );
+  my $dbPath = "$outputDir/$dbName";
+
+  if ( !$params{'force'} && $this->isSubjectPrepared( $dbPath ) ) {
+    my $stale = 0;
+    $stale =
+        $this->_artifactsAreStale( $seqFile,
+                                   $this->getSubjectArtifacts( $dbPath ) )
+        if ( $params{'checkStale'} );
+    if ( !$stale ) {
+      print $CLASS
+          . "::prepareSubject(): $dbPath is already prepared, skipping.\n"
+          if ( $this->getDEBUG() );
+      return $dbPath;
+    }
+  }
+
+  my $formatter = $this->getPathToDBFormatter();
+  croak $CLASS
+      . "::prepareSubject(): Cannot find the database formatting program "
+      . "($formatter).  A 2.x rmblast installation must provide "
+      . "makeblastdb alongside rmblastn.\n"
+      if ( !-x $formatter );
+
+  my $log = "$dbPath.makeblastdb.log";
+  system( "$formatter -dbtype nucl -out $dbPath -in $seqFile > $log 2>&1" ) == 0
+      or croak $CLASS
+      . "::prepareSubject(): Error running $formatter on $seqFile.\n"
+      . "See $log for details.\n";
+
+  return $dbPath;
 }
 
 ##-------------------------------------------------------------------------##
@@ -452,23 +685,57 @@ sub getParameters {
         . "is set incorrectly: $engine\n";
   }
 
-  # Generate parameter line
-  my $parameters    = " -num_alignments 9999999";
-  my $spanParameter = "";
-  my $value;
-  if ( ( $value = $this->getSubject() ) ) {
+  my $parameters = $this->_renderParameters( $this->_computeSearchParameters() );
 
-    # Make sure we have the compressed form of the database handy
-    if (    -f "$value.nin"
-         || -f "$value.nhr"
-         || -f "$value.nsq" )
-    {
-      $parameters .= " -db $value";
+  my $runParameters;
+  if ( defined $this->{'overrideParameters'}
+       && $this->{'overrideParameters'} ne "" )
+  {
+    $runParameters = $this->{'overrideParameters'};
+  }
+  else {
+    $runParameters = $parameters . " ";
+  }
+
+  if ( defined $this->{'additionalParameters'}
+       && $this->{'additionalParameters'} ne "" )
+  {
+    $runParameters .= " " . $this->{'additionalParameters'};
+  }
+
+  return ( "$engine $runParameters" );
+}
+
+##-------------------------------------------------------------------------##
+##  Use: my $paramsRef = $this->_computeSearchParameters();
+##
+##  Translate the engine-neutral SearchEngineI settings into the concrete
+##  values rmblastn needs, without committing to any particular spelling
+##  of the options.  Rendering those values onto a command line is
+##  _renderParameters()'s job.
+##
+##  The 2.x and 3.x series differ in option syntax but not in alignment
+##  semantics, so this split lets them share one copy of the score and
+##  x-drop translation below.  Changing the numbers here changes both
+##  engines; changing option names changes only one.
+##-------------------------------------------------------------------------##
+sub _computeSearchParameters {
+  my $this = shift;
+
+  my %p = ( 'num_alignments' => 9999999 );
+  my $value;
+
+  if ( ( $value = $this->getSubject() ) ) {
+    # Make sure the subject has been prepared for this engine.  This is
+    # checked here rather than in setSubject() because callers are
+    # permitted to set the subject before preparing it.
+    if ( $this->isSubjectPrepared( $value ) ) {
+      $p{'db'} = $value;
     }
     else {
       croak $CLASS
-          . "::search: Error...compressed subject "
-          . "database ($value) does not exist!\n";
+          . "::search: Error...subject database ($value) has not been "
+          . "prepared.  Call prepareSubject() before searching.\n";
     }
   }
   else {
@@ -477,7 +744,7 @@ sub getParameters {
 
   if ( ( $value = $this->getQuery() ) ) {
     if ( -f $value ) {
-      $parameters .= " -query $value";
+      $p{'query'} = $value;
     }
     else {
       croak $CLASS. "::search: Error...query ($value) does not exist!\n";
@@ -490,23 +757,25 @@ sub getParameters {
   if ( defined( $value = $this->getGapInit() )
        && $value =~ /\d+/ )
   {
-    $parameters .= " -gapopen " . abs( $value - $this->getInsGapExt() );
+    $p{'gapopen'} = abs( $value - $this->getInsGapExt() );
   }
   else {
-    $parameters .= " -gapopen 12";
+    $p{'gapopen'} = 12;
   }
 
   if ( defined( $value = $this->getInsGapExt() )
        && $value =~ /\d+/ )
   {
-    $parameters .= " -gapextend " . abs( $value );
+    $p{'gapextend'} = abs( $value );
   }
   else {
-    $parameters .= " -gapextend 2";
+    $p{'gapextend'} = 2;
   }
+
   if ( ( $value = $this->getMaskLevel() ) ) {
-    $parameters .= " -mask_level $value" if ( $value > 0 );
+    $p{'mask_level'} = $value if ( $value > 0 );
   }
+
   if (    ( $value = $this->getScoreMode() )
        && ( $value == SearchEngineI::basicScoreMode ) )
   {
@@ -514,16 +783,16 @@ sub getParameters {
     # Do nothing
   }
   else {
-    $parameters .= " -complexity_adjust ";
+    $p{'complexity_adjust'} = 1;
   }
 
   if ( defined( $value = $this->getMinMatch() )
        && $value =~ /\d+/ )
   {
-    $parameters .= " -word_size $value";
+    $p{'word_size'} = $value;
   }
   else {
-    $parameters .= " -word_size 14";
+    $p{'word_size'} = 14;
   }
 
   # Translate SearchEngine minScore/Bandwidth
@@ -562,13 +831,9 @@ sub getParameters {
     # NOTE: This is not equivalent
     # to "undefined".  It must have a value of "0".
     if ( $this->getBandwidth() eq "0" ) {
-      $parameters .=                                                           
-            " -xdrop_ungap "
-          . ( $minScore * 2 )                                
-          . " -xdrop_gap_final "                     
-          . ( $minScore * 4 )    
-          . " -xdrop_gap "
-          . int( $minScore / 2 ) . " ";                        
+      $p{'xdrop_ungap'}     = $minScore * 2;
+      $p{'xdrop_gap_final'} = $minScore * 4;
+      $p{'xdrop_gap'}       = int( $minScore / 2 );
     }
     elsif ( defined( $value = $this->getBandwidth() )
             && $value < 0 )
@@ -578,14 +843,15 @@ sub getParameters {
       # wide.  Here we use bandwidth to indicate the full width of the band
       # (legacy...should have used the same definition as cm) so a bandwidth
       # of -29 is equivalent to the crossmatch bandwidth of 14.
-      $parameters .= " -xdrop_ungap " . ( $minScore * 2 ) . " -xdrop_gap_final "
-          # Ins/Del extension penalties are the same for RMBlast ( only cm differentiates )
-          # The tolerated gapped xdrop should tolerate a gap of bandwidth #.  So 
-          # Gap init penalty + (extension penalty * bandwidth )
-          . ( ( abs( $value ) * abs( $this->getInsGapExt() ) ) +
-              abs( $this->getGapInit() ) )
-          . " -xdrop_gap "
-          . int( $minScore / 2 ) . " ";
+      $p{'xdrop_ungap'} = $minScore * 2;
+
+      # Ins/Del extension penalties are the same for RMBlast ( only cm differentiates )
+      # The tolerated gapped xdrop should tolerate a gap of bandwidth #.  So
+      # Gap init penalty + (extension penalty * bandwidth )
+      $p{'xdrop_gap_final'} =
+          ( abs( $value ) * abs( $this->getInsGapExt() ) ) +
+          abs( $this->getGapInit() );
+      $p{'xdrop_gap'} = int( $minScore / 2 );
     }
     else {
       # These are inherited from MaskerAid.  It's a strange choice as
@@ -593,25 +859,16 @@ sub getParameters {
       # reduce the allowable indel length whereas higher minscores
       # allow really large indel sizes ( assuming they also reach
       # the score threshold ).
-      $parameters .=
-            " -xdrop_ungap "
-          . ( $minScore * 2 )
-          . " -xdrop_gap_final "
-          . ( $minScore )
-          . " -xdrop_gap "
-          . int( $minScore / 2 ) . " ";
+      $p{'xdrop_ungap'}     = $minScore * 2;
+      $p{'xdrop_gap_final'} = $minScore;
+      $p{'xdrop_gap'}       = int( $minScore / 2 );
     }
-    $parameters .= " -min_raw_gapped_score $minScore -dust no ";
+    $p{'min_raw_gapped_score'} = $minScore;
+    $p{'dust'}                 = "no";
   }
 
-  if ( exists $this->{'hasTabFormat'} && !$this->{'forceLegacyParser'} ) 
-  {
-    if ( $this->getGenerateAlignments() )
-    {
-      $parameters .= " -outfmt=\"6 score perc_sub perc_query_gap perc_db_gap qseqid qstart qend qlen sstrand sseqid sstart send slen kdiv cpg_kdiv transi transv cpg_sites qseq sseq\" ";
-    }else {
-      $parameters .= " -outfmt=\"6 score perc_sub perc_query_gap perc_db_gap qseqid qstart qend qlen sstrand sseqid sstart send slen kdiv cpg_kdiv transi transv cpg_sites\" ";
-    }
+  if ( $this->hasTabOutput() ) {
+    $p{'outfmt_fields'} = [ $this->getTabOutputFields() ];
   }
 
   #
@@ -620,14 +877,14 @@ sub getParameters {
   #       to know if we should call with threads turned
   #       on?
   if ( defined( $value = $this->getCores() ) ) {
-    $parameters .= " -num_threads $value ";
+    $p{'num_threads'} = $value;
   }
   else {
-    $parameters .= " -num_threads 4 ";
+    $p{'num_threads'} = 4;
   }
 
   if ( defined( $value = $this->getThreadByQuery() ) && $value > 0 ) {
-    $parameters .= " -mt_mode 1 ";
+    $p{'mt_mode'} = 1;
   }
 
   if ( defined( $value = $this->getMatrix() ) ) {
@@ -639,8 +896,8 @@ sub getParameters {
       # be relative to a directory path specified in
       # environment variables.
       my @path = split( /[\\\/]/, $value );
-      my $matrix = pop @path;
-      $parameters .= " -matrix $matrix";
+      $p{'matrix'}     = pop @path;
+      $p{'matrix_dir'} = join( "/", @path );
 
     }
     else {
@@ -648,23 +905,83 @@ sub getParameters {
     }
   }
 
-  my $runParameters;
-  if ( defined $this->{'overrideParameters'}
-       && $this->{'overrideParameters'} ne "" )
-  {
-    $runParameters = $this->{'overrideParameters'};
-  }
-  else {
-    $runParameters = $parameters . " ";
-  }
+  return ( \%p );
+}
 
-  if ( defined $this->{'additionalParameters'}
-       && $this->{'additionalParameters'} ne "" )
-  {
-    $runParameters .= " " . $this->{'additionalParameters'};
-  }
+##-------------------------------------------------------------------------##
+##  Use: my $bool = $this->hasTabOutput();
+##
+##  Whether this engine should be asked for tab delimited output.
+##-------------------------------------------------------------------------##
+sub hasTabOutput {
+  my $this = shift;
 
-  return ( "$engine $runParameters" );
+  return ( exists $this->{'hasTabFormat'} && !$this->{'forceLegacyParser'} );
+}
+
+##-------------------------------------------------------------------------##
+##  Use: my @fields = $this->getTabOutputFields();
+##
+##  The tab delimited output columns, in the order parseTabOutput()
+##  expects them.  qseq and sseq are added only when the caller wants
+##  alignments.
+##-------------------------------------------------------------------------##
+sub getTabOutputFields {
+  my $this = shift;
+
+  my @fields = qw( score perc_sub perc_query_gap perc_db_gap qseqid qstart
+      qend qlen sstrand sseqid sstart send slen kdiv cpg_kdiv transi transv
+      cpg_sites );
+  push @fields, qw( qseq sseq ) if ( $this->getGenerateAlignments() );
+
+  return @fields;
+}
+
+##-------------------------------------------------------------------------##
+##  Use: my $string = $this->_renderParameters( $paramsRef );
+##
+##  Render computed parameter values onto an NCBI toolkit ( 2.x ) command
+##  line.  A subclass with a different option syntax overrides this one
+##  method.
+##-------------------------------------------------------------------------##
+sub _renderParameters {
+  my $this = shift;
+  my $p    = shift;
+
+  my $parameters = " -num_alignments " . $p->{'num_alignments'};
+  $parameters .= " -db " . $p->{'db'};
+  $parameters .= " -query " . $p->{'query'};
+  $parameters .= " -gapopen " . $p->{'gapopen'};
+  $parameters .= " -gapextend " . $p->{'gapextend'};
+  $parameters .= " -mask_level " . $p->{'mask_level'}
+      if ( defined $p->{'mask_level'} );
+  $parameters .= " -complexity_adjust " if ( $p->{'complexity_adjust'} );
+  $parameters .= " -word_size " . $p->{'word_size'};
+
+  if ( defined $p->{'xdrop_ungap'} ) {
+    $parameters .=
+          " -xdrop_ungap "
+        . $p->{'xdrop_ungap'}
+        . " -xdrop_gap_final "
+        . $p->{'xdrop_gap_final'}
+        . " -xdrop_gap "
+        . $p->{'xdrop_gap'} . " ";
+  }
+  $parameters .= " -min_raw_gapped_score "
+      . $p->{'min_raw_gapped_score'} . " -dust "
+      . $p->{'dust'} . " "
+      if ( defined $p->{'min_raw_gapped_score'} );
+
+  $parameters .=
+      " -outfmt=\"6 " . join( " ", @{ $p->{'outfmt_fields'} } ) . "\" "
+      if ( defined $p->{'outfmt_fields'} );
+
+  $parameters .= " -num_threads " . $p->{'num_threads'} . " ";
+  $parameters .= " -mt_mode " . $p->{'mt_mode'} . " "
+      if ( defined $p->{'mt_mode'} );
+  $parameters .= " -matrix " . $p->{'matrix'} if ( defined $p->{'matrix'} );
+
+  return $parameters;
 }
 
 ##-------------------------------------------------------------------------##
@@ -789,10 +1106,10 @@ sub search {
     #print "NCBIBlast runtime: $elapsed secs\n";
 
     $parseParams{'searchOutput'} = $outFile;
-    $searchResultsCollection = parseOutput( %parseParams );
+    $searchResultsCollection = $this->parseOutput( %parseParams );
   }else {
     $parseParams{'searchOutput'} = $POUTPUT;
-    $searchResultsCollection = parseOutput( %parseParams );
+    $searchResultsCollection = $this->parseOutput( %parseParams );
     close $POUTPUT;
     $resultCode = ( $? >> 8 );
   }
@@ -889,6 +1206,12 @@ sub search {
 
 ##-------------------------------------------------------------------------##
 sub parseOutput {
+  # Callable two ways: as a class function, which is the historical
+  # interface that external tools use, and as an instance method.  Only
+  # the method form can dispatch to a subclass's parser, so search() uses
+  # that.
+  my $this;
+  $this = shift if ( ref( $_[ 0 ] ) && UNIVERSAL::isa( $_[ 0 ], $CLASS ) );
   my %nameValueParams = @_;
 
   croak $CLASS. "::parseOutput() missing searchOutput parameter!\n"
@@ -896,9 +1219,13 @@ sub parseOutput {
 
   if ( exists $nameValueParams{'format'} &&  $nameValueParams{'format'} eq "tab" )
   {
-    return ( &parseTabOutput(%nameValueParams) );
+    return ( $this
+             ? $this->parseTabOutput( %nameValueParams )
+             : &parseTabOutput( %nameValueParams ) );
   }else {
-    return ( &parseReportOutput(%nameValueParams) );
+    return ( $this
+             ? $this->parseReportOutput( %nameValueParams )
+             : &parseReportOutput( %nameValueParams ) );
   }
 }
 
@@ -919,6 +1246,8 @@ sub parseOutput {
 
 ##-------------------------------------------------------------------------##
 sub parseTabOutput {
+  my $this;
+  $this = shift if ( ref( $_[ 0 ] ) && UNIVERSAL::isa( $_[ 0 ], $CLASS ) );
   my %nameValueParams = @_;
 
   croak $CLASS. "::parseTabOutput() missing searchOutput parameter!\n"
@@ -1064,6 +1393,8 @@ sub parseTabOutput {
 
 ##-------------------------------------------------------------------------##
 sub parseReportOutput {
+  my $this;
+  $this = shift if ( ref( $_[ 0 ] ) && UNIVERSAL::isa( $_[ 0 ], $CLASS ) );
   my %nameValueParams = @_;
 
   croak $CLASS. "::parseOutput() missing searchOutput parameter!\n"

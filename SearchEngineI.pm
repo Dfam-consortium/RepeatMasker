@@ -653,6 +653,118 @@ sub setSubject {
 
 =over 4
 
+=item Use: my $subjectPath = prepareSubject( $seqFile,
+                                             [outputDir => $dir],
+                                             [dbName    => $name],
+                                             [force     => 1] );
+
+Build whatever ancillary files this engine needs in order to search against
+$seqFile, and return the path to hand to setSubject().  That path is not
+always $seqFile: an engine which builds an index under a different name or
+in a different directory returns the index basename instead.
+
+This is idempotent.  If the artifacts already exist and are current with
+respect to $seqFile it returns without doing any work, so it is safe to
+call unconditionally.
+
+  outputDir : Where to place the artifacts.  Defaults to the directory
+              containing $seqFile.  Engines which require no preparation
+              ignore this.
+  dbName    : Basename to give the artifacts.  Defaults to the basename
+              of $seqFile.
+  force     : Rebuild even if the artifacts appear current.
+
+The default implementation is for engines which search a plain sequence
+file directly and therefore have nothing to prepare.
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub prepareSubject {
+  my $this    = shift;
+  my $seqFile = shift;
+
+  croak $CLASS
+      . "::prepareSubject(): Sequence file ($seqFile) does not "
+      . "exist or is empty!\n"
+      if ( !-s $seqFile );
+
+  return $seqFile;
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
+=item Use: my $bool = isSubjectPrepared( $path );
+
+Can this engine search against $path right now?  This has no side effects
+and does not consult any state held by the object.  Preparation and use
+are usually separated by a great deal of code, so the filesystem is the
+only reliable source of truth.
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub isSubjectPrepared {
+  my $this = shift;
+  my $path = shift;
+
+  return ( defined $path && -s $path );
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
+=item Use: my @files = getSubjectArtifacts( $path );
+
+The files that constitute preparation of $path for this engine.  Used for
+cache validation and cleanup.  An engine that needs no preparation returns
+an empty list.
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getSubjectArtifacts {
+  my $this = shift;
+  my $path = shift;
+
+  return ();
+}
+
+##-------------------------------------------------------------------------##
+##  Use: my $isStale = _artifactsAreStale( $seqFile, @artifacts );
+##
+##  Shared helper for prepareSubject() implementations.  True if any
+##  existing artifact is older than the source sequence file.
+##-------------------------------------------------------------------------##
+sub _artifactsAreStale {
+  my $this      = shift;
+  my $seqFile   = shift;
+  my @artifacts = @_;
+
+  return 0 if ( !-e $seqFile );
+  my $srcAge = ( stat( $seqFile ) )[ 9 ];
+
+  foreach my $artifact ( @artifacts ) {
+    next if ( !-e $artifact );
+    return 1 if ( ( stat( $artifact ) )[ 9 ] < $srcAge );
+  }
+
+  return 0;
+}
+
+##-------------------------------------------------------------------------##
+
+=over 4
+
 =item Use: my $value = getQuery( );
 
 =item Use: my $oldValue = setQuery( $value );

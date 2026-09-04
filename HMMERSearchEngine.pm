@@ -73,6 +73,8 @@ use SearchResultCollection;
 use Data::Dumper;
 use FileHandle;
 use File::Basename;
+use File::Spec;
+use File::Copy;
 use Carp;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
 
@@ -244,6 +246,157 @@ sub getPathToEngine {
   my $this = shift;
 
   return $this->{'pathToEngine'};
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 get_setPathToDBFormatter()
+
+  Use: my $value    = getPathToDBFormatter( );
+  Use: my $oldValue = setPathToDBFormatter( $value );
+
+  The program used to prepare a profile library for searching.  Derived
+  from the engine binary by default, since hmmpress ships alongside
+  nhmmscan.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getPathToDBFormatter {
+  my $this = shift;
+
+  return $this->{'pathToDBFormatter'}
+      if ( defined $this->{'pathToDBFormatter'} );
+
+  return dirname( $this->getPathToEngine() ) . "/hmmpress";
+}
+
+sub setPathToDBFormatter {
+  my $this  = shift;
+  my $value = shift;
+
+  my $oldValue = $this->{'pathToDBFormatter'};
+  $this->{'pathToDBFormatter'} = $value;
+
+  return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 getSubjectArtifacts()
+
+  The files hmmpress produces for a profile library.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getSubjectArtifacts {
+  my $this = shift;
+  my $path = shift;
+
+  return () if ( !defined $path );
+
+  return map { "$path.$_" } qw( h3f h3i h3m h3p );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 isSubjectPrepared()
+
+  True if $path names a pressed profile library.  All four files must be
+  present: hmmpress writes them together and a partial set means an
+  interrupted run.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub isSubjectPrepared {
+  my $this = shift;
+  my $path = shift;
+
+  return 0 if ( !defined $path );
+
+  foreach my $artifact ( $this->getSubjectArtifacts( $path ) ) {
+    return 0 if ( !-s $artifact );
+  }
+
+  return 1;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 prepareSubject()
+
+  Use: my $subjectPath = prepareSubject( $hmmFile,
+                                         [outputDir  => $dir],
+                                         [dbName     => $name],
+                                         [checkStale => 1],
+                                         [force      => 1] );
+
+  Run hmmpress over a profile library and return the path to search
+  against.  hmmpress writes alongside the profile file it is given, so
+  when outputDir names a different place we copy the profile there first
+  and return a path into that directory.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub prepareSubject {
+  my $this    = shift;
+  my $seqFile = shift;
+  my %params  = @_;
+
+  croak $CLASS
+      . "::prepareSubject(): Profile library ($seqFile) does not "
+      . "exist or is empty!\n"
+      if ( !-s $seqFile );
+
+  my ( $vol, $dir, $file ) = File::Spec->splitpath( $seqFile );
+  my $outputDir = $params{'outputDir'};
+  $outputDir = ( $dir eq "" ? "." : $dir ) if ( !defined $outputDir );
+  $outputDir =~ s/\/+$//;
+  my $dbName = $params{'dbName'};
+  $dbName = $file if ( !defined $dbName );
+  my $dbPath = "$outputDir/$dbName";
+
+  if ( !$params{'force'} && $this->isSubjectPrepared( $dbPath ) ) {
+    my $stale = 0;
+    $stale =
+        $this->_artifactsAreStale( $seqFile,
+                                   $this->getSubjectArtifacts( $dbPath ) )
+        if ( $params{'checkStale'} );
+    if ( !$stale ) {
+      print $CLASS
+          . "::prepareSubject(): $dbPath is already prepared, skipping.\n"
+          if ( $this->getDEBUG() );
+      return $dbPath;
+    }
+  }
+
+  if ( File::Spec->rel2abs( $dbPath ) ne File::Spec->rel2abs( $seqFile ) ) {
+    copy( $seqFile, $dbPath )
+        or croak $CLASS
+        . "::prepareSubject(): Could not copy $seqFile to $dbPath: $!\n";
+  }
+
+  # hmmpress will not overwrite an existing set of pressed files.
+  foreach my $artifact ( $this->getSubjectArtifacts( $dbPath ) ) {
+    unlink $artifact if ( -e $artifact );
+  }
+
+  my $formatter = $this->getPathToDBFormatter();
+  croak $CLASS
+      . "::prepareSubject(): Cannot find the profile pressing program "
+      . "($formatter).\n"
+      if ( !-x $formatter );
+
+  my $log = "$dbPath.hmmpress.log";
+  system( "$formatter $dbPath > $log 2>&1" ) == 0
+      or croak $CLASS
+      . "::prepareSubject(): Error running $formatter on $dbPath.\n"
+      . "See $log for details.\n";
+
+  return $dbPath;
 }
 
 sub setPathToEngine {
