@@ -1,3 +1,28 @@
+4.2.5
+  - Native support for the rmblastn 3.x series.  The reimplemented
+    rmblastn takes GNU-style long options and searches a FASTA file
+    directly, with no makeblastdb step.  NCBIBlastSearchEngine::new()
+    probes the binary and re-blesses the object into a new
+    RMBlastSearchEngine class at major version 3 or higher, so callers
+    ask for the same engine and get whichever implementation matches the
+    installed binary.  rmblastn 2.x still works and gives the same
+    results as before.
+  - Search engines now prepare their own subject databases.  Added
+    prepareSubject(), isSubjectPrepared() and getSubjectArtifacts() to
+    SearchEngineI, implemented for the blast and HMMER engines.
+  - RepeatProteinMask looks for blastx and makeblastdb on demand, first in
+    RMBLAST_DIR and then on PATH, and reports what to install if neither
+    has them.  These are NCBI toolkit programs that rmblastn 3.x does not
+    ship.
+  - BUGFIX: ProcessRepeats scoreLINEPair() tested getQueryRemaining()
+    where it should have tested getSubjRemaining() when deciding whether a
+    reverse-orientation LINE pair was compatible with the model.
+  - BUGFIX: ProcessRepeats isTransposonPairCompatible() only scored pairs
+    on the "C" strand.  The "+" strand case was missing, along with the
+    consensus length needed to write it, so forward-strand DNA transposon
+    fragments that should have joined were reported as separate elements.
+  - ProcessRepeats speed improvements. 
+  
 4.2.4
   - Support for new component-based FamDB and Dfam 4.0
   - Updated documentation
