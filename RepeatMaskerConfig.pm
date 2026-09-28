@@ -78,7 +78,7 @@ BEGIN {
                                 'expected_files' => [],
                                 'param_type' => 'directory',
                                 'required' => 0,
-                                'value' => ''
+                                'value' => '/usr/local/phrap'
                               },
           'DEFAULT_SEARCH_ENGINE' => {
                                        'command_line_override' => 'default_search_engine',
@@ -109,7 +109,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => ''
+                           'value' => '/usr/local/hmmer/bin'
                          },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
