@@ -116,12 +116,7 @@ BEGIN {
                              'description' => 'The path to the installation of the RMBLAST sequence alignment program.',
                              'environment_override' => 'RMBLAST_DIR',
                              'expected_binaries' => [
-                                                      'rmblastn',
-                                                      'dustmasker',
-                                                      'makeblastdb',
-                                                      'blastdbcmd',
-                                                      'blastdb_aliastool',
-                                                      'blastn'
+                                                      'rmblastn'
                                                     ],
                              'expected_files' => [],
                              'param_type' => 'directory',
@@ -151,7 +146,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.2.4";
+$VERSION = "4.2.5";
 
 #
 # Default Dfam Version

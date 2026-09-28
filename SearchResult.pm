@@ -1806,6 +1806,17 @@ sub rescoreAlignment {
   my $cScore = $$matScoresRef[ $cIndex ][ $cIndex ];
   my $gScore = $$matScoresRef[ $gIndex ][ $gIndex ];
 
+  # Precompute base -> matrix index.  The per-base loop below called
+  # index( $matAlphabet, ... ) two or three times for every aligned base,
+  # which is the dominant cost of this routine on Alu-rich (primate) genomes.
+  # A hash lookup is exactly equivalent: index() yields -1 for a base outside
+  # the alphabet, and the "// -1" below preserves that behaviour.
+  my %matIdx;
+  {
+    my @matAlphaChars = split //, $matAlphabet;
+    $matIdx{ $matAlphaChars[ $_ ] } = $_ for ( 0 .. $#matAlphaChars );
+  }
+
   my $transitions            = 0;
   my $transversions          = 0;
   my $CpGSites               = 0;
@@ -1910,20 +1921,26 @@ sub rescoreAlignment {
     # follow this convention.  Therefore the scores are
     # looked up as:  matrix[subj_base][query_base]
 
-    # Score the aligned bases
+    # Score the aligned bases.
+    # $curQBase/$curSBase/$curPair hoist the repeated array indexing and the
+    # repeated string concatenation out of the branches below; $matIdx
+    # replaces the per-base index() scans of $matAlphabet.
+    my $curQBase = $qBases[ $i ];
+    my $curSBase = $sBases[ $i ];
+    my $curPair  = $curQBase . $curSBase;
+    my $curQIdx  = $matIdx{ $curQBase } // -1;
     my $matScore =
-        $$matScoresRef[ index( $matAlphabet, $sBases[ $i ] ) ]
-        [ index( $matAlphabet, $qBases[ $i ] ) ];
+        $$matScoresRef[ $matIdx{ $curSBase } // -1 ][ $curQIdx ];
     $score += $matScore;
     push @positionScores, $score;
     $ungappedRawScore += $matScore;
 
-    $matCounts[ index( $matAlphabet, $qBases[ $i ] ) ]++;
+    $matCounts[ $curQIdx ]++;
 
     $wellCharacterizedBases++
-        if ( $wellCharacterizedBases{ $qBases[ $i ] . $sBases[ $i ] } );
+        if ( $wellCharacterizedBases{ $curPair } );
 
-    if ( $pSBase eq "C" && $sBases[ $i ] eq "G" ) {
+    if ( $pSBase eq "C" && $curSBase eq "G" ) {
       $inCpG = 1;
       $CpGSites++;
 
@@ -1943,7 +1960,7 @@ sub rescoreAlignment {
           $score            += $diff;
           $ungappedRawScore += $diff;
         }
-        if ( ( $mutType{ $qBases[ $i ] . $sBases[ $i ] } || 0 ) == 1 ) {
+        if ( ( $mutType{ $curPair } || 0 ) == 1 ) {
           $positionScores[ $#positionScores ] =
               $positionScores[ $#positionScores - 1 ] + $gScore;
           $score            += $gScore - $matScore;
@@ -1960,7 +1977,7 @@ sub rescoreAlignment {
     }
 
     if ( $divCpGMod && $inCpG ) {
-      my $mt = $mutType{ $qBases[ $i ] . $sBases[ $i ] } || 0;
+      my $mt = $mutType{ $curPair } || 0;
       if ( $mt == 1 ) {
         $prevTrans++;
       }
@@ -1983,7 +2000,7 @@ sub rescoreAlignment {
       $prevTrans = 0;
 
       # Normal
-      my $mt = $mutType{ $qBases[ $i ] . $sBases[ $i ] } || 0;
+      my $mt = $mutType{ $curPair } || 0;
       if ( $mt == 1 ) {
 
         # Delay recording transition for CpG accounting
@@ -1993,7 +2010,7 @@ sub rescoreAlignment {
         $transversions++;
       }
     }
-    $pSBase  = $sBases[ $i ];
+    $pSBase  = $curSBase;
     $pSScore = $matScore;
     $pSPos   = $#positionScores;
   }

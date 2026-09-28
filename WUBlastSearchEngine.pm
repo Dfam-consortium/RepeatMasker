@@ -70,6 +70,7 @@ use SearchResultCollection;
 use Data::Dumper;
 use FileHandle;
 use File::Basename;
+use File::Spec;
 use Carp;
 use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS $VERSION);
 
@@ -272,6 +273,143 @@ sub getPathToEngine {
   my $this = shift;
 
   return $this->{'pathToEngine'};
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 get_setPathToDBFormatter()
+
+  Use: my $value    = getPathToDBFormatter( );
+  Use: my $oldValue = setPathToDBFormatter( $value );
+
+  The program used to compress a subject database.  Defaults to setdb
+  alongside the engine binary.  Installations using xdformat instead
+  should set this explicitly.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getPathToDBFormatter {
+  my $this = shift;
+
+  return $this->{'pathToDBFormatter'}
+      if ( defined $this->{'pathToDBFormatter'} );
+
+  return dirname( $this->getPathToEngine() ) . "/setdb";
+}
+
+sub setPathToDBFormatter {
+  my $this  = shift;
+  my $value = shift;
+
+  my $oldValue = $this->{'pathToDBFormatter'};
+  $this->{'pathToDBFormatter'} = $value;
+
+  return $oldValue;
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 getSubjectArtifacts()
+
+  The files produced by setdb ( ahd/atb/bsq ) or xdformat ( xn* ).
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub getSubjectArtifacts {
+  my $this = shift;
+  my $path = shift;
+
+  return () if ( !defined $path );
+
+  return map { "$path.$_" } qw( ahd atb bsq xns xnt xnd xpd xps xpt );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 isSubjectPrepared()
+
+  True if $path names a compressed database.  Mirrors the test the search
+  itself makes.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub isSubjectPrepared {
+  my $this = shift;
+  my $path = shift;
+
+  return 0 if ( !defined $path );
+
+  return ( -f "$path.ahd" || -f "$path.xns" || -f "$path.xps" );
+}
+
+##-------------------------------------------------------------------------##
+
+=head2 prepareSubject()
+
+  Use: my $subjectPath = prepareSubject( $seqFile,
+                                         [outputDir  => $dir],
+                                         [dbName     => $name],
+                                         [checkStale => 1],
+                                         [force      => 1] );
+
+  Compress $seqFile and return the database basename to search against.
+
+  NOTE: this does not generate the reverse complemented copies that
+  RepeatMasker's libraries need in order to report reverse strand hits.
+  That transformation belongs to the library rather than the engine, so
+  the caller remains responsible for it.
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub prepareSubject {
+  my $this    = shift;
+  my $seqFile = shift;
+  my %params  = @_;
+
+  croak $CLASS
+      . "::prepareSubject(): Sequence file ($seqFile) does not "
+      . "exist or is empty!\n"
+      if ( !-s $seqFile );
+
+  my ( $vol, $dir, $file ) = File::Spec->splitpath( $seqFile );
+  my $outputDir = $params{'outputDir'};
+  $outputDir = ( $dir eq "" ? "." : $dir ) if ( !defined $outputDir );
+  $outputDir =~ s/\/+$//;
+  my $dbName = $params{'dbName'};
+  $dbName = $file if ( !defined $dbName );
+  my $dbPath = "$outputDir/$dbName";
+
+  if ( !$params{'force'} && $this->isSubjectPrepared( $dbPath ) ) {
+    my $stale = 0;
+    $stale =
+        $this->_artifactsAreStale( $seqFile,
+                                   $this->getSubjectArtifacts( $dbPath ) )
+        if ( $params{'checkStale'} );
+    if ( !$stale ) {
+      print $CLASS
+          . "::prepareSubject(): $dbPath is already prepared, skipping.\n"
+          if ( $this->getDEBUG() );
+      return $dbPath;
+    }
+  }
+
+  my $formatter = $this->getPathToDBFormatter();
+  croak $CLASS
+      . "::prepareSubject(): Cannot find the database compression program "
+      . "($formatter).\n"
+      if ( !-x $formatter );
+
+  my $log = "$dbPath.setdb.log";
+  system( "$formatter -o $dbPath $seqFile > $log 2>&1" ) == 0
+      or croak $CLASS
+      . "::prepareSubject(): Error running $formatter on $seqFile.\n"
+      . "See $log for details.\n";
+
+  return $dbPath;
 }
 
 sub setPathToEngine {
