@@ -1,3 +1,7 @@
+Next
+  - ProcessRepeats memory/processing time fixes for scaffold assemblies (high contig
+    counts)
+
 4.2.5
   - ProcessRepeats speed improvements(25-45% faster on mammalian genomes).
   - Search engines now prepare their own subject databases.  Added
