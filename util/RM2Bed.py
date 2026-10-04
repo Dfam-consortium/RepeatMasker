@@ -203,6 +203,8 @@ def openOptGzipFile(filename, modes='r'):
     Returns:
         A file object
     """
+    if filename == "-":
+        return sys.stdin
     f = open(filename, 'b'+modes)
     # First two byte signature of a gzip'd file
     if (f.read(2) == b'\x1f\x8b'):
@@ -437,7 +439,7 @@ def main(*args):
 
     LOGGER.info("#\n# RM2Bed.py\n#")
 
-    if ( not os.path.exists(args.rm_file) ):
+    if args.rm_file != '-' and ( not os.path.exists(args.rm_file) ):
         raise Exception("File " + args.rm_file + " is missing.")
     LOGGER.info("Data File: " + args.rm_file)
 
@@ -770,12 +772,12 @@ def main(*args):
 
     # Write as monolithic file
     if args.output_bed == '-':
-        output_bed = "/dev/stdout"
+        output_bed = sys.stdout
     elif args.output_bed is not None:
         output_bed = args.output_bed
     else:
         output_bed = file_prefix + '_rm.bed'
-    LOGGER.info("Creating: " +  output_bed)
+    LOGGER.info("Creating: " +  str(output_bed))
     annot_dataframe.to_csv(output_bed, sep='\t', header=False, index=False)
 
     #
