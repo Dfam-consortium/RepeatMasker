@@ -91,8 +91,6 @@ require Exporter;
 my $VERSION = 0.1;
 my $CLASS   = "Taxonomy";
 
-my $FAMDB = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'} . "/famdb.py";
-
 ##-------------------------------------------------------------------------##
 
 =begin
@@ -102,7 +100,10 @@ my $FAMDB = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'} . "/fam
 =item my $instance = Taxonomy->new();
 
 Construct a new Taxonomy object.  FamDB is located via the
-FAMDB_DIR setting in RepeatMaskerConfig.
+FAMDB_DIR setting in RepeatMaskerConfig.  The setting is read here,
+not when the module loads, so that command line and environment
+overrides applied by RepeatMaskerConfig::resolveConfiguration() are
+honored.
 
 =back
 
@@ -137,12 +138,15 @@ my %supplementalSynonyms = (
 sub new {
   my $class = shift;
 
-  if ( $FAMDB eq "/famdb.py" || ! -x $FAMDB ) {
+  my $famdbDir =
+      $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'} || "";
+  my $famdb = "$famdbDir/famdb.py";
+  if ( $famdbDir eq "" || ! -x $famdb ) {
     croak $CLASS . "::new() requires FamDB to be configured (FAMDB_DIR).\n" .
           "Re-run the RepeatMasker configure script to set up FamDB.\n";
   }
 
-  my $this = bless { isACache => {} }, $class;
+  my $this = bless { isACache => {}, famdb => $famdb }, $class;
   return $this;
 }
 
@@ -364,8 +368,8 @@ sub _invokeFamDB {
     $args_quoted .= " '$argq'";
   }
 
-  my $result = `$FAMDB $args_quoted 2>&1`;
-  #print "RUNNING: $FAMDB $args_quoted\n";
+  my $result = `$this->{'famdb'} $args_quoted 2>&1`;
+  #print "RUNNING: $this->{'famdb'} $args_quoted\n";
 
   if (    $result =~ /^\s*no results/i
        || $result =~ /^\s*no species/i

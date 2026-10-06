@@ -468,6 +468,10 @@ my $SETDB_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/setdb";
 my $TRF_PRGM = $config->{'TRF_PRGM'}->{'value'};
 my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
 
+# Pass the resolved FamDB location on to ProcessRepeats, which reads
+# it through its environment override.
+$ENV{'FAMDB_DIR'} = $FAMDB_DIR if ( $FAMDB_DIR ne "" );
+
 # Determine the installation directory using
 # location of the program that was invoked.
 my $LIBDIR = "$FindBin::RealBin/Libraries";
@@ -5933,7 +5937,8 @@ sub fragmentAnnotations {
         for ( my $i = 0 ; $i < $resultSubCollection->size() ; $i++ ) {
           push @fragGroup, $resultSubCollection->get( $i );
         }
-        push @groupedAnnots, [ @fragGroup ];
+        # Every fragment may have been dropped ( see createSubElements )
+        push @groupedAnnots, [ @fragGroup ] if ( @fragGroup );
         $newSearchResults->addAll( $resultSubCollection );
 
         if ( $DEBUG ) {
@@ -6106,34 +6111,41 @@ sub createSubElements {
 
       $newSubjSeq =~ s/-//g;
 
+      # A segment made only of insertion columns aligns to no consensus
+      # bases.  Reporting it would give it an empty consensus range
+      # (end one below start on the reverse strand, one invented base on
+      # the forward strand), so drop it, and step past the excised
+      # region's columns as a non-empty segment would.
+      if ( $newSubjSeq eq "" ) {
+        if ( $clipAlignChar ne '-' ) {
+          if ( $parentElement->getOrientation() eq "C" ) {
+            $segSubjEnd -= $numX;
+          }
+          else {
+            $segSubjStart += $numX;
+          }
+        }
+        next;
+      }
+
       if ( $parentElement->getOrientation() eq "C" ) {
         $newSegment->setSubjEnd( $segSubjEnd );
-        if ( $newSubjSeq eq "" ) {
-          $segSubjEnd = $segSubjStart;
-        }
-        else {
-          $segSubjStart = $segSubjEnd - length( $newSubjSeq ) + 1;
-          if ( $clipAlignChar eq '-' ) {
-            $segSubjEnd = $segSubjStart - 1;
-          }else {
-            $segSubjEnd = $segSubjStart - 1 - $numX;
-          }
+        $segSubjStart = $segSubjEnd - length( $newSubjSeq ) + 1;
+        if ( $clipAlignChar eq '-' ) {
+          $segSubjEnd = $segSubjStart - 1;
+        }else {
+          $segSubjEnd = $segSubjStart - 1 - $numX;
         }
         $newSegment->setSubjRemaining( $parentSubjSize - $newSegment->getSubjEnd() );
         $newSegment->setSubjStart( $segSubjStart );
       }
       else {
         $newSegment->setSubjStart( $segSubjStart );
-        if ( $newSubjSeq eq "" ) {
-          $segSubjEnd = $segSubjStart;
-        }
-        else {
-          $segSubjEnd = $segSubjStart + length( $newSubjSeq ) - 1;
-          if ( $clipAlignChar eq '-' ) {
-            $segSubjStart = $segSubjEnd + 1;
-          }else {
-            $segSubjStart = $segSubjEnd + 1 + $numX;
-          }
+        $segSubjEnd = $segSubjStart + length( $newSubjSeq ) - 1;
+        if ( $clipAlignChar eq '-' ) {
+          $segSubjStart = $segSubjEnd + 1;
+        }else {
+          $segSubjStart = $segSubjEnd + 1 + $numX;
         }
         $newSegment->setSubjEnd( $segSubjEnd );
         $newSegment->setSubjRemaining(

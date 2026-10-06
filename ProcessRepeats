@@ -169,11 +169,6 @@ use Matrix;
 use RepeatMaskerConfig;
 
 # This is a special database-specific module
-my $FAMDB_DIR;
-BEGIN {
-  my $config = $RepeatMaskerConfig::configuration;
-  $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
-}
 use lib "$FindBin::RealBin/Libraries";
 use RepeatAnnotationData;
 
@@ -233,6 +228,10 @@ unless ( &GetOptions( \%options, @opts ) ) {
   exec "pod2text $0";
   exit( 0 );
 }
+
+# Apply environment overrides ( e.g. FAMDB_DIR exported by RepeatMasker )
+RepeatMaskerConfig::resolveConfiguration( \%options );
+my $FAMDB_DIR = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'};
 
 ## Print the internal POD documentation if something is missing
 if ( $#ARGV == -1 && !$options{'help'} ) {

@@ -118,6 +118,8 @@ if ( $] && $] >= 5.008003 ) {
   use warnings;
 }
 
+# Apply environment overrides ( e.g. FAMDB_DIR )
+RepeatMaskerConfig::resolveConfiguration( {} );
 my $FAMDB_DIR = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'};
 
 die "FamDB is required for DateRepeats but is not configured.\n"

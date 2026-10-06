@@ -1,6 +1,21 @@
 Next
   - ProcessRepeats memory/processing time fixes for scaffold assemblies (high contig
     counts)
+  - BUGFIX: RepeatMasker::createSubElements() reported fragments made only of
+    genome bases inserted relative to the consensus when it cut a hit at
+    excised simple repeats.  Such a fragment aligns to no consensus bases.
+    On the reverse strand it was given an empty consensus range (end one below
+    start) and the next fragment's range was shifted by one base; on the
+    forward strand it claimed one consensus base it did not align.  These
+    fragments are now dropped.  A remaining case of the 4.2.4 fix to the same
+    coordinate arithmetic.
+  - BUGFIX: The -famdb_dir option and the FAMDB_DIR environment variable were
+    ignored for species searches.  Taxonomy.pm read FAMDB_DIR from the
+    configuration file when the module loaded, before overrides were applied,
+    and ProcessRepeats, DateRepeats and util/buildSummary.pl never applied
+    them.  Taxonomy now reads the setting when constructed, RepeatMasker
+    passes the resolved location to ProcessRepeats, and the other scripts
+    apply the environment override.
 
 4.2.5
   - ProcessRepeats speed improvements(25-45% faster on mammalian genomes).

@@ -207,6 +207,8 @@ if ( ! _program_in_path("twoBitInfo") ) {
 }
 
 
+# Apply environment overrides ( e.g. FAMDB_DIR )
+RepeatMaskerConfig::resolveConfiguration( \%options );
 my $FAMDB_DIR = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'};
 
 my %taxaFamIDs = ();
