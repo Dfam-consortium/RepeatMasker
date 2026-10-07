@@ -16,6 +16,24 @@ Next
     them.  Taxonomy now reads the setting when constructed, RepeatMasker
     passes the resolved location to ProcessRepeats, and the other scripts
     apply the environment override.
+  - BUGFIX: Alignments next to excised repeats could have their query
+    letters shifted one base from the reported range, with an excision
+    marker ("N") as their first letter.  Two causes:
+      - Abutting excisions each leave a marker, so two fragments of a hit
+        can be separated by more than one.  createSubElements() always
+        stepped past exactly one, leaving the rest at the front of the next
+        fragment.  fragmentAnnotations() now records how many markers
+        precede each fragment, and createSubElements() steps past exactly
+        those, moving the consensus position by the consensus letters
+        actually aligned to them.
+      - addToRefinementCollection() compared excision coordinates with hit
+        coordinates in the cut sequence, and skipped markers next to the
+        start of the hit or to another excision, so refinement seeds (e.g.
+        Alu subfamilies) could keep a marker.  It now places each marker in
+        the cut sequence and removes every marker inside the hit.
+    On a 1 Mb human test region 6 fragment and 5 refined alignments
+    changed, all by one consensus base; masking was unchanged.
+    t/fragmentCoords.t covers both cases.
 
 4.2.5
   - ProcessRepeats speed improvements(25-45% faster on mammalian genomes).

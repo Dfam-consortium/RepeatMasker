@@ -856,6 +856,22 @@ foreach my $file ( @ARGV ) {
                          'childPID' => -1
     };
   }
+  # Batches waiting to start, in order.  Sorting every batch number after
+  # each finished batch cost time in proportion to the batch count, once per
+  # batch.
+  my @pendingBatches = ( 1 .. $batchCount );
+  # One writer for the combined .cat for the whole run; a "gzip -c >>" or
+  # "cat >>" per batch forked this process, whose size grows with the number
+  # of input sequences, once per batch.
+  my $catAllFH;
+  if ( $compressCatFile ) {
+    open( $catAllFH, "| gzip -c >> $fullcatfile.gz" )
+        or die "RepeatMasker: cannot start gzip for $fullcatfile.gz: $!\n";
+  }
+  else {
+    open( $catAllFH, ">>", $fullcatfile )
+        or die "RepeatMasker: cannot open $fullcatfile: $!\n";
+  }
 
   #
   # Job processing loop
@@ -901,11 +917,13 @@ JOBLOOP:
               if ( $DEBUG );
           ## Child completed ok.
           ## Append log, and stderrs
-          system( "cat $batchFile.masked.log >> $fullLogFile" )
+          &appendFileTo( "$batchFile.masked.log", $fullLogFile )
               if ( -e "$batchFile.masked.log" );
-          system( "cat $batchFile.masked.stderr >> $fullErrFile" )
+          &appendFileTo( "$batchFile.masked.stderr", $fullErrFile )
               if ( -e "$batchFile.masked.stderr" );
-          system( "touch $batchFile.cat" ) if ( !-e "$batchFile.cat" );
+          if ( !-e "$batchFile.cat" ) {
+            open( my $t, ">>", "$batchFile.cat" ); close( $t );
+          }
 
           # Now remove them
           unlink( "$batchFile.masked", "$batchFile.masked.log",
@@ -931,6 +949,7 @@ JOBLOOP:
                 if ( $DEBUG );
             $batchStatus{$batchNum}->{'retry'}++;
             $batchStatus{$batchNum}->{'childPID'} = -1;
+            unshift @pendingBatches, $batchNum;
             print "WARNING: Retrying batch ( $batchNum ) [ $retVal,"
                 . ( -e "$batchFile.cat" ) . ", "
                 . ( -s "$batchFile.masked" )
@@ -1000,18 +1019,8 @@ JOBLOOP:
       if ( !exists $batchStatus{$nextBatchToConcatenate}
            && -e "$file" . "_batch-" . "$nextBatchToConcatenate.cat" )
       {
-        if ( $compressCatFile ) {
-          system(   "gzip -c $file"
-                  . "_batch-"
-                  . "$nextBatchToConcatenate.cat "
-                  . ">> $fullcatfile.gz" );
-        }
-        else {
-          system(   "cat $file"
-                  . "_batch-"
-                  . "$nextBatchToConcatenate.cat "
-                  . ">> $fullcatfile" );
-        }
+        &appendFileTo( "$file" . "_batch-" . "$nextBatchToConcatenate.cat",
+                       $catAllFH );
         unlink( "$file" . "_batch-" . "$nextBatchToConcatenate.cat" )
             unless ( $DEBUG );
         $nextBatchToConcatenate++;
@@ -1021,13 +1030,10 @@ JOBLOOP:
       }
     }
 
-    # Gather a list of batches to work on
-    my @batchNums = grep { ( $batchStatus{$_}->{'childPID'} < 0 ) }
-        sort( { $a <=> $b } keys( %batchStatus ) );
-
-    # Decide how many jobs to start
+    # Decide how many jobs to start, and take that many batches from the
+    # front of the queue
     my $numberToStart = 0;
-    if ( @batchNums > ( $numberChildren - keys( %children ) ) ) {
+    if ( @pendingBatches > ( $numberChildren - keys( %children ) ) ) {
 
       # Simply the number requested - the number running
       $numberToStart = ( $numberChildren - keys( %children ) );
@@ -1035,8 +1041,9 @@ JOBLOOP:
     else {
 
       # Simply the remaining batches
-      $numberToStart = @batchNums;
+      $numberToStart = @pendingBatches;
     }
+    my @batchNums = splice( @pendingBatches, 0, $numberToStart );
 
     #
     # Loop through and fork to our hearts
@@ -1165,8 +1172,13 @@ JOBLOOP:
           &adjustFragmentPositions( $batcher, $batchCatFile );
         }
 
-        # Exit child process with clean status
-        exit( 0 );
+        # Exit child process with clean status.  POSIX::_exit skips Perl's
+        # global destruction, which in a forked child walks (and so copies)
+        # every structure inherited from the parent; that cost grows with
+        # the number of input sequences and was paid once per batch.
+        STDOUT->flush();
+        STDERR->flush();
+        POSIX::_exit( 0 );
 
       }    # elsif ( $child_id == 0 )...
       elsif ( $! =~ /No more process/ ) {
@@ -1186,6 +1198,10 @@ JOBLOOP:
     # Give up if it looks bad for us
     ## TODO: Consider die'ng here...since there
     ##       is nothing more we can do to recover.
+    # Batches taken from the queue that did not start go back on it.
+    unshift @pendingBatches,
+        grep { exists $batchStatus{$_} && $batchStatus{$_}->{'childPID'} < 0 }
+        @batchNums;
     last if ( $badForkCount == $badForkMax );
 
     #
@@ -1197,6 +1213,7 @@ JOBLOOP:
     print "Parent waiting for child to finish...\n" if ( $DEBUG );
 
   }    # End of JOBLOOP
+  close( $catAllFH );
 
   ## TODO: This is where we used to make the cut file.  This
   ##       option should be rolled into a new utility which
@@ -4299,6 +4316,7 @@ sub addToRefinementCollection {
   my $adjStart       = shift;
   my $adjEnd         = shift;
   my $excisions      = shift;
+  my $sentinelLength = shift;
 
   # Get element fields
   my $subjName = $current->getSubjName();
@@ -4338,34 +4356,26 @@ sub addToRefinementCollection {
   ## sequence, however nhmmer/nhmmscan convert the "X" into an "N" before printing
   ## the alignment.  Only recourse is to look for recorded excisions:
   ##
+  ## The excision records are in original sequence coordinates while
+  ## $qStart/$qEnd are still in the coordinates of the searched ( cut )
+  ## sequence, so place each marker in cut coordinates first.  A marker
+  ## at either end of the hit stands in for the last excised base
+  ## ( see queryExcision ) and is kept; every marker inside is removed.
+  ##
   if ( $excisions->{$seqID} ) {
     my @markerRemoval = ();
-
-    # Loop over previous cut out elements for this $seqID
-    my $internalBegin  = -1;
-    my $internalEnd    = -1;
-    my $newResultBegin = $qStart;
+    my $posAdjustment = 0;
 
     foreach my $hit ( @{ $excisions->{$seqID} } ) {
-      my $hitBegin = $hit->[ 1 ];
-      my $hitEnd   = $hitBegin + $hit->[ 2 ] - 1;
-      last if ( $hitBegin > $qEnd );
-      next if ( $hitBegin < $qStart );
-      next
-          if (    $hitBegin == $qStart
-               && $hitEnd == $qEnd );
-
-      $internalBegin = $hitBegin;
-      $internalEnd   = $hitEnd;
-
-      #print "Found internal: $internalBegin - $internalEnd\n"
-      #    if ( $DEBUG );
-      if ( ( $internalBegin - 1 ) > $newResultBegin ) {
-        if ( substr( $querySeq, $internalBegin - $qStart, 1 ) =~ /[xn]/i ) {
-          push @markerRemoval, ( $internalBegin - $qStart );
-        }
+      my $markerPos = $hit->[ 1 ] - $posAdjustment;
+      last if ( $markerPos >= $qEnd );
+      $posAdjustment += $hit->[ 2 ] - $sentinelLength;
+      next if ( $markerPos <= $qStart );
+      for ( my $k = 0 ; $k < $sentinelLength ; $k++ ) {
+        my $offset = $markerPos - $qStart + $k;
+        push @markerRemoval, $offset
+            if ( substr( $querySeq, $offset, 1 ) =~ /[xn]/i );
       }
-      $newResultBegin = $hitEnd + 1;
     }
     if ( @markerRemoval ) {
       foreach my $marker ( sort { $b <=> $a } @markerRemoval ) {
@@ -5586,7 +5596,7 @@ sub postProcessSearch {
                                  $seqDB,       $batchNum,
                                  $stage,       $i,
                                  $globalBegin, $globalEnd,
-                                 $excisions
+                                 $excisions,  $sentinelLength
       );
     }
 
@@ -5884,6 +5894,12 @@ sub fragmentAnnotations {
       my @subSegmentList = ();
       my $newResultBegin = $resultBegin;
 
+      # Each excision left a $numX long marker in the searched sequence.
+      # Abutting excisions are kept as separate records, so several
+      # markers can sit between two segments.  Count them so that
+      # createSubElements() steps past exactly that many.
+      my $markersBefore = 0;
+
       print "Element boundaries: $resultBegin - $resultEnd\n" if ( $DEBUG );
 
       foreach my $hit ( @{ $excisions->{$queryID} } ) {
@@ -5907,10 +5923,13 @@ sub fragmentAnnotations {
               if ( $DEBUG );
           push @subSegmentList,
               {
-                'begin' => $newResultBegin,
-                'end'   => $internalBegin - 1
+                'begin'   => $newResultBegin,
+                'end'     => $internalBegin - 1,
+                'xBefore' => $markersBefore
               };
+          $markersBefore = 0;
         }
+        $markersBefore += $numX;
 
         $newResultBegin = $hitEnd + 1;
       }
@@ -5924,8 +5943,9 @@ sub fragmentAnnotations {
             if ( $DEBUG );
         push @subSegmentList,
             {
-              'begin' => $internalEnd + 1,
-              'end'   => $resultEnd
+              'begin'   => $internalEnd + 1,
+              'end'     => $resultEnd,
+              'xBefore' => $markersBefore
             };
       }
 
@@ -6088,65 +6108,65 @@ sub createSubElements {
     # If alignment info
     if ( $parentQuerySeq ne "" ) {
 
-      # Count through query seq until we reach the breakpoint ( discount "-" )
-      my $seqCount = 0;
-      my $i        = 0;
-      while ( $seqCount <= $segQueryLen ) {
-        $seqCount++ unless ( substr( $parentQuerySeq, $i++, 1 ) eq '-' );
+      # Step past the excision markers ( X/N ) in front of this segment,
+      # moving the consensus position over whatever consensus letters
+      # are aligned to them.
+      my $xBefore = $subSegmentList->[ $j ]->{'xBefore'} || 0;
+      if ( $xBefore > 0 ) {
+        my $seen = 0;
+        my $k    = 0;
+        while ( $seen < $xBefore && $k < length( $parentQuerySeq ) ) {
+          $seen++ unless ( substr( $parentQuerySeq, $k++, 1 ) eq '-' );
+        }
+        my $skippedSubj = substr( $parentSubjSeq, 0, $k );
+        my $numSubj     = ( $skippedSubj =~ tr/-//c );
+        if ( $parentElement->getOrientation() eq "C" ) {
+          $segSubjEnd -= $numSubj;
+        }
+        else {
+          $segSubjStart += $numSubj;
+        }
+        $parentQuerySeq = substr( $parentQuerySeq, $k );
+        $parentSubjSeq  = substr( $parentSubjSeq,  $k );
       }
 
-      # Don't include the X/N
-      my $newQuerySeq   = substr( $parentQuerySeq, 0, $i - 1 );
-      my $newSubjSeq    = substr( $parentSubjSeq,  0, $i - 1 );
-      my $clipAlignChar = substr( $parentSubjSeq,  $i - 1, 1 );
+      # Count through query seq until we have the segment's bases
+      # ( discount "-" ), keeping any gap columns that follow them.
+      my $seqCount = 0;
+      my $i        = 0;
+      while ( $seqCount < $segQueryLen && $i < length( $parentQuerySeq ) ) {
+        $seqCount++ unless ( substr( $parentQuerySeq, $i++, 1 ) eq '-' );
+      }
+      $i++
+          while ( $i < length( $parentQuerySeq )
+                  && substr( $parentQuerySeq, $i, 1 ) eq '-' );
+
+      my $newQuerySeq = substr( $parentQuerySeq, 0, $i );
+      my $newSubjSeq  = substr( $parentSubjSeq,  0, $i );
+      $parentQuerySeq = substr( $parentQuerySeq, $i );
+      $parentSubjSeq  = substr( $parentSubjSeq,  $i );
 
       $newSegment->setQueryString( $newQuerySeq );
       $newSegment->setSubjString( $newSubjSeq );
 
-      # Set parent to remaining sequence if any
-      if ( ( $i + $numX ) <= length( $parentQuerySeq ) ) {
-        $parentQuerySeq = substr( $parentQuerySeq, $i - 1 + $numX );
-        $parentSubjSeq  = substr( $parentSubjSeq,  $i - 1 + $numX );
-      }
-
       $newSubjSeq =~ s/-//g;
 
       # A segment made only of insertion columns aligns to no consensus
-      # bases.  Reporting it would give it an empty consensus range
-      # (end one below start on the reverse strand, one invented base on
-      # the forward strand), so drop it, and step past the excised
-      # region's columns as a non-empty segment would.
-      if ( $newSubjSeq eq "" ) {
-        if ( $clipAlignChar ne '-' ) {
-          if ( $parentElement->getOrientation() eq "C" ) {
-            $segSubjEnd -= $numX;
-          }
-          else {
-            $segSubjStart += $numX;
-          }
-        }
-        next;
-      }
+      # bases.  Reporting it would give it an empty consensus range, so
+      # drop it.
+      next if ( $newSubjSeq eq "" );
 
       if ( $parentElement->getOrientation() eq "C" ) {
         $newSegment->setSubjEnd( $segSubjEnd );
         $segSubjStart = $segSubjEnd - length( $newSubjSeq ) + 1;
-        if ( $clipAlignChar eq '-' ) {
-          $segSubjEnd = $segSubjStart - 1;
-        }else {
-          $segSubjEnd = $segSubjStart - 1 - $numX;
-        }
+        $segSubjEnd   = $segSubjStart - 1;
         $newSegment->setSubjRemaining( $parentSubjSize - $newSegment->getSubjEnd() );
         $newSegment->setSubjStart( $segSubjStart );
       }
       else {
         $newSegment->setSubjStart( $segSubjStart );
-        $segSubjEnd = $segSubjStart + length( $newSubjSeq ) - 1;
-        if ( $clipAlignChar eq '-' ) {
-          $segSubjStart = $segSubjEnd + 1;
-        }else {
-          $segSubjStart = $segSubjEnd + 1 + $numX;
-        }
+        $segSubjEnd   = $segSubjStart + length( $newSubjSeq ) - 1;
+        $segSubjStart = $segSubjEnd + 1;
         $newSegment->setSubjEnd( $segSubjEnd );
         $newSegment->setSubjRemaining(
             $parentSubjEnd - $segSubjEnd + $parentElement->getSubjRemaining() );
@@ -7424,3 +7444,27 @@ sub createLibFromFamdb {
 }
 
 1;
+
+##-------------------------------------------------------------------------##
+## Use: &appendFileTo( $sourceFile, $destFileOrHandle );
+##
+##   Append a file's contents without starting a shell.  A system() call
+##   forks this process, and the fork costs more the more sequences the
+##   run holds in memory.
+##-------------------------------------------------------------------------##
+sub appendFileTo {
+  my $src  = shift;
+  my $dest = shift;
+  open( my $in, "<", $src ) or return;
+  my $out = $dest;
+  unless ( ref( $dest ) ) {
+    open( $out, ">>", $dest )
+        or die "RepeatMasker: cannot append to $dest: $!\n";
+  }
+  my $buf;
+  while ( read( $in, $buf, 1 << 20 ) ) {
+    print $out $buf;
+  }
+  close( $in );
+  close( $out ) unless ( ref( $dest ) );
+}
