@@ -270,13 +270,22 @@ if ( $options{'species'} ) {
   # Need to set opt_species, opt_mammal, opt_mus
   $tax = Taxonomy->new();
 
-  if ( $tax->isA( $options{'species'}, "primates" ) ) {
+  # isA() returns -1 (true in perl) when the species is not in FamDB, so
+  # compare against 1 and stop rather than guess at the taxon.
+  my $isPrimate = $tax->isA( $options{'species'}, "primates" );
+  if ( $isPrimate == -1 ) {
+    die "\nTaxon \"$options{'species'}\" was not found in FamDB, or the name is\n"
+        . "ambiguous.  Check the spelling, or look the name up with:\n\n"
+        . "    % famdb.py names '$options{'species'}'\n\n";
+  }
+
+  if ( $isPrimate == 1 ) {
     $options{'primate'} = 1;
   }
-  elsif ( $tax->isA( $options{'species'}, "rodentia" ) ) {
+  elsif ( $tax->isA( $options{'species'}, "rodentia" ) == 1 ) {
     $options{'mus'} = 1;
   }
-  elsif ( $tax->isA( $options{'species'}, "mammalia" ) ) {
+  elsif ( $tax->isA( $options{'species'}, "mammalia" ) == 1 ) {
     $options{'mammal'} = 1;
   }
 }
@@ -3192,6 +3201,11 @@ CYCLE3:
                 if ( $options{'source'} );
                 #print "REMOVING FROM PROXIMITY ITERATOR\n";
             $proxIter->remove();
+            # A merged candidate no longer counts against an SVA's
+            # look-ahead, as in the SVA/LAVA branch above.  Otherwise VNTR
+            # fragments that start just before the VNTR range use it up and
+            # a forward-strand SVA is left in pieces.
+            $lookAhead--;
             if ( $DEBUG ) {
               print "  Outcome:\n";
               $currentAnnot->print();
@@ -3254,6 +3268,7 @@ CYCLE3:
             $currentAnnot->addDerivedFromAnnot( $next1Annot )
                 if ( $options{'source'} );
             $proxIter->remove();
+            $lookAhead--;
             if ( $DEBUG ) {
               print "  Outcome:\n";
               $currentAnnot->print();

@@ -217,7 +217,7 @@ if ( defined $options{'species'} ) {
     die "FamDB is required for -species filtering but is not configured.\n" .
         "Re-run the RepeatMasker configure script to set up FamDB.\n";
   }
-  my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
+  my $famdbCmd = RepeatMaskerConfig::famdbProgram() . " families '" .
                        $options{'species'} . "' --descendants -f embl_meta";
   #print "Running $famdbCmd\n";
   open IN,"$famdbCmd|" or die "Could not execute famdb.py using: $famdbCmd\n";

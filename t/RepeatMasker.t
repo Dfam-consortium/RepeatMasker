@@ -18,9 +18,9 @@ system("cp $testDataDir$testFile wrkdir/$testFile");
 system("../RepeatMasker -engine crossmatch -gc 43 wrkdir/$testFile");
 system("cat wrkdir/$testFile.tbl | egrep -v \"RepeatMasker|cross_match|RepBase\" > wrkdir/$testFile.tbl.cmp");
 print "not " unless( 
-  `diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp` eq "" &&
-  `diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked` eq "" &&
-  `diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out` eq "" );
+  system("diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out >/dev/null 2>&1") == 0 );
 print "ok 1\n";
 
 $testDataDir = "seqs/general/";
@@ -35,9 +35,9 @@ print
   "diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked\n".
   "diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out\n";
 print "not " unless( 
-  `diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp` eq "" &&
-  `diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked` eq "" &&
-  `diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out` eq "" );
+  system("diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out >/dev/null 2>&1") == 0 );
 print "ok 2\n";
 
 $testDataDir = "seqs/general/";
@@ -52,9 +52,9 @@ print
   "diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked\n".
   "diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out\n";
 print "not " unless( 
-  `diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp` eq "" &&
-  `diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked` eq "" &&
-  `diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out` eq "" );
+  system("diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out >/dev/null 2>&1") == 0 );
 print "ok 3\n";
 
 $testDataDir = "seqs/ISElements/";
@@ -69,9 +69,9 @@ print
   "diff wrkdir/$testFile.masked $resultComparisonDir$testFile.masked\n".
   "diff wrkdir/$testFile.out $resultComparisonDir$testFile.out\n";
 print "not " unless( 
-  `diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir$testFile.tbl.cmp` eq "" &&
-  `diff wrkdir/$testFile.masked $resultComparisonDir$testFile.masked` eq "" &&
-  `diff wrkdir/$testFile.out $resultComparisonDir$testFile.out` eq "" );
+  system("diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir$testFile.tbl.cmp >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.masked $resultComparisonDir$testFile.masked >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.out $resultComparisonDir$testFile.out >/dev/null 2>&1") == 0 );
 print "ok 4\n";
 
 
@@ -83,9 +83,9 @@ system("cp $testDataDir$testFile wrkdir/$testFile");
 system("../RepeatMasker -engine crossmatch -gc 43 -qq wrkdir/$testFile");
 system("cat wrkdir/$testFile.tbl | egrep -v \"RepeatMasker|cross_match|RepBase\" > wrkdir/$testFile.tbl.cmp");
 unless (
-  `diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp` eq "" &&
-  `diff --ignore-blank-lines wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked` eq "" &&
-  `diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out` eq "" ) {
+  system("diff -b wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp >/dev/null 2>&1") == 0 &&
+  system("diff --ignore-blank-lines wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked >/dev/null 2>&1") == 0 &&
+  system("diff wrkdir/$testFile.out $resultComparisonDir/$testFile.out >/dev/null 2>&1") == 0 ) {
   # Bad!
   print "diff wrkdir/$testFile.tbl.cmp $resultComparisonDir/$testFile.tbl.cmp\n";
   print "diff --ignore-blank-lines wrkdir/$testFile.masked $resultComparisonDir/$testFile.masked\n";

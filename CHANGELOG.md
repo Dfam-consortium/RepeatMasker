@@ -1,6 +1,91 @@
 Next
   - ProcessRepeats memory/processing time fixes for scaffold assemblies (high contig
     counts)
+  - RepeatMasker reports the FamDB data directory in use ("Data Dir") next to
+    the famdb.py location.
+  - When famdb.py fails, RepeatMasker now shows what it wrote to stderr (e.g.
+    a Python traceback) along with the command and exit status.  Taxonomy.pm
+    used to treat a crashed famdb.py as a valid empty answer, so a broken
+    FamDB install (e.g. h5py missing from the python on PATH) made -species
+    runs silently fall back to generic, non-mammalian processing.  It now
+    stops with famdb.py's output.
+  - BUGFIX: Cached species libraries did not record which FamDB partitions
+    were installed when they were built.  A -species run made before the
+    partition for that taxon was installed cached only the families
+    available then (e.g. those of higher-level clades) and kept using them
+    after the partition was added.  Each species cache directory is now
+    named for the applicable families installed when it was built (e.g.
+    homo_sapiens.1a2b3c4d; the counts are kept in famdbSignature.txt), so
+    a change in installed partitions selects a new cache instead of
+    reusing or overwriting the old one.  Caches made by earlier versions
+    are no longer used (they are rebuilt once) and may be deleted.
+  - New -famdb_data_dir option ( FAMDB_DATA_DIR environment variable, or
+    set once with configure ): the directory holding the FamDB *.h5 files.
+    It is passed to famdb.py as -i by RepeatMasker, ProcessRepeats,
+    DateRepeats, RepeatProteinMask and util/buildSummary.pl, so a Dfam
+    installation can be chosen per run without editing famdb.conf.
+  - New -cache_dir option ( REPEATMASKER_CACHE_DIR environment variable,
+    or set once with configure ): where to keep the libraries RepeatMasker
+    builds from FamDB.  It is tried first, before Libraries/ and
+    ~/.RepeatMaskerCache, and is created if missing.  RepeatMasker now says
+    when no cache location is writable and libraries are being built in
+    the run's temporary directory, to be rebuilt by every run.
+  - A cache directory can be shared by concurrent runs.  Libraries are
+    built in a directory private to each run and moved into place when
+    complete, so a run never removes or reads another run's partial build.
+    Builds abandoned by killed runs are cleaned up once their process has
+    exited (or after two days for builds from other hosts).
+    RepeatProteinMask writes its RepeatPeps library the same way.
+  - The -h option list now shows the environment variable for each
+    setting that has one.
+  - RepeatMasker now accepts the common-name aliases already used by
+    ProcessRepeats and DateRepeats (e.g. mouse, rat, drosophila, anopheles,
+    worm, mammal, diatom).  Most of these are ambiguous to FamDB and were
+    rejected.  All alias targets were checked against Dfam 4.0.  "maize" is
+    no longer an alias for the Zea genus; FamDB resolves it to Zea mays,
+    which is what RepeatMasker already used.
+  - BUGFIX: Taxonomy::isA() returned 0 rather than -1 for a species or clade
+    not found in FamDB.  ProcessRepeats tested the result for truth, where
+    -1 counts as true, so it now compares against 1 and stops when run
+    directly with an unknown -species instead of quietly producing generic
+    output.
+  - BUGFIX: DateRepeats could not use aliases (Taxonomy::isSpecies()
+    applied them after the FamDB lookup) or taxa whose names contain
+    "<", ">", "," or parentheses (e.g. "Drosophila <flies,genus>"); the
+    stripped form it returned is not a name FamDB knows.  It now returns
+    FamDB's sanitized name (e.g. drosophila_flies_genus).
+  - BUGFIX: RepeatMasker died with "Can't use string ... as a symbol ref"
+    when appending a batch's log or stderr file to the run's (introduced
+    with the runtime fix for high sequence counts above).
+  - BUGFIX: Simple repeats and low complexity regions could be silently
+    missing when RepeatMasker was run from a deep directory.  TRF 4.09 and
+    4.10 overflow a buffer when given a path of about 260 characters or
+    more and then abort or write nothing, and RepeatMasker passed TRF the
+    full path of each batch file.  The run still exited 0, with no
+    Simple_repeat or Low_complexity lines in the .out.  TRF is now given
+    the file name relative to the directory it runs in.  A TRF run that
+    produces no output for a non-empty batch is now treated as a failure
+    and reported with TRF's error message; previously only a signal was
+    caught, and the shell wrapping TRF hid that too.  (TRF's exit status
+    is the number of sequences read, so it cannot be used to detect
+    errors.)
+  - BUGFIX: ProcessRepeats could split a forward-strand SVA whose VNTR is
+    longer than the consensus into 2-4 .out lines sharing one ID, while the
+    reverse complement of the same copy was reported as one line.  An SVA
+    looks ahead at most 3 candidates when assembling its fragments, and
+    only merges made by the SVA/LAVA rule stopped counting against that
+    limit.  Forward-strand VNTR fragments often start just before the VNTR
+    range and merge through the general "joined pair" rule instead, using
+    up the look-ahead before the next fragment is reached.  Merges by every
+    rule now free a look-ahead slot.  E.g. hg38 chr2:41746002-41748725
+    (SVA_F) is now one line, 53-2716 + SVA_F 1 1375 (0), on both strands.
+  - BUGFIX: util/rmToTrackHub.pl exited 0 even when bedToBigBed failed,
+    leaving a corrupt or partial bigBed file and a hub that pointed to it.
+    It now stops with bedToBigBed's exit status and the command that
+    failed, and removes the partial file.  Failures of the sort and
+    intersectBed steps it runs are reported the same way.
+  - t/RepeatMasker.t now fails when an expected output file is missing;
+    it used to pass.
   - BUGFIX: RepeatMasker::createSubElements() reported fragments made only of
     genome bases inserted relative to the consensus when it cut a hit at
     excised simple repeats.  Such a fragment aligns to no consensus bases.

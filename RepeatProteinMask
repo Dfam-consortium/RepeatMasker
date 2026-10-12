@@ -104,6 +104,7 @@ use Data::Dumper;
 use Pod::Text;
 use Carp;
 use Getopt::Long;
+use File::Path;
 
 # RepeatMasker Libraries
 use RepeatMaskerConfig;
@@ -370,17 +371,17 @@ unless ( $FAMDB_DIR && -x "$FAMDB_DIR/famdb.py" ) {
 
 my $dfam_version = "";
 {
-  my $info = `$FAMDB_DIR/famdb.py info 2>/dev/null`;
+  my $info = `${\ RepeatMaskerConfig::famdbProgram() } info 2>/dev/null`;
   $dfam_version = $1 if $info =~ /^Version\s*:\s*(\S+)/m;
 }
-die "Could not determine Dfam version from: $FAMDB_DIR/famdb.py info\n"
+die "Could not determine Dfam version from: " . RepeatMaskerConfig::famdbProgram() . " info\n"
   unless $dfam_version;
 
 my $prot_cache_name = "PROT-Dfam_$dfam_version";
-my @prot_search_path = (
-  "$LIBDIR/$prot_cache_name",
-  "$ENV{HOME}/.RepeatMaskerCache/$prot_cache_name",
-);
+# Same locations, in the same order, as RepeatMasker's species libraries
+# ( -cache_dir if given, Libraries/, ~/.RepeatMaskerCache ).
+my @prot_search_path =
+    map { "$_/$prot_cache_name" } RepeatMaskerConfig::cacheSearchPath( $LIBDIR );
 
 my $prot_dir = "";
 for my $path ( @prot_search_path ) {
@@ -395,6 +396,7 @@ unless ( $prot_dir ) {
   for my $path ( @prot_search_path ) {
     my $parent = $path;
     $parent =~ s|/[^/]+$||;
+    eval { mkpath( $parent ) } unless ( -d $parent );
     if ( -d $parent && -w $parent ) {
       $write_dir = $path;
       last;
@@ -406,11 +408,20 @@ unless ( $prot_dir ) {
       . join( "", map { "  $_\n" } @prot_search_path )
       . "\nEnsure at least one of those directories is writable and retry.\n\n";
   }
-  mkdir $write_dir
+  -d $write_dir or mkdir $write_dir or -d $write_dir
     or die "Cannot create directory $write_dir: $!\n";
   print "Generating RepeatPeps protein library from FamDB $dfam_version...\n";
-  my $ret = system("$FAMDB_DIR/famdb.py repeat_peps > $write_dir/RepeatPeps.lib");
-  die "famdb.py repeat_peps failed (exit $ret)\n" if $ret || !-s "$write_dir/RepeatPeps.lib";
+  # Written under a private name and renamed, so a concurrent run never
+  # reads a partial library.
+  my $tmp_lib = "$write_dir/.RepeatPeps.lib.$$";
+  my $ret = system( RepeatMaskerConfig::famdbProgram()
+                    . " repeat_peps > $tmp_lib" );
+  if ( $ret || !-s $tmp_lib ) {
+    unlink( $tmp_lib );
+    die "famdb.py repeat_peps failed (exit $ret)\n";
+  }
+  rename( $tmp_lib, "$write_dir/RepeatPeps.lib" )
+    or die "Cannot rename $tmp_lib to $write_dir/RepeatPeps.lib: $!\n";
   $prot_dir = $write_dir;
 }
 

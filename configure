@@ -62,6 +62,18 @@ Path to the ABBlast bin directory.
 
 Path to the FamDB installation directory (containing famdb.py).
 
+=item -famdb_data_dir <path>
+
+Directory holding the FamDB data (*.h5) files, if not FamDB's own default.
+Not prompted for; can also be given to RepeatMasker at run time
+( -famdb_data_dir or the FAMDB_DATA_DIR environment variable ).
+
+=item -cache_dir <path>
+
+Directory to keep the species libraries RepeatMasker builds from FamDB,
+searched before Libraries/ and ~/.RepeatMaskerCache.  Not prompted for;
+can also be given at run time ( -cache_dir or REPEATMASKER_CACHE_DIR ).
+
 =item -default_search_engine <name>
 
 Default search engine: rmblast, hmmer, crossmatch, or abblast.
@@ -113,6 +125,8 @@ GetOptions( \%opts,
   'crossmatch_dir=s',
   'abblast_dir=s',
   'famdb_dir=s',
+  'famdb_data_dir=s',
+  'cache_dir=s',
   'default_search_engine=s',
 ) or usage();
 
@@ -640,6 +654,8 @@ sub print_summary {
   my $default = lc( $config->{'DEFAULT_SEARCH_ENGINE'}->{'value'} // "" );
 
   printf "  %-14s  %s\n", "Libraries:",   "$INSTALL_DIR/Libraries";
+  printf "  %-14s  %s\n", "Cache:",       $config->{'CACHE_DIR'}->{'value'}
+      if ( ( $config->{'CACHE_DIR'}->{'value'} // "" ) ne "" );
   printf "  %-14s  %s\n", "TRF:",         $trf;
 
   my %defname_to_key = map { $_->{defname} => $_ } @ENGINES;
@@ -653,7 +669,9 @@ sub print_summary {
     my $famdb_dir = $config->{'FAMDB_DIR'}->{'value'};
     printf "  %-14s  %s\n", "FamDB:", $famdb_dir;
 
-    my $info = `$famdb_dir/famdb.py info 2>/dev/null` // "";
+    printf "  %-14s  %s\n", "FamDB data:", $config->{'FAMDB_DATA_DIR'}->{'value'}
+        if ( ( $config->{'FAMDB_DATA_DIR'}->{'value'} // "" ) ne "" );
+    my $info = `${\ RepeatMaskerConfig::famdbProgram() } info 2>/dev/null` // "";
     if ( $info ) {
       my ($db_name, $db_ver, $db_date, $db_count);
       $db_name  = $1 if $info =~ /^Database\s*:\s*(\S.*)/m;

@@ -158,9 +158,14 @@ contained in the RepeatMasker repeat database.  Some examples are:
 
 Other commonly used species:
 
-mammal, carnivore, rodentia, rat, cow, pig, cat, dog, chicken, 
-fugu, danio, "ciona intestinalis" drosophila, anopheles, worm, 
-diatoaea, artiodactyl, arabidopsis, rice, wheat, and maize 
+mammal, carnivore, rodentia, rat, cow, pig, cat, dog, chicken,
+fugu, danio, "ciona intestinalis", drosophila, anopheles, worm,
+diatom, artiodactyl, arabidopsis, rice, wheat, and maize
+
+A few common names that NCBI does not define, or that match more
+than one taxon, are translated by RepeatMasker (e.g. mouse => Mus
+musculus, rat => Rattus, drosophila => the Drosophila genus, worm =>
+Caenorhabditis).  The run reports the name it used.
 
 =item -uncurated  
 
@@ -342,6 +347,9 @@ use Pod::Text;
 use File::Copy;
 use File::Spec;
 use File::Path;
+use File::Temp qw(tempfile);
+use Digest::MD5 qw(md5_hex);
+use Sys::Hostname;
 use Data::Dumper;
 use Cwd;
 
@@ -467,10 +475,24 @@ my $WUBLASTP_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/blastp";
 my $SETDB_PRGM = $config->{'ABBLAST_DIR'}->{'value'} . "/setdb";
 my $TRF_PRGM = $config->{'TRF_PRGM'}->{'value'};
 my $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
+my $FAMDB_DATA_DIR = $config->{'FAMDB_DATA_DIR'}->{'value'} // "";
+
+if ( $FAMDB_DATA_DIR ne "" ) {
+  my $hasRoot = 0;
+  if ( opendir( my $dh, $FAMDB_DATA_DIR ) ) {
+    $hasRoot = grep { /\.0\.h5$/ } readdir( $dh );
+    closedir( $dh );
+  }
+  die "The FamDB data directory (-famdb_data_dir / FAMDB_DATA_DIR) does not\n"
+      . "exist or holds no FamDB root file (*.0.h5):\n"
+      . "    $FAMDB_DATA_DIR\n"
+      unless ( $hasRoot );
+}
 
 # Pass the resolved FamDB location on to ProcessRepeats, which reads
 # it through its environment override.
 $ENV{'FAMDB_DIR'} = $FAMDB_DIR if ( $FAMDB_DIR ne "" );
+$ENV{'FAMDB_DATA_DIR'} = $FAMDB_DATA_DIR if ( $FAMDB_DATA_DIR ne "" );
 
 # Determine the installation directory using
 # location of the program that was invoked.
@@ -691,12 +713,13 @@ if ( $FAMDB_DIR ne "" ) {
 }
 
 #
-# The search path for finding a place to store the cache
+# The search path for finding a place to store the cache: -cache_dir
+# (if given), the Libraries directory, then ~/.RepeatMaskerCache.
 #
-my @LIBPATH = ( $LIBDIR,
-                $ENV{'HOME'} . "/.RepeatMaskerCache" );
+my @LIBPATH = RepeatMaskerConfig::cacheSearchPath( $LIBDIR );
 
-# Add tempdir to the end of the library search path
+# Add tempdir to the end of the library search path.  It is removed when
+# the run ends, so a cache built there does not persist.
 push @LIBPATH, $tempdir;
 
 
@@ -2728,10 +2751,18 @@ sub runTRFStage {
     # TRF Errors
     my $signal = $retCode & 127;
     my $prgcode = $retCode >> 8;
-    print "WARNING: TRF returned an error ("
+    my $trfStderr = "";
+    if ( open my $errIn, "<", $trfErrFile ) {
+      local $/;
+      $trfStderr = <$errIn> // "";
+      close $errIn;
+      $trfStderr =~ s/\s+$//;
+    }
+    print "WARNING: TRF failed or wrote no output ("
         . "Return code = $prgcode, signal = $signal)\n"
-        . "TRF parameters: "
-        . $trf->getParameters() . "\n"
+        . "TRF command: "
+        . ( $trf->getParameters() )[ 0 ] . "\n"
+        . ( $trfStderr ne "" ? "TRF reported:\n$trfStderr\n" : "" )
         . "A search phase could not complete on this batch.\n"
         . "The batch file will be re-run and if possible the\n"
         . "program will resume.\n";
@@ -6684,7 +6715,13 @@ sub initLibrariesFromFamdb {
 
   my $orgFlag;
   my $dbLabel;
-  my ($modelPrefix, $famdbCmd, $dbTitle, $dbVersion, $dbDate, $dbConsCnt, $dbHMMCnt);
+  my ($modelPrefix, $famdbCmd, $famdbErr, $dbTitle, $dbVersion, $dbDate,
+      $dbConsCnt, $dbHMMCnt, $dbDataDir);
+
+  # The families present in FamDB for this species when its cache is built.
+  # The species cache directory is named for a hash of it, so installing or
+  # removing a partition later selects a different cache.
+  my $cacheSignature = "";
 
   # When FamDB is configured, fetch database metadata and build $dbLabel now
   # so it is available for both -lib and -species runs (the general
@@ -6692,10 +6729,12 @@ sub initLibrariesFromFamdb {
   if ( $FAMDB_DIR ne "" ) {
     $modelPrefix = "CONS-";
     $modelPrefix = "HMM-" if ( $searchEngine->isa( "HMMERSearchEngine" ) );
-    my $famdbInfoCmd = "$FAMDB_DIR/famdb.py info";
-    open IN,"$famdbInfoCmd |";
+    ( $famdbCmd, $famdbErr ) = &famdbCommand( "info" );
+    open IN,"$famdbCmd 2>$famdbErr |";
     while (<IN>){
-      if ( /^Database\s*:\s*(\S.*)/ ) {
+      if ( /^FamDB Directory\s*:\s*(\S.*)/ ) {
+        $dbDataDir = $1;
+      }elsif ( /^Database\s*:\s*(\S.*)/ ) {
         $dbTitle = $1;
       }elsif ( /^Version\s*:\s*(\S.*)/ ) {
         $dbVersion = $1;
@@ -6708,14 +6747,20 @@ sub initLibrariesFromFamdb {
       }
     }
     close IN;
-    if ( $? ) {
-      die "Could not execute famdb.py using: $famdbInfoCmd\n";
+    my $infoErr = &checkFamdbStatus( $famdbCmd, $famdbErr, $? );
+    # famdb.py can report a broken installation and still exit 0, so treat
+    # missing metadata as a failure too.
+    if ( $dbTitle eq "" || $dbVersion eq "" ) {
+      die "Could not read the database information from famdb.py using: "
+          . "$famdbCmd\n"
+          . ( $infoErr ne "" ? "famdb.py reported:\n$infoErr\n" : "" );
     }
     my $sanitizedTitle = $dbTitle;
     $sanitizedTitle =~ s/[\[\(\{\]\)\]]+//g;
     $sanitizedTitle =~ s/[^a-zA-Z\d]+/_/g;
     $dbLabel = $modelPrefix . $sanitizedTitle . "_" . $dbVersion;
     print "\nUsing FamDB: $FAMDB_DIR\n";
+    print "  Data Dir : $dbDataDir\n" if ( defined $dbDataDir );
     print "  Title    : $dbTitle\n";
     print "  Version  : $dbVersion\n";
     print "  Date     : $dbDate\n";
@@ -6780,6 +6825,15 @@ sub initLibrariesFromFamdb {
     # Default species if non given.
     $species = "homo sapiens" if ( $species eq "" );
 
+    # Accept the same common names ("mouse", "drosophila", ...) as the rest
+    # of the package.  The resolved name is used from here on, including
+    # for the cache directory and what is passed to ProcessRepeats.
+    my $aliasedSpecies = $tax->resolveAlias( $species );
+    if ( lc( $aliasedSpecies ) ne lc( $species ) ) {
+      print "Species \"$species\" is an alias for \"$aliasedSpecies\"\n";
+      $species = $aliasedSpecies;
+    }
+
     ## For minimal DB installs, -species is not an option.
     if ( $dbTitle eq "Sequencing_artifacts_only" ) {
       die "\nERROR: A database of TE families is not present.\n" .
@@ -6792,10 +6846,10 @@ sub initLibrariesFromFamdb {
     # NOTE: orgFlag is a bit of a legacy concept that will probably disappear
     #       in a future RM version. 
     # TODO: Should REPEATMASKER_DIR be global???
-    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
-                    $species . "' -f semicolon";
+    ( $famdbCmd, $famdbErr ) =
+        &famdbCommand( "lineage '" . $species . "' -f semicolon" );
     #print "FamdbCMD: $famdbCmd\n";
-    open IN,"$famdbCmd |";
+    open IN,"$famdbCmd 2>$famdbErr |";
     my $lineage = "";
     my $NCBITaxID;
     my $NCBITaxName;
@@ -6815,9 +6869,9 @@ sub initLibrariesFromFamdb {
       $msg .= $_;
     }
     close IN;
-    if ( $? ) {
-      die "Could not execute famdb.py using: $famdbCmd\n";
-    }
+    # famdb.py writes its "not found" and missing-partition messages to
+    # stderr, so check those as well.
+    $msg .= &checkFamdbStatus( $famdbCmd, $famdbErr, $? );
 
     if ( $lineage eq "" ) {
       if ( $msg =~ /Taxon in Partition\s+(\d+)/ ) {
@@ -6854,9 +6908,10 @@ sub initLibrariesFromFamdb {
     # Tabulate curated
     my $modelType = "consensus";
     $modelType = "hmm" if ( $searchEngine->isa( "HMMERSearchEngine" ));
-    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
-                    $species . "' --curated --ancestors --model $modelType --descendants -f totals";
-    open IN,"$famdbCmd |";
+    ( $famdbCmd, $famdbErr ) = &famdbCommand( "lineage '" . $species .
+        "' --curated --ancestors --model $modelType --descendants -f totals" );
+    open IN,"$famdbCmd 2>$famdbErr |";
+    my $foundTotals = 0;
     my $curated_ancestor_counts = 0;
     my $curated_lineage_counts = 0;
     my $present_curated_ancestor_counts = 0;
@@ -6868,17 +6923,20 @@ sub initLibrariesFromFamdb {
         $curated_lineage_counts = $2;
         $present_curated_ancestor_counts = $3;
         $present_curated_lineage_counts = $4;
+        $foundTotals = 1;
       }
     }
     close IN;
-    if ( $? ) {
-      die "Could not execute famdb.py using: $famdbCmd\n";
-    }
+    my $totalsErr = &checkFamdbStatus( $famdbCmd, $famdbErr, $? );
+    die "Could not read the family totals from famdb.py using: $famdbCmd\n"
+        . ( $totalsErr ne "" ? "famdb.py reported:\n$totalsErr\n" : "" )
+        if ( !$foundTotals );
     
     # Tabulate uncurated
-    $famdbCmd = "$FAMDB_DIR/famdb.py lineage '" .
-                    $species . "' --uncurated --ancestors --model $modelType --descendants -f totals";
-    open IN,"$famdbCmd |";
+    ( $famdbCmd, $famdbErr ) = &famdbCommand( "lineage '" . $species .
+        "' --uncurated --ancestors --model $modelType --descendants -f totals" );
+    open IN,"$famdbCmd 2>$famdbErr |";
+    $foundTotals = 0;
     my $uncurated_ancestor_counts = 0;
     my $uncurated_lineage_counts = 0;
     my $present_uncurated_ancestor_counts = 0;
@@ -6890,12 +6948,26 @@ sub initLibrariesFromFamdb {
         $uncurated_lineage_counts = $2;
         $present_uncurated_ancestor_counts = $3;
         $present_uncurated_lineage_counts = $4;
+        $foundTotals = 1;
       }
     }
     close IN;
-    if ( $? ) {
-      die "Could not execute famdb.py using: $famdbCmd\n";
-    }
+    $totalsErr = &checkFamdbStatus( $famdbCmd, $famdbErr, $? );
+    die "Could not read the family totals from famdb.py using: $famdbCmd\n"
+        . ( $totalsErr ne "" ? "famdb.py reported:\n$totalsErr\n" : "" )
+        if ( !$foundTotals );
+
+    # Which of the applicable families are installed decides what the cached
+    # libraries hold.  The cache directory is already specific to the model
+    # type ($dbLabel) and the -uncurated option ($speciesWord), so the
+    # present counts for those are enough to tell when a cache is stale.
+    $cacheSignature =
+        "curated_$modelType ancestral_present=$present_curated_ancestor_counts"
+        . " lineage_present=$present_curated_lineage_counts\n";
+    $cacheSignature .=
+        "uncurated_$modelType ancestral_present=$present_uncurated_ancestor_counts"
+        . " lineage_present=$present_uncurated_lineage_counts\n"
+        if ( $options{'uncurated'} );
 
     print "Species/Taxa Search:\n";
     print "  $NCBITaxName [NCBI Taxonomy ID: $NCBITaxID]\n";
@@ -6958,10 +7030,10 @@ sub initLibrariesFromFamdb {
   # stored as follows:
   #
   #     @libraryPath/$dbLabel/general/foo.lib
-  #     @libraryPath/$dbLabel/$species/foolib
+  #     @libraryPath/$dbLabel/$species.<signature>/foolib
   #
-  # The first directory in the search path containing
-  # the desired library type is used.
+  # The first directory in the search path holding a usable
+  # copy is used.
   #
   my $speciesWord = lc($species || "");
   $speciesWord =~ s/\s+/_/g;
@@ -6969,58 +7041,62 @@ sub initLibrariesFromFamdb {
   #   New "uncurated" flag requires suffixes for cached libraries
   #   to ensure we reproduce the same set of families for each query.
   $speciesWord .= "_wunc" if ( $options{'uncurated'} );
-  foreach my $path ( @libraryPath ) {
-    if ( -d "$path/$dbLabel" ) {
-      if ( -d "$path/$dbLabel/$speciesWord" ) {
-        #
-        # A cached species directory is usable when it holds at least one
-        # library this engine can search.  Recover the library names from
-        # the directory contents: either the library file itself, or the
-        # index files beside it under the same basename, since the wublast
-        # path deletes the library once it has been compressed.  Then ask
-        # the engine whether any of them is ready to use.
-        #
-        my %libBases = ();
-        foreach my $cacheFile ( glob( "$path/$dbLabel/$speciesWord/*" ) ) {
-          next if ( -d $cacheFile );
-          my $base = $cacheFile;
-          $base =~ s/\.(ahd|atb|bsq|xn[a-z]|xp[a-z]|n[a-z][a-z]|h3[fimp])$//;
-          $libBases{ $base } = 1 if ( $base =~ /(lib|hmm)$/ );
-        }
 
-        foreach my $libBase ( keys( %libBases ) ) {
-          if ( $searchEngine->isSubjectPrepared( $libBase ) ) {
-            $speciesCacheDir = "$path/$dbLabel/$speciesWord";
-            last;
-          }
-        }
-      }elsif ( -d "$path/$dbLabel/$speciesWord" . ".working" ) {
-        # Make sure checkpointing name has been cleared in previous run
-        print "\n  It appears that RepeatMasker attempted to generate a cached library for this\n"
-              ."  species before but didn't complete it.  Attempting to remove and rebuild this\n"
-              ."  cache: $path/$dbLabel/$speciesWord.working\n\n";
-        rmtree("$path/$dbLabel/$speciesWord" . ".working",0,1);
+  # A species cache is named for the families that were installed when it
+  # was built (e.g. homo_sapiens.1a2b3c4d), so installing or removing a
+  # FamDB partition selects a different cache rather than changing one in
+  # place.  Jobs sharing a cache directory but using different FamDB data
+  # then never disturb each other's libraries.
+  my $speciesCacheName = $speciesWord;
+  $speciesCacheName .= "." . substr( md5_hex( $cacheSignature ), 0, 8 )
+      if ( !$customLibFile );
+
+  foreach my $path ( @libraryPath ) {
+    next unless ( -d "$path/$dbLabel" );
+    &removeAbandonedBuilds( "$path/$dbLabel" );
+
+    my $cacheDir = "$path/$dbLabel/$speciesCacheName";
+    if (    !$customLibFile
+         && $speciesCacheDir eq ""
+         && -d $cacheDir
+         && &cacheSignatureMatches( $cacheDir, $cacheSignature ) )
+    {
+      #
+      # A cached species directory is usable when it holds at least one
+      # library this engine can search.  Recover the library names from
+      # the directory contents: either the library file itself, or the
+      # index files beside it under the same basename, since the wublast
+      # path deletes the library once it has been compressed.  Then ask
+      # the engine whether any of them is ready to use.
+      #
+      my %libBases = ();
+      foreach my $cacheFile ( glob( "$cacheDir/*" ) ) {
+        next if ( -d $cacheFile );
+        my $base = $cacheFile;
+        $base =~ s/\.(ahd|atb|bsq|xn[a-z]|xp[a-z]|n[a-z][a-z]|h3[fimp])$//;
+        $libBases{ $base } = 1 if ( $base =~ /(lib|hmm)$/ );
       }
-      if ( -d "$path/$dbLabel/general" ) {
-        if ( $searchEngine->isa( "NCBIBlastSearchEngine" ) && 
-             -s "$path/$dbLabel/general/is.lib" && 
-             ! $searchEngine->isSubjectPrepared(
-                                     "$path/$dbLabel/general/is.lib" ) ) {
-             # The library is present but not prepared for this engine, so
-             # it has to be regenerated.  Under rmblastn 3.x nothing needs
-             # preparing, so this no longer re-runs famdb to rebuild a
-             # library that already exists.
-             $generalCacheDir = "";
-        }else {
-          # Fallback on .working to makes sure this gets built for hmmer/crossmatch
-          $generalCacheDir = "$path/$dbLabel/general";
+
+      foreach my $libBase ( keys( %libBases ) ) {
+        if ( $searchEngine->isSubjectPrepared( $libBase ) ) {
+          $speciesCacheDir = $cacheDir;
+          last;
         }
-      }elsif ( -d "$path/$dbLabel/general" . ".working" ){
-        # Make sure checkpointing name has been cleared in previous run
-        print "\n  It appears that RepeatMasker attempted to generate a cached general library\n"
-              ."  before but didn't complete it.  Attempting to remove and rebuild this\n"
-              ."  cache: $path/$dbLabel/general.working\n\n";
-        rmtree("$path/$dbLabel/general.working",0,1);
+      }
+    }
+
+    if ( $generalCacheDir eq "" && -d "$path/$dbLabel/general" ) {
+      if ( $searchEngine->isa( "NCBIBlastSearchEngine" ) &&
+           -s "$path/$dbLabel/general/is.lib" &&
+           ! $searchEngine->isSubjectPrepared(
+                                   "$path/$dbLabel/general/is.lib" ) ) {
+        # The library is present but not prepared for this engine, so
+        # it has to be regenerated.  Under rmblastn 3.x nothing needs
+        # preparing, so this no longer re-runs famdb to rebuild a
+        # library that already exists.
+      }else {
+        # Fallback on .working to makes sure this gets built for hmmer/crossmatch
+        $generalCacheDir = "$path/$dbLabel/general";
       }
     }
   }
@@ -7036,60 +7112,68 @@ sub initLibrariesFromFamdb {
     #
     my $writableCacheDir = "";
     foreach my $path ( @libraryPath ) {
-      if ( -d $path ) {
-        if ( open( TEST, ">$path/rmwritetest.deleteme" ) ) {
-          close TEST;
-          unlink "$path/rmwritetest.deleteme";
+      if ( !-d $path ) {
+        eval { mkpath( $path ) };
+        next if ( $@ || !-d $path );
+      }
+      if ( open( TEST, ">$path/rmwritetest.deleteme" ) ) {
+        close TEST;
+        unlink "$path/rmwritetest.deleteme";
 
-          # Just in case there is a read-only version of the
-          # db already extracted by the installer.
-          if ( -d "$path/$dbLabel" ) {
-            if ( open( TEST, ">$path/$dbLabel/rmwritetest.deleteme" ) ) {
-              close TEST;
-              unlink "$path/$dbLabel/rmwritetest.deleteme";
-              $writableCacheDir = $path;
-              last;
-            }
-          }
-          else {
+        # Just in case there is a read-only version of the
+        # db already extracted by the installer.
+        if ( -d "$path/$dbLabel" ) {
+          if ( open( TEST, ">$path/$dbLabel/rmwritetest.deleteme" ) ) {
+            close TEST;
+            unlink "$path/$dbLabel/rmwritetest.deleteme";
             $writableCacheDir = $path;
             last;
           }
         }
-      }
-      elsif ( mkdir "$path", 0777 ) {
-        $writableCacheDir = $path;
-        last;
+        else {
+          $writableCacheDir = $path;
+          last;
+        }
       }
     }
+
+    my $requestedCacheDir = $config->{'CACHE_DIR'}->{'value'} // "";
+    $requestedCacheDir =~ s/\/+$//;
+    if ( $requestedCacheDir ne "" && $writableCacheDir ne $requestedCacheDir ) {
+      print "\n  WARNING: The cache directory (-cache_dir / REPEATMASKER_CACHE_DIR)\n"
+          . "           $requestedCacheDir\n"
+          . "           could not be created or is not writable.\n\n";
+    }
+    if ( $writableCacheDir eq $workingDir ) {
+      print "\n  NOTE: None of the cache locations is writable, so the libraries\n"
+          . "        are being built in this run's temporary directory and will be\n"
+          . "        rebuilt by every run.  Use -cache_dir (or set\n"
+          . "        REPEATMASKER_CACHE_DIR) to keep them.\n\n";
+    }
+
+    # Libraries are built in a directory private to this process and then
+    # moved into place, so concurrent runs sharing a cache never see a
+    # partly built one.  See installCacheDir().
+    my $buildSuffix = ".working." . hostname() . ".$$";
 
     if ( $generalCacheDir eq "" ) {
       # Need to build libraries:   at.lib,  simple.lib
       #                            l1.lib, mirs.lib, mir.lib, is.lib
-      print "Building general libraries in: "
-          . "$writableCacheDir/$dbLabel/general\n";
+      my $generalFinalDir = "$writableCacheDir/$dbLabel/general";
+      my $generalBuildDir = "$generalFinalDir$buildSuffix";
+      print "Building general libraries in: $generalFinalDir\n";
 
       # Make cache dir
-      if ( !-d "$writableCacheDir/$dbLabel/general.working" ) {
-        eval { mkpath( "$writableCacheDir/$dbLabel/general.working" ) };
-        if ( $@ ) {
-          die "RepeatMasker::setspecies: Can't create dir path "
-              . "$writableCacheDir/$dbLabel/general.working! $@\n";
-        }
+      eval { mkpath( $generalBuildDir ) };
+      if ( $@ ) {
+        die "RepeatMasker::setspecies: Can't create dir path "
+            . "$generalBuildDir! $@\n";
       }
 
-      &createLibFromFamdb( $rmLibDir, 
-                           "$writableCacheDir/$dbLabel/general.working/is.lib", 
+      &createLibFromFamdb( $rmLibDir, "$generalBuildDir/is.lib",
                            'root', 10, $searchEngine );
-      # Rename or copy upon successful completion
-      if ( -d "$writableCacheDir/$dbLabel/general" ) {
-        # Directory exists but setup for a different search engine - copy files over
-        system("cp $writableCacheDir/$dbLabel/general.working/* $writableCacheDir/$dbLabel/general");
-        rmtree("$writableCacheDir/$dbLabel/general.working",0,1);
-      }else {
-        rename("$writableCacheDir/$dbLabel/general.working", "$writableCacheDir/$dbLabel/general");
-      }
-      $generalCacheDir = "$writableCacheDir/$dbLabel/general";
+      &installCacheDir( $generalBuildDir, $generalFinalDir );
+      $generalCacheDir = $generalFinalDir;
     }
     else {
       print STDERR "Using general libraries in:\n  $generalCacheDir\n"
@@ -7100,16 +7184,15 @@ sub initLibrariesFromFamdb {
       if ( $speciesCacheDir eq "" ) {
 
         # Need to build species specific libraries
-        print "Building species libraries in: "
-            . "$writableCacheDir/$dbLabel/$speciesWord\n";
+        my $speciesFinalDir = "$writableCacheDir/$dbLabel/$speciesCacheName";
+        my $speciesBuildDir = "$speciesFinalDir$buildSuffix";
+        print "Building species libraries in: $speciesFinalDir\n";
 
         # Make cache dir
-        if ( !-d "$writableCacheDir/$dbLabel/$speciesWord.working" ) {
-          eval { mkpath( "$writableCacheDir/$dbLabel/$speciesWord.working" ) };
-          if ( $@ ) {
-            die "RepeatMasker::setspecies: Can't create dir path "
-                . "$writableCacheDir/$dbLabel/$speciesWord! $@\n";
-          }
+        eval { mkpath( $speciesBuildDir ) };
+        if ( $@ ) {
+          die "RepeatMasker::setspecies: Can't create dir path "
+              . "$speciesBuildDir! $@\n";
         }
 
         # Build the cached refineable elements hash.  These are the
@@ -7117,9 +7200,9 @@ sub initLibrariesFromFamdb {
         # the refinelib.
         my $cOpt = "--curated";
         $cOpt = "" if ( $options{'uncurated'} );
-        my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
-                       $species . "' $cOpt --ancestors --descendants -f embl_meta";
-        open IN,"$famdbCmd|";
+        my ( $famdbCmd, $famdbErr ) = &famdbCommand( "families '" .
+            $species . "' $cOpt --ancestors --descendants -f embl_meta" );
+        open IN,"$famdbCmd 2>$famdbErr |";
         my $acc;
         my $name;
         my $ref;
@@ -7146,17 +7229,15 @@ sub initLibrariesFromFamdb {
            $ref = 1 if ( /^CC\s+Refineable/ );
         }
         close IN;
-        if ( $? ) {
-          die "Could not execute famdb.py using: $famdbCmd\n";
-        }
+        &checkFamdbStatus( $famdbCmd, $famdbErr, $? );
         nstore \%refineableHash,
-            "$writableCacheDir/$dbLabel/$speciesWord.working/refineableHash.dat";
+            "$speciesBuildDir/refineableHash.dat";
    
         ##
         ##
         ##
-        open OUT,">$writableCacheDir/$dbLabel/$speciesWord.working/speciesMeta.pm" or 
-            die "Could not open $writableCacheDir/$dbLabel/$speciesWord.working/speciesMeta.pm " . 
+        open OUT,">$speciesBuildDir/speciesMeta.pm" or 
+            die "Could not open $speciesBuildDir/speciesMeta.pm " . 
                 "for writing!\n";
         print OUT "package speciesMeta;\n";
         print OUT "require Exporter;\n";
@@ -7178,75 +7259,69 @@ sub initLibrariesFromFamdb {
       
           # alu.lib, rodcutsines.lib => sinecutlib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord.working/sinecutlib", 
+                               "$speciesBuildDir/sinecutlib", 
                                $species, 35, $searchEngine );
 
           # cut1.lib, rodcut.lib => shortcutlib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord.working/shortcutlib", 
+                               "$speciesBuildDir/shortcutlib", 
                                $species, 40, $searchEngine );
 
 
 
           # cut2.lib, rodcut2.lib, cetartiocut.lib => cutlib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord.working/cutlib", 
+                               "$speciesBuildDir/cutlib", 
                                $species, 45, $searchEngine );
 
           unless ( $searchEngine->isa( "HMMERSearchEngine" ) ) {
 
             # humsines.lib, rod1.lib, cetartio1.lib => shortlib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord.working/shortlib", 
+                                 "$speciesBuildDir/shortlib", 
                                  $species, 50, $searchEngine, 1 );
 
             # humlines.lib, rod2.lib => longlib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord.working/longlib", 
+                                 "$speciesBuildDir/longlib", 
                                  $species, 55, $searchEngine );
 
             # mirs.lib => mirslib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord.working/mirslib", 
+                                 "$speciesBuildDir/mirslib", 
                                  $species, 60, $searchEngine );
 
             # mir.lib => mirlib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord.working/mirlib", 
+                                 "$speciesBuildDir/mirlib", 
                                  $species, 65, $searchEngine );
 
             # retrovirus.lib => retrolib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord.working/retrolib", 
+                                 "$speciesBuildDir/retrolib", 
                                  $species, 70, $searchEngine );
           }
           else {
             # HMM search combines 35,50,60,65,70 into one search lib
             &createLibFromFamdb( $rmLibDir, 
-                                 "$writableCacheDir/$dbLabel/$speciesWord.working/masklib", 
+                                 "$speciesBuildDir/masklib", 
                                  $species, 95, $searchEngine, 1 );
           }
 
           # refinelib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord.working/refinelib", 
+                               "$speciesBuildDir/refinelib", 
                                $species, 85, $searchEngine );
         }
         else {
           # Need to separate into a species.lib
           &createLibFromFamdb( $rmLibDir, 
-                               "$writableCacheDir/$dbLabel/$speciesWord.working/specieslib", 
+                               "$speciesBuildDir/specieslib", 
                                $species, 80, $searchEngine );
         }
-        # Rename or copy upon successful completion
-        if ( -d "$writableCacheDir/$dbLabel/$speciesWord" ) {
-          # Directory exists but setup for a different search engine - copy files over
-          system("cp $writableCacheDir/$dbLabel/$speciesWord.working/* $writableCacheDir/$dbLabel/$speciesWord");
-          rmtree("$writableCacheDir/$dbLabel/$speciesWord.working",0,1);
-        }else {
-          rename("$writableCacheDir/$dbLabel/$speciesWord.working", "$writableCacheDir/$dbLabel/$speciesWord");
-        }
-        $speciesCacheDir = "$writableCacheDir/$dbLabel/$speciesWord";
+        &writeCacheSignature( $speciesBuildDir, $cacheSignature );
+        &installCacheDir( $speciesBuildDir, $speciesFinalDir );
+        $speciesCacheDir = $speciesFinalDir;
       }
       else {
         print STDERR "Using species libraries in:\n  $speciesCacheDir\n"
@@ -7257,6 +7332,167 @@ sub initLibrariesFromFamdb {
 
   return ( $species, $generalCacheDir, $speciesCacheDir, $customCacheDir, $dbLabel );
 
+}
+
+##-------------------------------------------------------------------------##
+## Use: my ( $famdbCmd, $errFile ) = famdbCommand( $args );
+##
+##   Returns the famdb.py command line for $args and a temporary file
+##   for the caller to send its stderr to ( "$famdbCmd 2>$errFile" ).
+##   Pass both to checkFamdbStatus() once the command has finished.
+##
+##  Globals Used: $FAMDB_DIR
+##-------------------------------------------------------------------------##
+sub famdbCommand {
+  my $args = shift;
+
+  my ( $errFH, $errFile ) =
+      tempfile( "famdbErrXXXXXX", TMPDIR => 1, UNLINK => 1 );
+  close $errFH;
+
+  return ( RepeatMaskerConfig::famdbProgram() . " $args", $errFile );
+}
+
+##-------------------------------------------------------------------------##
+## Use: my $stderrText = checkFamdbStatus( $famdbCmd, $errFile, $? );
+##
+##   Dies, showing what famdb.py wrote to stderr, if the command failed.
+##   Otherwise passes that text through to our stderr, as it would have
+##   appeared without the redirect, and returns it.
+##-------------------------------------------------------------------------##
+sub checkFamdbStatus {
+  my $famdbCmd = shift;
+  my $errFile  = shift;
+  my $status   = shift;
+
+  my $errText = "";
+  if ( open my $errIn, "<", $errFile ) {
+    local $/;
+    $errText = <$errIn>;
+    close $errIn;
+  }
+  unlink( $errFile );
+  $errText = "" if ( !defined $errText );
+
+  if ( $status ) {
+    my $exitCode = $status >> 8;
+    $errText =~ s/\s+$//;
+    die "\nfamdb.py failed (exit status $exitCode) using:\n  $famdbCmd\n"
+        . ( $errText ne ""
+            ? "famdb.py reported:\n$errText\n\n"
+            : "famdb.py did not report a reason.\n\n" );
+  }
+  print STDERR $errText if ( $errText ne "" );
+
+  return $errText;
+}
+
+##-------------------------------------------------------------------------##
+## Use: writeCacheSignature( $cacheDir, $signature );
+##      my $isCurrent = cacheSignatureMatches( $cacheDir, $signature );
+##
+##   A species cache holds the families FamDB had installed for that
+##   species when it was built.  Installing or removing a partition changes
+##   that without changing the database title/version, so the species
+##   cache directory is named for a hash of the counts of installed
+##   families, and the counts themselves are kept in it
+##   (famdbSignature.txt) and checked before it is reused.  Caches from
+##   older versions of RepeatMasker have no hash in their name and are no
+##   longer used.
+##-------------------------------------------------------------------------##
+sub writeCacheSignature {
+  my $cacheDir  = shift;
+  my $signature = shift;
+
+  open my $sigOut, ">", "$cacheDir/famdbSignature.txt"
+      or die "Could not open $cacheDir/famdbSignature.txt for writing: $!\n";
+  print $sigOut "# FamDB families present when this cache was built.  RepeatMasker\n"
+      . "# rebuilds the cache when these differ, e.g. after installing a partition.\n"
+      . $signature;
+  close $sigOut;
+}
+
+sub cacheSignatureMatches {
+  my $cacheDir  = shift;
+  my $signature = shift;
+
+  open my $sigIn, "<", "$cacheDir/famdbSignature.txt" or return 0;
+  my $stored = "";
+  while ( <$sigIn> ) {
+    $stored .= $_ unless ( /^#/ );
+  }
+  close $sigIn;
+
+  return ( $stored eq $signature );
+}
+
+##-------------------------------------------------------------------------##
+## Use: installCacheDir( $buildDir, $finalDir );
+##
+##   Moves a finished library build into the cache.  Builds happen in a
+##   directory private to one process ( "<name>.working.<host>.<pid>" ),
+##   so several runs can share a cache directory.  If $finalDir does not
+##   exist yet the build is renamed into place, which is atomic.  If it
+##   does (another run finished first, or it holds files for another search
+##   engine), only the files it lacks are added, each written under a
+##   temporary name and renamed, so a run reading the cache never sees a
+##   partial file.  The build directory is removed afterwards.
+##-------------------------------------------------------------------------##
+sub installCacheDir {
+  my $buildDir = shift;
+  my $finalDir = shift;
+
+  return if ( rename( $buildDir, $finalDir ) );
+
+  die "RepeatMasker: Could not move $buildDir to $finalDir: $!\n"
+      unless ( -d $finalDir );
+
+  opendir( my $dh, $buildDir )
+      or die "RepeatMasker: Could not read $buildDir: $!\n";
+  my @files = grep { !/^\.\.?$/ && !-d "$buildDir/$_" } readdir( $dh );
+  closedir( $dh );
+
+  foreach my $file ( @files ) {
+    next if ( -e "$finalDir/$file" );
+    my $tmpFile = "$finalDir/.$file.$$";
+    copy( "$buildDir/$file", $tmpFile )
+        or die "RepeatMasker: Could not copy $buildDir/$file to $finalDir: $!\n";
+    rename( $tmpFile, "$finalDir/$file" )
+        or die "RepeatMasker: Could not rename $tmpFile: $!\n";
+  }
+  rmtree( $buildDir, 0, 1 );
+}
+
+##-------------------------------------------------------------------------##
+## Use: removeAbandonedBuilds( $dbCacheDir );
+##
+##   Removes library builds ( "*.working*" directories ) left behind by
+##   runs that were killed part way through.  A build started on this host
+##   is removed once its process has exited.  One from another host, or
+##   from an older RepeatMasker ( plain "*.working" ), may still be in use
+##   by a run we cannot see, so it is only removed after two days.
+##-------------------------------------------------------------------------##
+sub removeAbandonedBuilds {
+  my $dbCacheDir = shift;
+
+  return unless ( -w $dbCacheDir );
+  opendir( my $dh, $dbCacheDir ) or return;
+  my @builds =
+      grep { /\.working(\..+)?$/ && -d "$dbCacheDir/$_" } readdir( $dh );
+  closedir( $dh );
+
+  my $host = hostname();
+  foreach my $build ( @builds ) {
+    my $abandoned = ( -M "$dbCacheDir/$build" > 2 );
+    if ( !$abandoned && $build =~ /\.working\.(.+)\.(\d+)$/ && $1 eq $host ) {
+      my $pid = $2;
+      $abandoned = !( kill( 0, $pid ) || $!{EPERM} );
+    }
+    next unless ( $abandoned );
+    print "\n  Removing an incomplete library build left by an earlier run:\n"
+        . "    $dbCacheDir/$build\n\n";
+    rmtree( "$dbCacheDir/$build", 0, 1 );
+  }
 }
 
 ##-------------------------------------------------------------------------##
@@ -7309,30 +7545,26 @@ sub createLibFromFamdb {
   #       special case selections internally.
   my $cOpt = "--curated";
   $cOpt = "" if ( $options{'uncurated'} );
-  my $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
+  my $famdbArgs = "families '" .
               $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage $stageNum -f $format";
   if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-    $famdbCmd .= " --add-reverse-complement";
+    $famdbArgs .= " --add-reverse-complement";
   }
-  $famdbCmd .= " > $outFile";
-  system($famdbCmd);
-  if ( $? ) {
-    die "Could not execute famdb.py using: $famdbCmd\n";
-  }
+  my ( $famdbCmd, $famdbErr ) = &famdbCommand( $famdbArgs );
+  system("$famdbCmd > $outFile 2>$famdbErr");
+  &checkFamdbStatus( $famdbCmd, $famdbErr, $? );
 
   # RMH: 6/27/2025
   if ( $addUndefined ) {
     # Add the undefined sequences to the library
-    $famdbCmd = "$FAMDB_DIR/famdb.py families '" .
+    $famdbArgs = "families '" .
                  $species . "' $cOpt --ancestors --descendants --include-class-in-name --stage 0 -f $format";
     if ( $searchEngine->isa( "WUBlastSearchEngine" ) ) {
-      $famdbCmd .= " --add-reverse-complement";
+      $famdbArgs .= " --add-reverse-complement";
     }
-    $famdbCmd .= " >> $outFile";
-    system($famdbCmd);
-    if ( $? ) {
-      die "Could not execute famdb.py using: $famdbCmd\n";
-    }
+    ( $famdbCmd, $famdbErr ) = &famdbCommand( $famdbArgs );
+    system("$famdbCmd >> $outFile 2>$famdbErr");
+    &checkFamdbStatus( $famdbCmd, $famdbErr, $? );
   }
 
   if ( `grep -v -c "^#" $outFile` == 0 ) {
@@ -7456,8 +7688,14 @@ sub appendFileTo {
   my $src  = shift;
   my $dest = shift;
   open( my $in, "<", $src ) or return;
-  my $out = $dest;
-  unless ( ref( $dest ) ) {
+  my $out;
+  if ( ref( $dest ) ) {
+    $out = $dest;
+  }
+  else {
+    # $out must start out undefined: open() on a variable holding the
+    # file name treats it as a symbolic filehandle, which strict refs
+    # rejects.
     open( $out, ">>", $dest )
         or die "RepeatMasker: cannot append to $dest: $!\n";
   }

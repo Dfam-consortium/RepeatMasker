@@ -546,7 +546,14 @@ sub getParameters {
 
   if ( defined( $value = $this->getSequenceFile() ) ) {
     if ( -e $value ) {
-      $value = File::Spec->rel2abs( $value );
+      # search() runs TRF from the work directory, so name the file
+      # relative to it.  TRF 4.09-4.10 overflow a buffer and abort (or
+      # silently write nothing) when given a path of about 260 characters
+      # or more, which a deep working directory can easily reach.
+      my $workDir = $this->getWorkDir();
+      $workDir = "." if ( !defined $workDir || $workDir eq "" );
+      $value = File::Spec->abs2rel( File::Spec->rel2abs( $value ),
+                                    File::Spec->rel2abs( $workDir ) );
       $parameters .= "$value ";
     }
   }
@@ -714,6 +721,18 @@ sub search {
 
   my $resultCode = $?;
 
+  # TRF's exit status is the number of sequences it read, not a success
+  # flag, and the shell above turns a crash into an ordinary exit (e.g.
+  # 134 for SIGABRT).  A completed run always writes either a summary
+  # (several sequences) or the first per-sequence table, even when it
+  # finds nothing, so no output from a non-empty input means TRF failed.
+  my $producedOutput =
+         -e "$workDir/$seqFileName.$parameterName.summary.html"
+      || -e "$workDir/$seqFileName.$parameterName.1.txt.html";
+  my $trfFailed = ( $resultCode & 127 )
+      || $resultCode == -1
+      || ( !$producedOutput && -s $value );
+
   # The output of TRF is complex.  There are diferrent filename
   # grammers for single sequence vs multiple sequence etc.  There
   # are single output files per sequence.
@@ -820,8 +839,7 @@ sub search {
     );
   }
 
-  ## Detect signal failures only
-  if ( ($resultCode & 127) || ($resultCode == -1) ) {
+  if ( $trfFailed ) {
     return ( $resultCode, $searchResultColl, $outFile, "$workDir/$errFile" );
   }else { 
     unlink "$workDir/$errFile" if ( -e "$workDir/$errFile" );
