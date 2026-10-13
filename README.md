@@ -114,9 +114,10 @@ Since version 3.0, RepeatMasker creates a cache of species-specific libraries
 extracted from FamDB to speed up repeated searches.  It uses the first 
 writable directory in the following path:
 
-  1. The `Libraries/` subdirectory of the RepeatMasker installation.
-  2. The `.RepeatMaskerCache` subdirectory of the user's home directory.
-  3. The temporary processing directory `RM_#` created alongside the
+  1. The -cache_dir <path> optionally provided path
+  2. The `Libraries/` subdirectory of the RepeatMasker installation.
+  3. The `.RepeatMaskerCache` subdirectory of the user's home directory.
+  4. The temporary processing directory `RM_#` created alongside the
      sequence file and removed at the end of the run.
 
 If the cache cannot be written to paths 1 or 2, libraries are rebuilt on
