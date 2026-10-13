@@ -91,8 +91,6 @@ require Exporter;
 my $VERSION = 0.1;
 my $CLASS   = "Taxonomy";
 
-my $FAMDB = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'} . "/famdb.py";
-
 ##-------------------------------------------------------------------------##
 
 =begin
@@ -102,15 +100,22 @@ my $FAMDB = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'} . "/fam
 =item my $instance = Taxonomy->new();
 
 Construct a new Taxonomy object.  FamDB is located via the
-FAMDB_DIR setting in RepeatMaskerConfig.
+FAMDB_DIR setting in RepeatMaskerConfig.  The setting is read here,
+not when the module loads, so that command line and environment
+overrides applied by RepeatMaskerConfig::resolveConfiguration() are
+honored.
 
 =back
 
 =cut
 
 my %supplementalSynonyms = (
-                             # additional common names / plural vs singular,
-                             # not in the NCBI database
+                             # Additional common names / plural vs singular,
+                             # not in the NCBI database.  Every target must
+                             # resolve to a single FamDB taxon; all were
+                             # checked against Dfam 4.0 on 2026-10-12.
+                             # Don't add a name FamDB already resolves to a
+                             # different taxon (e.g. "maize" => Zea mays).
                              'carnivore'   => "carnivora",
                              'artiodactyl' => "artiodactyla",
                              'puffer'      => "takifugu",
@@ -128,7 +133,6 @@ my %supplementalSynonyms = (
                              'mustard'     => "arabidopsis",
                              'corn'        => "zea",
                              'elegans'     => "caenorhabditis elegans",
-                             'maize'       => "zea",
                              "mus"         => "mus musculus",
                              "mouse"       => "mus musculus",
 );
@@ -137,12 +141,17 @@ my %supplementalSynonyms = (
 sub new {
   my $class = shift;
 
-  if ( $FAMDB eq "/famdb.py" || ! -x $FAMDB ) {
+  my $famdbDir =
+      $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'} || "";
+  my $famdb = "$famdbDir/famdb.py";
+  if ( $famdbDir eq "" || ! -x $famdb ) {
     croak $CLASS . "::new() requires FamDB to be configured (FAMDB_DIR).\n" .
           "Re-run the RepeatMasker configure script to set up FamDB.\n";
   }
 
-  my $this = bless { isACache => {} }, $class;
+  # famdbProgram() adds "-i <dir>" when FAMDB_DATA_DIR is set.
+  my $this = bless { isACache => {},
+                     famdb    => RepeatMaskerConfig::famdbProgram() }, $class;
   return $this;
 }
 
@@ -169,14 +178,40 @@ in the database.
 =cut
 
 ##-------------------------------------------------------------------------##
+
+=begin
+
+=over 4
+
+=item my $name = resolveAlias( $obj, $name );
+
+Returns the FamDB name for one of the common names/abbreviations
+RepeatMasker has long accepted (e.g. "mouse", "drosophila", "rat"),
+or $name itself, trimmed of surrounding whitespace, if it is not one
+of them.  Case is ignored when matching.
+
+=back
+
+=cut
+
+##-------------------------------------------------------------------------##
+sub resolveAlias {
+  my $this = shift;
+  my $name = shift;
+
+  $name =~ s/^\s+//;
+  $name =~ s/\s+$//;
+  my $key = lc( $name );
+  return $supplementalSynonyms{ $key } if exists $supplementalSynonyms{ $key };
+  return $name;
+}
+
+##-------------------------------------------------------------------------##
 sub getLineage {
   my $this    = shift;
   my $species = shift;
 
-  $species =~ s/^\s+(\S.*)$/$1/;
-  $species =~ s/(.*\S)\s+$/$1/;
-  $species = lc($species);
-  $species = $supplementalSynonyms{$species} if exists $supplementalSynonyms{$species} ;
+  $species = lc( $this->resolveAlias( $species ) );
 
   my @lineage = ();
 
@@ -208,9 +243,10 @@ NOTE: The NCBI Taxonomy database allows many special characters in
       to be used as-is in every part of the RM software.  We there
       fore sanitive the names in a predictable way:
 
-      ">", "<", ",", ")", and "(", and "'" get stripped from the name
-      Leading spaces get stripped
-      Trailing spaces get stripped
+      A name containing ">", "<", ",", ")", "(", or "'" is returned in
+      FamDB's sanitized form: each run of non-alphanumeric characters
+      becomes "_" (e.g. "drosophila_flies_genus"), which FamDB accepts
+      as a name.  Other names are returned as-is.  Names are lowercased.
 
 =back
 
@@ -221,12 +257,8 @@ sub isSpecies {
   my $this    = shift;
   my $species = shift;
 
+  $species = $this->resolveAlias( $species );
   my $result = $this->_invokeFamDB([ "lineage", "--format=semicolon", $species ]);
-
-  $species =~ s/^\s+(\S.*)$/$1/;
-  $species =~ s/(.*\S)\s+$/$1/;
-  $species = lc($species);
-  $species = $supplementalSynonyms{$species} if exists $supplementalSynonyms{$species} ;
 
   if ( $result =~ /(\d+)\([^)]+\):\s*(.*)\s*\[(\d+)\]/ ) {
     my $lineage = $2;
@@ -277,7 +309,7 @@ sub isA {
 
     my $result;
 
-    if ( $#speciesLineage && $#groupLineage ) {
+    if ( @speciesLineage && @groupLineage ) {
       foreach my $ancestor ( @speciesLineage ) {
         if ( lc($ancestor) eq lc($groupName) ) {
           $result = 1;
@@ -344,7 +376,14 @@ sub predates {
 
 sub _sanitizeName {
     my $name = shift;
-    $name =~ s/[\<\>,'\)\(]//g;
+    # Use FamDB's own sanitized form (e.g. "Drosophila <flies,genus>" =>
+    # "Drosophila_flies_genus") so the result can be looked up again.  Just
+    # stripping the characters gives "Drosophila fliesgenus", which FamDB
+    # does not know.  Plain names ("Homo sapiens") are left as they are.
+    if ( $name =~ /[\<\>,'\)\(]/ ) {
+      $name =~ s/[^A-Za-z0-9]+/_/g;
+      $name =~ s/^_+|_+$//g;
+    }
     return $name;
 }
 
@@ -364,8 +403,20 @@ sub _invokeFamDB {
     $args_quoted .= " '$argq'";
   }
 
-  my $result = `$FAMDB $args_quoted 2>&1`;
-  #print "RUNNING: $FAMDB $args_quoted\n";
+  # stderr is kept with stdout because famdb.py reports "no results" and
+  # similar there while still exiting 0.
+  my $result = `$this->{'famdb'} $args_quoted 2>&1`;
+  #print "RUNNING: $this->{'famdb'} $args_quoted\n";
+
+  # A crashed famdb.py (e.g. a python without h5py) would otherwise look
+  # like a valid answer and every isA() check would quietly return 0.
+  if ( $? ) {
+    my $exitCode = $? >> 8;
+    $result =~ s/\s+$//;
+    croak $CLASS . "::_invokeFamDB(): famdb.py failed (exit status "
+        . "$exitCode) using:\n  $this->{'famdb'} $args_quoted\n"
+        . "famdb.py reported:\n$result\n";
+  }
 
   if (    $result =~ /^\s*no results/i
        || $result =~ /^\s*no species/i

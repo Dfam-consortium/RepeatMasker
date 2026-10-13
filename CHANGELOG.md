@@ -1,3 +1,34 @@
+4.2.6
+  - ProcessRepeats memory/processing time fixes for scaffold assemblies (high contig
+    counts)
+  - When famdb.py fails, RepeatMasker now shows what it wrote to stderr (e.g.
+    a Python traceback) along with the command and exit status.  
+  - BUGFIX: Cached species libraries did not record which FamDB partitions
+    were installed when they were built. 
+  - New -famdb_data_dir option ( FAMDB_DATA_DIR environment variable, or
+    set once with configure ): the directory holding the FamDB *.h5 files.
+  - New -cache_dir option ( REPEATMASKER_CACHE_DIR environment variable,
+    or set once with configure ): where to keep the libraries RepeatMasker
+    builds from FamDB.  It is tried first, before Libraries/ and
+    ~/.RepeatMaskerCache, and is created if missing.
+  - A cache directory can be shared by concurrent runs.  Libraries are
+    built in a directory private to each run and moved into place when
+    complete, so a run never removes or reads another run's partial build.
+  - The -h option list now shows the environment variable for each
+    setting that has one.
+  - BUGFIX: Simple repeats and low complexity regions could be silently
+    missing when RepeatMasker was run from a deep directory.  TRF 4.09 and
+    4.10 overflow a buffer when given a path of about 260 characters or
+    more and then abort or write nothing, and RepeatMasker passed TRF the
+    full path of each batch file. 
+  - BUGFIX: ProcessRepeats could split a forward-strand SVA whose VNTR is
+    longer than the consensus into 2-4 .out lines sharing one ID, while the
+    reverse complement of the same copy was reported as one line. 
+  - BUGFIX: util/rmToTrackHub.pl exited 0 even when bedToBigBed failed.
+  - BUGFIX: Alignments next to excised repeats could have their query
+    letters shifted one base from the reported range, with an excision
+    marker ("N") as their first letter.  
+
 4.2.5
   - ProcessRepeats speed improvements(25-45% faster on mammalian genomes).
   - Search engines now prepare their own subject databases.  Added

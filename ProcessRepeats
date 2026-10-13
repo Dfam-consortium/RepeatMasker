@@ -169,11 +169,6 @@ use Matrix;
 use RepeatMaskerConfig;
 
 # This is a special database-specific module
-my $FAMDB_DIR;
-BEGIN {
-  my $config = $RepeatMaskerConfig::configuration;
-  $FAMDB_DIR = $config->{'FAMDB_DIR'}->{'value'};
-}
 use lib "$FindBin::RealBin/Libraries";
 use RepeatAnnotationData;
 
@@ -190,6 +185,7 @@ $| = 1;
 #   previous mark to STDERR, so we can see where time really goes (parse vs
 #   the individual cycles vs masking vs output) without a profiler's overhead.
 use Time::HiRes qw( time );
+use Scalar::Util qw( weaken refaddr );
 my $PR_TIMING = $ENV{'PR_TIMING'};
 my $_prLastMark;
 sub _prMark {
@@ -233,6 +229,10 @@ unless ( &GetOptions( \%options, @opts ) ) {
   exit( 0 );
 }
 
+# Apply environment overrides ( e.g. FAMDB_DIR exported by RepeatMasker )
+RepeatMaskerConfig::resolveConfiguration( \%options );
+my $FAMDB_DIR = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'};
+
 ## Print the internal POD documentation if something is missing
 if ( $#ARGV == -1 && !$options{'help'} ) {
   print "No cat file indicated\n\n";
@@ -270,13 +270,22 @@ if ( $options{'species'} ) {
   # Need to set opt_species, opt_mammal, opt_mus
   $tax = Taxonomy->new();
 
-  if ( $tax->isA( $options{'species'}, "primates" ) ) {
+  # isA() returns -1 (true in perl) when the species is not in FamDB, so
+  # compare against 1 and stop rather than guess at the taxon.
+  my $isPrimate = $tax->isA( $options{'species'}, "primates" );
+  if ( $isPrimate == -1 ) {
+    die "\nTaxon \"$options{'species'}\" was not found in FamDB, or the name is\n"
+        . "ambiguous.  Check the spelling, or look the name up with:\n\n"
+        . "    % famdb.py names '$options{'species'}'\n\n";
+  }
+
+  if ( $isPrimate == 1 ) {
     $options{'primate'} = 1;
   }
-  elsif ( $tax->isA( $options{'species'}, "rodentia" ) ) {
+  elsif ( $tax->isA( $options{'species'}, "rodentia" ) == 1 ) {
     $options{'mus'} = 1;
   }
-  elsif ( $tax->isA( $options{'species'}, "mammalia" ) ) {
+  elsif ( $tax->isA( $options{'species'}, "mammalia" ) == 1 ) {
     $options{'mammal'} = 1;
   }
 }
@@ -587,7 +596,10 @@ sub processSequence  {
   my $file = shift;
   my $engine = shift;
   my $sortedAnnotationsList = shift;
-  my %seq1Lengths    = %{ shift() };
+  # Read-only, so keep the reference.  Copying it here (and again in
+  # generateOutput) cost time proportional to the number of sequences seen so
+  # far, which made runs with many small sequences quadratic.
+  my $seq1Lengths    = shift;
   my %aggregateStats = %{ shift() };
 
 
@@ -605,6 +617,12 @@ sub processSequence  {
   #   NOTE: Only needed because we are not updating LeftOver
   #         when we modify Seq1Beg/End
   #
+  # Weak references to the input annotations, used at the end to find and
+  # break reference cycles (see _breakAnnotationCycles).  Being weak, they do
+  # not keep removed annotations alive during cycles 1-10.
+  my @origAnnots = @{ $sortedAnnotationsList->toArrayRef() };
+  weaken( $_ ) foreach ( @origAnnots );
+
   &_sortByNameBeginEndrevSWrev( $sortedAnnotationsList );
   print "annotations sorted\n" if ( $DEBUG );
 
@@ -1157,7 +1175,7 @@ CYCLE2:
   #  If we do not have a pound formatted database we are done!
   #
   if ( !$poundformat ) {
-    %aggregateStats = &generateOutput( \%options, \%seq1Lengths, 
+    %aggregateStats = &generateOutput( \%options, $seq1Lengths, 
                                    \%aggregateStats, $file,
                                    $engine, $sortedAnnotationsList,
                                    $batchNum );
@@ -3183,6 +3201,11 @@ CYCLE3:
                 if ( $options{'source'} );
                 #print "REMOVING FROM PROXIMITY ITERATOR\n";
             $proxIter->remove();
+            # A merged candidate no longer counts against an SVA's
+            # look-ahead, as in the SVA/LAVA branch above.  Otherwise VNTR
+            # fragments that start just before the VNTR range use it up and
+            # a forward-strand SVA is left in pieces.
+            $lookAhead--;
             if ( $DEBUG ) {
               print "  Outcome:\n";
               $currentAnnot->print();
@@ -3245,6 +3268,7 @@ CYCLE3:
             $currentAnnot->addDerivedFromAnnot( $next1Annot )
                 if ( $options{'source'} );
             $proxIter->remove();
+            $lookAhead--;
             if ( $DEBUG ) {
               print "  Outcome:\n";
               $currentAnnot->print();
@@ -4741,17 +4765,52 @@ CYCLE10:
     #
     # Generate output for this cat file!
     #
-    %aggregateStats = &generateOutput( \%options, \%seq1Lengths,
+    %aggregateStats = &generateOutput( \%options, $seq1Lengths,
                                    \%aggregateStats, $file,
                                    $engine, $sortedAnnotationsList,
                                    $batchNum );
     _prMark( "generateOutput" );
 
   }   # else....if ( ! $poundformat
-   
+
+  &_breakAnnotationCycles( @origAnnots,
+                           @{ $sortedAnnotationsList->toArrayRef() },
+                           map { @$_ } map { values %$_ } values %refinementHash );
   return ( %aggregateStats );
  
   } # sub processSequence();
+
+##-------------------------------------------------------------------------##
+## Use: &_breakAnnotationCycles( @annots );
+##
+##   Joined annotations point at each other through leftHit/rightHit, and
+##   derivedFrom lists can point back into the same chain.  Perl frees by
+##   reference count, so these cycles are never freed.  With many small
+##   sequences in one cat file the leaked annotations (and their alignment
+##   strings) can reach gigabytes.
+##
+##   Call this once a sequence's output has been written.  Starting from the
+##   given annotations it follows every link and derivedFrom entry, then
+##   clears them.  A cycle is a connected group, so reaching any member is
+##   enough to clear all of it.  Undefined entries (freed weak references)
+##   are skipped.
+##-------------------------------------------------------------------------##
+sub _breakAnnotationCycles {
+  my @stack = grep { defined } @_;
+  my %seen;
+  while ( @stack ) {
+    my $annot = pop @stack;
+    next if ( $seen{ refaddr( $annot ) }++ );
+    foreach my $key ( 'leftHit', 'rightHit' ) {
+      push @stack, $annot->{ $key } if ( ref $annot->{ $key } );
+      delete $annot->{ $key };
+    }
+    if ( ref $annot->{'derivedFrom'} ) {
+      push @stack, grep { ref } @{ $annot->{'derivedFrom'} };
+      delete $annot->{'derivedFrom'};
+    }
+  }
+}
 
 sub getVNTRRange {
   my $elementName = shift;
@@ -5118,7 +5177,7 @@ sub getEquivArray {
 #
 sub generateOutput {
   my %options                        = %{ shift() };
-  my %seq1Lengths                    = %{ shift() };
+  my $seq1Lengths                    = shift;    # read-only; see processSequence
   my %aggregateStats                 = %{ shift() };
   my $file                           = shift;
   my $engine                         = shift;
@@ -5299,12 +5358,12 @@ sub generateOutput {
 
   # Some option to do this
   if ( $options{'html'} ) {
-    &printHTMLAnnots( "$file.out.html", \%id, \%seq1Lengths, \%colWidths,
+    &printHTMLAnnots( "$file.out.html", \%id, $seq1Lengths, \%colWidths,
                       $sortedAnnotationsList, $batchNum );
   }
 
   if ( $options{'a'} ) {
-    &printAlignAnnots( "$file.align", \%id, \%seq1Lengths, \%colWidths,
+    &printAlignAnnots( "$file.align", \%id, $seq1Lengths, \%colWidths,
                        $sortedAnnotationsList, $batchNum );
   }
 
@@ -5438,7 +5497,7 @@ sub generateOutput {
     }
 
     # format fields
-    my $LeftOver = $seq1Lengths{ $currentAnnot->getQueryName } -
+    my $LeftOver = $seq1Lengths->{ $currentAnnot->getQueryName } -
         $currentAnnot->getQueryEnd;
     my $LeftOverPrint = "(" . $LeftOver . ")";
 

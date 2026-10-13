@@ -118,6 +118,8 @@ if ( $] && $] >= 5.008003 ) {
   use warnings;
 }
 
+# Apply environment overrides ( e.g. FAMDB_DIR )
+RepeatMaskerConfig::resolveConfiguration( {} );
 my $FAMDB_DIR = $RepeatMaskerConfig::configuration->{'FAMDB_DIR'}->{'value'};
 
 die "FamDB is required for DateRepeats but is not configured.\n"
@@ -619,7 +621,7 @@ sub _collectFamilyNames {
   my $namesRef = shift;
 
   my $flagStr  = join( " ", @{ $flags } );
-  my $famdbCmd = "$FAMDB_DIR/famdb.py families '$clade' --curated $flagStr -f fasta_name";
+  my $famdbCmd = RepeatMaskerConfig::famdbProgram() . " families '$clade' --curated $flagStr -f fasta_name";
 
   open my $fh, "$famdbCmd |"
       or die "Could not run famdb.py: $famdbCmd\n";

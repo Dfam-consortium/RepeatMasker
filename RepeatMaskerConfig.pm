@@ -68,6 +68,14 @@ BEGIN {
                              'required' => 0,
                              'value' => ''
                            },
+          'CACHE_DIR' => {
+                           'command_line_override' => 'cache_dir',
+                           'description' => 'Where to keep the species libraries built from FamDB, searched before the Libraries directory and ~/.RepeatMaskerCache.  Created if missing.  Leave blank to use those defaults.',
+                           'environment_override' => 'REPEATMASKER_CACHE_DIR',
+                           'param_type' => 'value',
+                           'required' => 0,
+                           'value' => ''
+                         },
           'CROSSMATCH_DIR' => {
                                 'command_line_override' => 'crossmatch_dir',
                                 'description' => 'The path Phil Green\'s cross_match program ( phrap program suite ).',
@@ -78,15 +86,25 @@ BEGIN {
                                 'expected_files' => [],
                                 'param_type' => 'directory',
                                 'required' => 0,
-                                'value' => ''
+                                'value' => '/usr/local/phrap'
                               },
           'DEFAULT_SEARCH_ENGINE' => {
                                        'command_line_override' => 'default_search_engine',
                                        'description' => 'The default search engine to use',
                                        'param_type' => 'value',
                                        'required' => 1,
-                                       'value' => ''
+                                       'value' => 'rmblast'
                                      },
+          'FAMDB_DATA_DIR' => {
+                                'command_line_override' => 'famdb_data_dir',
+                                'description' => 'The directory holding the FamDB data (*.h5) files.  Passed to famdb.py as -i.  Leave blank to use FamDB\'s own default (famdb.conf, or Libraries/famdb beside famdb.py).',
+                                'environment_override' => 'FAMDB_DATA_DIR',
+                                'expected_binaries' => [],
+                                'expected_files' => [],
+                                'param_type' => 'directory',
+                                'required' => 0,
+                                'value' => ''
+                              },
           'FAMDB_DIR' => {
                            'command_line_override' => 'famdb_dir',
                            'description' => 'The path to the installation of the FamDB package (famdb.py).',
@@ -97,7 +115,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => ''
+                           'value' => '/usr/local/FamDB-Dfam-4.0'
                          },
           'HMMER_DIR' => {
                            'command_line_override' => 'hmmer_dir',
@@ -109,7 +127,7 @@ BEGIN {
                            'expected_files' => [],
                            'param_type' => 'directory',
                            'required' => 0,
-                           'value' => ''
+                           'value' => '/usr/local/hmmer/bin'
                          },
           'RMBLAST_DIR' => {
                              'command_line_override' => 'rmblast_dir',
@@ -121,7 +139,7 @@ BEGIN {
                              'expected_files' => [],
                              'param_type' => 'directory',
                              'required' => 0,
-                             'value' => ''
+                             'value' => '/usr/local/rmblast-2.17.1/bin'
                            },
           'TRF_PRGM' => {
                           'command_line_override' => 'trf_prgm',
@@ -129,7 +147,7 @@ BEGIN {
                           'environment_override' => 'TRF_PRGM',
                           'param_type' => 'program',
                           'required' => 1,
-                          'value' => ''
+                          'value' => '/usr/local/bin/trf'
                         }
         };
 
@@ -146,7 +164,7 @@ BEGIN {
 #
 # Current version of the software
 #
-$VERSION = "4.2.5";
+$VERSION = "4.2.6";
 
 #
 # Default Dfam Version
@@ -409,10 +427,15 @@ sub getCommandLineOptions {
 #
 sub getPOD {
   my $pod_str;
-  foreach my $param ( keys %$configuration ) {
+  foreach my $param ( sort keys %$configuration ) {
     if ( exists $configuration->{$param}->{'command_line_override'} ) {
       $pod_str .= "=item -" . $configuration->{$param}->{'command_line_override'} . " <string>\n\n";
-      $pod_str .= $configuration->{$param}->{'description'} . "\n\n";
+      $pod_str .= $configuration->{$param}->{'description'};
+      $pod_str .= "  May also be set with the "
+          . $configuration->{$param}->{'environment_override'}
+          . " environment variable."
+          if ( exists $configuration->{$param}->{'environment_override'} );
+      $pod_str .= "\n\n";
     }
   }
   if ( $pod_str ) {
@@ -445,6 +468,45 @@ sub resolveConfiguration {
       $configuration->{$param}->{'value'} = $ENV{$configuration->{$param}->{'environment_override'}};
     }
   }
+}
+
+#
+# The famdb.py command to run, ready for a shell, after
+# resolveConfiguration().  Adds "-i <dir>" when FAMDB_DATA_DIR is set so
+# every caller reads the same FamDB data.  Append the subcommand and its
+# arguments, e.g. famdbProgram() . " info".
+#
+sub famdbProgram {
+  my $famdbDir = $configuration->{'FAMDB_DIR'}->{'value'} // "";
+  my $dataDir  = $configuration->{'FAMDB_DATA_DIR'}->{'value'} // "";
+
+  my $cmd = "$famdbDir/famdb.py";
+  if ( $dataDir ne "" ) {
+    ( my $quoted = $dataDir ) =~ s/'/'"'"'/g;
+    $cmd .= " -i '$quoted'";
+  }
+  return $cmd;
+}
+
+#
+# Directories to look in for cached libraries, in order, after
+# resolveConfiguration().  New caches are written to the first writable
+# one.  CACHE_DIR (if set) comes first, then the installation's Libraries
+# directory ($libDir), then ~/.RepeatMaskerCache.
+#
+sub cacheSearchPath {
+  my $libDir = shift;
+
+  my @path = ();
+  my $cacheDir = $configuration->{'CACHE_DIR'}->{'value'} // "";
+  if ( $cacheDir ne "" ) {
+    $cacheDir =~ s/\/+$//;
+    push @path, $cacheDir;
+  }
+  push @path, $libDir;
+  push @path, $ENV{'HOME'} . "/.RepeatMaskerCache"
+      if ( defined $ENV{'HOME'} && $ENV{'HOME'} ne "" );
+  return @path;
 }
 
 

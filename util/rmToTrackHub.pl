@@ -204,13 +204,13 @@ if ( $alignFile ) {
 }
 print "# Building bigBed files...\n";
 # Make out file bigBed
-my $cmd = "$BEDTOBIGBED_PRGM -tab -as=$FindBin::RealBin/bigRmskBed.as -type=bed9+5 $joinTSVFile $csizes $hubname/$outFile.bb";
-system($cmd);
+&runBedToBigBed( "-type=bed9+5 -as=$FindBin::RealBin/bigRmskBed.as",
+                 $joinTSVFile, "$hubname/$outFile.bb" );
 
 # Make align file bigBed
 if ( $alignFile ) {
-$cmd = "$BEDTOBIGBED_PRGM -tab -as=$FindBin::RealBin/bigRmskAlignBed.as -type=bed3+14 $alignTSVFile $csizes $hubname/$alignFile.bb";
-system($cmd);
+  &runBedToBigBed( "-type=bed3+14 -as=$FindBin::RealBin/bigRmskAlignBed.as",
+                   $alignTSVFile, "$hubname/$alignFile.bb" );
 }
 
 unless ( $options{'only_beds'} ) {
@@ -382,7 +382,9 @@ sub buildTSVFiles  {
           $alignMap[ $alignPos ] = $outID;
         }
       }
-      close DATA;
+      close DATA
+          or die "intersectBed failed (exit status " . ( $? >> 8 )
+          . ") comparing $alignBedFile and $outBedFile\n";
       unlink( $alignBedFile );
       unlink( $outBedFile );
       print "Total unmappable alignments = $unmappable\n";
@@ -405,7 +407,9 @@ sub buildTSVFiles  {
     CrossmatchSearchEngine::parseOutput( searchOutput => $ALIGN,
                                          callback     => \&procAlignResult );
   
-    close ALIGNTSV;
+    close ALIGNTSV
+        or die "Could not write $alignTSVFile (sort exit status "
+        . ( $? >> 8 ) . ")\n";
   }
   
   # *.out files are typically lifted and IDs are fixed by ucsc
@@ -679,7 +683,9 @@ sub buildTSVFiles  {
       }
       %dataHash = ();
   ## end trailing case
-  close JOINTSV;
+  close JOINTSV
+      or die "Could not write $joinTSVFile (sort exit status "
+      . ( $? >> 8 ) . ")\n";
   return ( $joinTSVFile, $alignTSVFile);
 }
 
@@ -806,7 +812,9 @@ sub _rmToBedFile {
         }
       }
       close RM;
-      close BED;
+      close BED
+          or die "$subroutine: Could not write $parameters{'bedFile'} "
+          . "(sort exit status " . ( $? >> 8 ) . ")\n";
     }
     else {
       die "$subroutine: Missing -bedFile parameter!\n";
@@ -814,6 +822,28 @@ sub _rmToBedFile {
   }
   else {
     die "$subroutine: Missing -rmFile parameter or file is empty!\n";
+  }
+}
+
+##
+## Run bedToBigBed, stopping the program if it fails.  bedToBigBed writes
+## its reason to stderr; a partial output file is removed so that a
+## corrupt bigBed is never left behind.
+##
+sub runBedToBigBed {
+  my $typeAndAs = shift;
+  my $inFile    = shift;
+  my $outFile   = shift;
+
+  my $cmd = "$BEDTOBIGBED_PRGM -tab $typeAndAs $inFile $csizes $outFile";
+  if ( system( $cmd ) != 0 ) {
+    my $status = $? == -1 ? "could not be run: $!"
+               : $? & 127 ? "died with signal " . ( $? & 127 )
+               : "exit status " . ( $? >> 8 );
+    unlink( $outFile );
+    die "\nbedToBigBed failed ($status) converting $inFile\n"
+        . "  Command was: $cmd\n"
+        . "See the bedToBigBed message above for the cause.\n";
   }
 }
 

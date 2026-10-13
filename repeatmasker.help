@@ -128,26 +128,34 @@ Capitalization is ignored, multiple words need to bound by apostrophes.
 
 RepeatMasker builds one or more repeat model files the first time
 a species/group has been chosen, or when a new database has been
-downloaded. These will be written in a subdirectory of the program's 
-"Libraries" directory or if that is not writable by the user it will be 
-created in the users "~/.RepeatMaskerCache" directory. For example, 
-"-species monocotyledons" creates the directories (depending on model 
-type requested):
+downloaded. These will be written in the directory given with -cache_dir
+(or the REPEATMASKER_CACHE_DIR environment variable) if set, otherwise in
+a subdirectory of the program's "Libraries" directory or, if that is not
+writable by the user, in the users "~/.RepeatMaskerCache" directory. For
+example, "-species monocotyledons" creates the directories (depending on
+model type requested):
 
-  "CONS-Dfam_*/monocotyledons" -- for consensus searches
-  "HMM-Dfam_*/monocotyledons"  -- for pHMM searches
+  "CONS-Dfam_*/monocotyledons.<id>" -- for consensus searches
+  "HMM-Dfam_*/monocotyledons.<id>"  -- for pHMM searches
 
+where <id> identifies the set of FamDB partitions installed at the time.
 The creation of these directories/files takes some time,
 but the next times RepeatMasker is run on the same species these
-existing files will be used. 
+existing files will be used.  A cache directory may be shared by
+several RepeatMasker runs at once.
 
 After multiple database updates, the libraries could hog some space,
 and you may consider deleting the older cache directories.
 
+The FamDB data files used are FamDB's own default unless
+-famdb_data_dir (or the FAMDB_DATA_DIR environment variable) names
+another directory.  The directory in use is reported as "Data Dir"
+when RepeatMasker starts.
+
 The files contain all repeats of the RepeatMasker database that have
 been found in the genome of the given species, or have been found in a
 related species and are thought to predate the speciation time of the
-two. For example, -species gorilla, will create a gorilla repeat file
+two. For example, -species "gorilla gorilla", will create a gorilla repeat file
 that is almost as big as the human file, because almost all repeats in
 human predate the 6-10 million years that separates us from the
 gorilla, though none of the consensus sequences have been derived from
@@ -165,8 +173,12 @@ murine repeats, including rat and mouse.
 
 Not all "common" English names occur in the taxonomy database. For
 example, "chimp", "squirrels", "grasses", or "carnivores" are not
-present. The program will suggest functional names using Soundex, with
+present, and some names (e.g. "gorilla") match more than one taxon.
+The program will suggest functional names using Soundex, with
 oftentimes unexpected results. Using Latin names is always safest.
+A few common names are translated by RepeatMasker itself (e.g. mouse =>
+Mus musculus, rat => Rattus, drosophila => the Drosophila genus,
+worm => Caenorhabditis); the run reports the name it used.
 
 famdb.py
 
